@@ -1,0 +1,43 @@
+name: LiveBench Exact Transfer
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'research/universal_validation/livebench_reasoning_eval.py'
+      - 'research/universal_validation/spatial_exact_cell.py'
+      - 'research/universal_validation/bbeh_exact_robust.py'
+      - '.github/workflows/livebench-eval.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-validation-clean
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check --quiet pyarrow sympy
+      - name: Evaluate pinned LiveBench reasoning snapshot
+        working-directory: research/universal_validation
+        run: |
+          mkdir -p artifacts/livebench_eval
+          python -m py_compile bbeh_exact_robust.py spatial_exact_cell.py livebench_reasoning_eval.py
+          python livebench_reasoning_eval.py 2>&1 | tee artifacts/livebench_eval/run.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: universal-validation-livebench-results
+          path: |
+            research/universal_validation/artifacts/livebench_eval/**
+            research/universal_validation/livebench_reasoning_eval.py
+            research/universal_validation/spatial_exact_cell.py
+          if-no-files-found: error
