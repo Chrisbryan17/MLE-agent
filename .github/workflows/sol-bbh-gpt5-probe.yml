@@ -1,37 +1,10 @@
-name: SOL BBH GPT5 Probe
+name: SOL BBH GPT5 Probe (disabled)
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'research/sol_bbh/gpt5_probe.py'
-      - '.github/workflows/sol-bbh-gpt5-probe.yml'
-
-permissions:
-  contents: read
-  models: read
 
 jobs:
-  probe:
+  disabled:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Call GPT-5 once
-        working-directory: research/sol_bbh
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python gpt5_probe.py | tee gpt5_probe.log
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: gpt5-probe
-          path: |
-            research/sol_bbh/gpt5_probe.log
-            research/sol_bbh/gpt5_probe_response.json
-          if-no-files-found: warn
+      - run: echo disabled
