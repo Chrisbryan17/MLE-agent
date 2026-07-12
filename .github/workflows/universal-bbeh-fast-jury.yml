@@ -1,0 +1,59 @@
+name: Universal BBEH Fast Jury
+
+on:
+  pull_request:
+    branches:
+      - universal-word-sort-exact-v6
+    paths:
+      - 'research/universal_validation/bbeh_fast_jury.py'
+      - '.github/workflows/universal-bbeh-fast-jury.yml'
+
+permissions:
+  contents: read
+  models: read
+
+jobs:
+  jury:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [deepseek, grok, llama, mistral]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-bbeh-fast-jury
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch pinned BBEH
+        run: |
+          mkdir -p research/universal_validation/.external
+          git clone https://github.com/google-deepmind/bbeh.git research/universal_validation/.external/bbeh
+          git -C research/universal_validation/.external/bbeh checkout 80d12ca916b7158f22293fcf3144f4d3d854d4be
+      - name: Run prediction-sealed jury shard
+        working-directory: research/universal_validation
+        env:
+          BBEH_ROOT: .external/bbeh
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p artifacts/bbeh_fast_jury
+          python -m py_compile bbeh_fast_jury.py
+          python bbeh_fast_jury.py --shard '${{ matrix.shard }}' 2>&1 | tee artifacts/bbeh_fast_jury/${{ matrix.shard }}.log
+      - name: Seal evidence hashes
+        working-directory: research/universal_validation
+        run: |
+          python - <<'PY'
+          import hashlib, json, pathlib
+          root=pathlib.Path('artifacts/bbeh_fast_jury')
+          (root/'SHA256.json').write_text(json.dumps({str(path.relative_to(root)):hashlib.sha256(path.read_bytes()).hexdigest() for path in root.rglob('*') if path.is_file()},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bbeh-fast-${{ matrix.shard }}
+          path: |
+            research/universal_validation/artifacts/bbeh_fast_jury/**
+            research/universal_validation/bbeh_fast_jury.py
+          if-no-files-found: error
