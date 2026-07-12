@@ -1,0 +1,40 @@
+name: Universal Document Inventory V3
+
+on:
+  pull_request:
+    branches:
+      - universal-validation-clean
+    paths:
+      - 'research/universal_validation/document_dataset_inventory_v3.py'
+      - '.github/workflows/universal-doc-inventory-v3.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-doc-eval
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Parquet reader
+        run: python -m pip install --disable-pip-version-check --quiet pyarrow
+      - name: Inventory fixed document mirrors
+        working-directory: research/universal_validation
+        run: |
+          mkdir -p artifacts/document_inventory_v3
+          python -m py_compile document_dataset_inventory_v3.py
+          python document_dataset_inventory_v3.py 2>&1 | tee artifacts/document_inventory_v3/run.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: universal-document-inventory-v3
+          path: |
+            research/universal_validation/artifacts/document_inventory_v3/**
+            research/universal_validation/document_dataset_inventory_v3.py
+          if-no-files-found: error
