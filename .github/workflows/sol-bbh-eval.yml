@@ -1,6 +1,9 @@
 name: SOL BBH Isolated Eval
 
 on:
+  push:
+    branches:
+      - sol-bbh-eval
   workflow_dispatch:
 
 permissions:
@@ -8,7 +11,30 @@ permissions:
   models: read
 
 jobs:
-  paused:
+  jury-smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - run: echo "Evaluator paused for serialized jury installation"
+      - uses: actions/checkout@v4
+        with:
+          ref: sol-bbh-eval
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download official BBH files
+        working-directory: research/sol_bbh
+        run: python bbh_frontier.py >/dev/null
+      - name: Run serialized frontier jury smoke
+        working-directory: research/sol_bbh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python frontier_jury_smoke.py 2>&1 | tee artifacts/frontier_jury_smoke.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sol-bbh-frontier-jury-smoke
+          path: |
+            research/sol_bbh/artifacts/frontier_jury_smoke/**
+            research/sol_bbh/artifacts/frontier_jury_smoke.log
+            research/sol_bbh/frontier_jury_smoke.py
+          if-no-files-found: error
