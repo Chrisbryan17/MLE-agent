@@ -1,0 +1,60 @@
+name: Universal Validation
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'research/universal_validation/**'
+      - '.github/workflows/universal-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  bbeh-inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-validation-clean
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch pinned official BBEH
+        run: |
+          set -euxo pipefail
+          mkdir -p research/universal_validation/.external
+          git clone https://github.com/google-deepmind/bbeh.git research/universal_validation/.external/bbeh
+          git -C research/universal_validation/.external/bbeh checkout 80d12ca916b7158f22293fcf3144f4d3d854d4be
+      - name: Inventory and hash corpus
+        working-directory: research/universal_validation
+        env:
+          BBEH_ROOT: .external/bbeh
+        run: |
+          set -euxo pipefail
+          python -m py_compile bbeh_inventory.py
+          python bbeh_inventory.py | tee artifacts/bbeh_inventory/run.log
+          git -C .external/bbeh rev-parse HEAD > artifacts/bbeh_inventory/bbeh_commit.txt
+          python - <<'PY'
+          import hashlib, json, pathlib, platform, sys
+          files = [pathlib.Path('bbeh_inventory.py'), pathlib.Path('PREREGISTRATION.md')]
+          payload = {
+              'python': sys.version,
+              'platform': platform.platform(),
+              'code_sha256': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in files},
+              'bbeh_commit': pathlib.Path('artifacts/bbeh_inventory/bbeh_commit.txt').read_text().strip(),
+          }
+          pathlib.Path('artifacts/bbeh_inventory/reproducibility.json').write_text(json.dumps(payload, indent=2))
+          PY
+      - name: Upload frozen inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: universal-validation-bbeh-inventory
+          path: |
+            research/universal_validation/artifacts/bbeh_inventory/**
+            research/universal_validation/PREREGISTRATION.md
+            research/universal_validation/bbeh_inventory.py
+          if-no-files-found: error
