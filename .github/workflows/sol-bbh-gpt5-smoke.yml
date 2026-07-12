@@ -1,0 +1,43 @@
+name: SOL BBH GPT5 Smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'research/sol_bbh/semantic_gpt5_smoke.py'
+      - 'research/sol_bbh/semantic_full.py'
+      - '.github/workflows/sol-bbh-gpt5-smoke.yml'
+
+permissions:
+  contents: read
+  models: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download BBH and run GPT-5 jury smoke
+        working-directory: research/sol_bbh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p artifacts
+          python bbh_frontier.py >/dev/null
+          python semantic_gpt5_smoke.py 2>&1 | tee artifacts/gpt5_smoke.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sol-bbh-gpt5-smoke-evidence
+          path: |
+            research/sol_bbh/artifacts/gpt5_smoke.json
+            research/sol_bbh/artifacts/gpt5_smoke.log
+            research/sol_bbh/semantic_gpt5_smoke.py
+            research/sol_bbh/semantic_full.py
+          if-no-files-found: error
