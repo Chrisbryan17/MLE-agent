@@ -26,15 +26,18 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p artifacts
-          python -m py_compile sol_benchmark.py
-          python sol_benchmark.py 2>&1 | tee artifacts/run.log
+          python -m py_compile sol_benchmark.py sol_v2.py
+          python sol_v2.py 2>&1 | tee artifacts/run.log
       - name: Preserve benchmark inputs and code hash
         working-directory: research/sol
         run: |
           python - <<'PY'
           import hashlib, json, pathlib
           payload = {
-              'code_sha256': hashlib.sha256(pathlib.Path('sol_benchmark.py').read_bytes()).hexdigest(),
+              'code_sha256': {
+                  p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+                  for p in (pathlib.Path('sol_benchmark.py'), pathlib.Path('sol_v2.py'))
+              },
               'datasets': {
                   p.name: hashlib.sha256(p.read_bytes()).hexdigest()
                   for p in sorted(pathlib.Path('.cache').glob('*.json'))
@@ -49,5 +52,7 @@ jobs:
           name: sol-publishable-evidence
           path: |
             research/sol/artifacts/**
+            research/sol/.cache/**
             research/sol/sol_benchmark.py
+            research/sol/sol_v2.py
           if-no-files-found: warn
