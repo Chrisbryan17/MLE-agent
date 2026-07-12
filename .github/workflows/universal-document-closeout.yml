@@ -1,0 +1,41 @@
+name: Universal Document Closeout
+
+on:
+  pull_request:
+    branches:
+      - universal-closeout
+    paths:
+      - 'research/universal_validation/document_closeout_v2.py'
+      - '.github/workflows/universal-document-closeout.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  documents:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-document-closeout
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check --quiet numpy scipy scikit-learn pyarrow
+      - name: Run all five document benchmarks
+        working-directory: research/universal_validation
+        run: |
+          mkdir -p artifacts/document_closeout
+          python -m py_compile document_closeout.py document_closeout_v2.py
+          python document_closeout_v2.py 2>&1 | tee artifacts/document_closeout/run_v2.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: universal-document-closeout-final
+          path: |
+            research/universal_validation/artifacts/document_closeout/**
+            research/universal_validation/document_closeout.py
+            research/universal_validation/document_closeout_v2.py
+          if-no-files-found: error
