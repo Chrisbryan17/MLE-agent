@@ -1,0 +1,59 @@
+name: Universal BBEH Fallback Jury
+
+on:
+  pull_request:
+    branches:
+      - universal-bbeh-jury-recovery
+    paths:
+      - 'research/universal_validation/bbeh_fallback_jury.py'
+      - '.github/workflows/universal-bbeh-fallback.yml'
+
+permissions:
+  contents: read
+  models: read
+
+jobs:
+  fallback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-bbeh-fallback
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch pinned BBEH
+        run: |
+          mkdir -p research/universal_validation/.external
+          git clone https://github.com/google-deepmind/bbeh.git research/universal_validation/.external/bbeh
+          git -C research/universal_validation/.external/bbeh checkout 80d12ca916b7158f22293fcf3144f4d3d854d4be
+      - name: Run prediction-sealed adaptive fallback
+        working-directory: research/universal_validation
+        env:
+          BBEH_ROOT: .external/bbeh
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p artifacts/bbeh_jury_recovery
+          python -m py_compile bbeh_jury_recovery.py bbeh_fallback_jury.py
+          python bbeh_fallback_jury.py --shard fallback 2>&1 | tee artifacts/bbeh_jury_recovery/fallback.log
+      - name: Seal hashes
+        working-directory: research/universal_validation
+        run: |
+          python - <<'PY'
+          import hashlib, json, pathlib
+          root = pathlib.Path('artifacts/bbeh_jury_recovery')
+          (root / 'SHA256.json').write_text(json.dumps({
+              str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest()
+              for path in root.rglob('*') if path.is_file()
+          }, indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bbeh-jury-fallback
+          path: |
+            research/universal_validation/artifacts/bbeh_jury_recovery/**
+            research/universal_validation/bbeh_jury_recovery.py
+            research/universal_validation/bbeh_fallback_jury.py
+          if-no-files-found: error
