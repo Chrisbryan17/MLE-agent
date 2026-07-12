@@ -1,0 +1,91 @@
+name: Universal Exact Matrix
+
+on:
+  pull_request:
+    branches:
+      - universal-validation-clean
+    paths:
+      - 'research/universal_validation/exact_task_runner.py'
+      - 'research/universal_validation/exact_matrix_aggregate.py'
+      - '.github/workflows/universal-exact-matrix.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  exact-task:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        task:
+          - bbeh_boolean_expressions
+          - bbeh_dyck_languages
+          - bbeh_hyperbaton
+          - bbeh_multistep_arithmetic
+          - bbeh_object_counting
+          - bbeh_shuffled_objects
+          - bbeh_web_of_lies
+          - bbeh_word_sorting
+          - bbeh_spatial_reasoning
+          - bbeh_temporal_sequence
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-closeout
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check --quiet sympy
+      - name: Fetch pinned BBEH
+        run: |
+          mkdir -p research/universal_validation/.external
+          git clone https://github.com/google-deepmind/bbeh.git research/universal_validation/.external/bbeh
+          git -C research/universal_validation/.external/bbeh checkout 80d12ca916b7158f22293fcf3144f4d3d854d4be
+      - name: Run isolated exact task
+        working-directory: research/universal_validation
+        env:
+          BBEH_TASK_ROOT: .external/bbeh/bbeh/benchmark_tasks
+        run: |
+          mkdir -p artifacts/exact_matrix
+          python -m py_compile bbeh_exact_robust.py bbeh_spatial_exact.py bbeh_temporal_sequence_exact.py exact_task_runner.py
+          python exact_task_runner.py --task '${{ matrix.task }}' 2>&1 | tee artifacts/exact_matrix/${{ matrix.task }}.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exact-${{ matrix.task }}
+          path: |
+            research/universal_validation/artifacts/exact_matrix/${{ matrix.task }}.json
+            research/universal_validation/artifacts/exact_matrix/${{ matrix.task }}.log
+          if-no-files-found: error
+
+  aggregate:
+    needs: exact-task
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-closeout
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: exact-*
+          path: research/universal_validation/artifacts/exact_matrix_download
+      - name: Aggregate exact portfolio
+        working-directory: research/universal_validation
+        run: |
+          mkdir -p artifacts/exact_matrix_final
+          python -m py_compile exact_matrix_aggregate.py
+          python exact_matrix_aggregate.py 2>&1 | tee artifacts/exact_matrix_final/run.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: universal-exact-matrix-final
+          path: |
+            research/universal_validation/artifacts/exact_matrix_final/**
+            research/universal_validation/exact_task_runner.py
+            research/universal_validation/exact_matrix_aggregate.py
+          if-no-files-found: error
