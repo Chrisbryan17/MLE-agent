@@ -1,0 +1,44 @@
+name: Universal Word Sorting Exact V6
+
+on:
+  pull_request:
+    branches:
+      - universal-web-lies-exact-v5
+    paths:
+      - 'research/universal_validation/bbeh_word_sorting_exact_v6.py'
+      - '.github/workflows/universal-word-sort-exact-v6.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-word-sort-exact-v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch pinned BBEH
+        run: |
+          mkdir -p research/universal_validation/.external
+          git clone https://github.com/google-deepmind/bbeh.git research/universal_validation/.external/bbeh
+          git -C research/universal_validation/.external/bbeh checkout 80d12ca916b7158f22293fcf3144f4d3d854d4be
+      - name: Evaluate exact word-sorting compiler
+        working-directory: research/universal_validation
+        env:
+          BBEH_TASK_ROOT: .external/bbeh/bbeh/benchmark_tasks
+        run: |
+          mkdir -p artifacts/word_sorting_exact_v6
+          python -m py_compile bbeh_word_sorting_exact_v6.py
+          python bbeh_word_sorting_exact_v6.py 2>&1 | tee artifacts/word_sorting_exact_v6/run.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: universal-word-sorting-exact-v6
+          path: |
+            research/universal_validation/artifacts/word_sorting_exact_v6/**
+            research/universal_validation/bbeh_word_sorting_exact_v6.py
+          if-no-files-found: error
