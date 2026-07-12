@@ -1,0 +1,43 @@
+name: SOL BBH O3 Smoke
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'research/sol_bbh/o3_jury_smoke.py'
+      - '.github/workflows/sol-bbh-o3-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  models: read
+
+jobs:
+  o3-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: sol-bbh-eval
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download BBH and run o3-only jury
+        working-directory: research/sol_bbh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p artifacts
+          python bbh_frontier.py >/dev/null
+          python o3_jury_smoke.py 2>&1 | tee artifacts/o3_jury_smoke.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sol-bbh-o3-smoke
+          path: |
+            research/sol_bbh/artifacts/o3_jury_smoke/**
+            research/sol_bbh/artifacts/o3_jury_smoke.log
+            research/sol_bbh/o3_jury_smoke.py
+          if-no-files-found: error

@@ -1,0 +1,10 @@
+name: SOL BBH Isolated Eval (disabled)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  disabled:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo disabled

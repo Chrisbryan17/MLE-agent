@@ -1,0 +1,57 @@
+name: SOL BBH Semantic Full
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  models: read
+
+jobs:
+  semantic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download official BBH files
+        working-directory: research/sol_bbh
+        run: |
+          mkdir -p artifacts
+          python bbh_frontier.py >/dev/null
+      - name: Run full frozen semantic jury
+        working-directory: research/sol_bbh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SEMANTIC_BATCH: '25'
+        run: python semantic_full.py 2>&1 | tee artifacts/semantic_full.log
+      - name: Preserve hashes
+        working-directory: research/sol_bbh
+        run: |
+          python - <<'PY'
+          import hashlib, json, pathlib
+          payload = {
+              'code': hashlib.sha256(pathlib.Path('semantic_full.py').read_bytes()).hexdigest(),
+              'bbh': {
+                  p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+                  for p in sorted(pathlib.Path('.bbh_cache').glob('*.json'))
+              },
+              'prompts': {
+                  p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+                  for p in sorted(pathlib.Path('.bbh_prompts').glob('*.txt'))
+              },
+          }
+          pathlib.Path('artifacts/semantic_full/reproducibility.json').write_text(json.dumps(payload, indent=2))
+          PY
+      - name: Upload semantic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sol-bbh-semantic-full-evidence
+          path: |
+            research/sol_bbh/artifacts/semantic_full/**
+            research/sol_bbh/artifacts/semantic_full.log
+            research/sol_bbh/semantic_full.py
+          if-no-files-found: error
