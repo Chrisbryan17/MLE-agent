@@ -148,7 +148,7 @@ def solve_max_cuts(text):
     if concurrent:
         word=concurrent.group(1).lower()
         c={'three':3,'four':4}[word] if word in {'three','four'} else int(word)
-        total-=(c*(c-1)//2-1)
+        total-=(c-1)*(c-2)//2
     return str(total)
 
 
@@ -172,12 +172,13 @@ def solve_composite(text):
     cuts=[tuple(item) for item in extract_cuts(text)]
     total,counts=composite_splits(polygons,labels,cuts)
     lower=text.lower()
-    if 'how many pieces' in lower:
+    question=lower.rsplit('then',1)[-1] if 'then' in lower else lower
+    if 'how many pieces' in question:
         return str(total)
-    if 'triangles' in lower:
-        return str(counts.get(3,0))
-    if 'quadrilaterals' in lower:
+    if 'quadrilaterals' in question:
         return str(counts.get(4,0))
+    if 'triangles' in question:
+        return str(counts.get(3,0))
     return None
 
 
