@@ -1,0 +1,46 @@
+name: Universal Adaptive Exact V2
+
+on:
+  pull_request:
+    branches:
+      - universal-exact-matrix
+    paths:
+      - 'research/universal_validation/bbeh_adaptive_exact_v2.py'
+      - '.github/workflows/universal-adaptive-exact-v2.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-adaptive-exact-v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check --quiet sympy
+      - name: Fetch pinned BBEH
+        run: |
+          mkdir -p research/universal_validation/.external
+          git clone https://github.com/google-deepmind/bbeh.git research/universal_validation/.external/bbeh
+          git -C research/universal_validation/.external/bbeh checkout 80d12ca916b7158f22293fcf3144f4d3d854d4be
+      - name: Evaluate adaptive exact repairs
+        working-directory: research/universal_validation
+        env:
+          BBEH_TASK_ROOT: .external/bbeh/bbeh/benchmark_tasks
+        run: |
+          mkdir -p artifacts/adaptive_exact_v2
+          python -m py_compile bbeh_exact_robust.py bbeh_adaptive_exact_v2.py
+          python bbeh_adaptive_exact_v2.py 2>&1 | tee artifacts/adaptive_exact_v2/run.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: universal-adaptive-exact-v2
+          path: |
+            research/universal_validation/artifacts/adaptive_exact_v2/**
+            research/universal_validation/bbeh_adaptive_exact_v2.py
+          if-no-files-found: error
