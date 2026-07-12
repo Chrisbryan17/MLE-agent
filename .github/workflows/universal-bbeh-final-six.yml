@@ -1,0 +1,59 @@
+name: Universal BBEH Final Six
+
+on:
+  pull_request:
+    branches:
+      - universal-bbeh-guaranteed-close
+    paths:
+      - 'research/universal_validation/bbeh_final_six.py'
+      - '.github/workflows/universal-bbeh-final-six.yml'
+
+permissions:
+  contents: read
+  models: read
+
+jobs:
+  final-six:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-bbeh-final-six
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch pinned BBEH
+        run: |
+          mkdir -p research/universal_validation/.external
+          git clone https://github.com/google-deepmind/bbeh.git research/universal_validation/.external/bbeh
+          git -C research/universal_validation/.external/bbeh checkout 80d12ca916b7158f22293fcf3144f4d3d854d4be
+      - name: Run prediction-sealed final-six jury
+        working-directory: research/universal_validation
+        env:
+          BBEH_ROOT: .external/bbeh
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p artifacts/bbeh_guaranteed_jury
+          python -m py_compile bbeh_guaranteed_jury.py bbeh_final_six.py
+          python bbeh_final_six.py --shard finalsix 2>&1 | tee artifacts/bbeh_guaranteed_jury/finalsix.log
+      - name: Seal hashes
+        working-directory: research/universal_validation
+        run: |
+          python - <<'PY'
+          import hashlib, json, pathlib
+          root = pathlib.Path('artifacts/bbeh_guaranteed_jury')
+          (root / 'SHA256.json').write_text(json.dumps({
+              str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest()
+              for path in root.rglob('*') if path.is_file()
+          }, indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bbeh-guaranteed-final-six
+          path: |
+            research/universal_validation/artifacts/bbeh_guaranteed_jury/**
+            research/universal_validation/bbeh_guaranteed_jury.py
+            research/universal_validation/bbeh_final_six.py
+          if-no-files-found: error
