@@ -24,7 +24,7 @@ jobs:
           python-version: '3.12'
       - name: Install dependencies
         run: python -m pip install --disable-pip-version-check --quiet pyarrow sympy shapely z3-solver
-      - name: Run immutable final LiveBench evaluation
+      - name: Run geometry-stamped final LiveBench evaluation
         working-directory: research/universal_validation
         run: |
           mkdir -p artifacts/livebench_final_closeout
@@ -34,7 +34,7 @@ jobs:
           cp artifacts/livebench_eval_v4/results.json artifacts/livebench_final_closeout/results.json
       - uses: actions/upload-artifact@v4
         with:
-          name: universal-livebench-final-closeout-v2
+          name: universal-livebench-final-closeout-v3
           path: |
             research/universal_validation/artifacts/livebench_final_closeout/**
             research/universal_validation/livebench_geometry_exact.py
