@@ -1,77 +1,10 @@
-name: SOL Publishable Benchmark
+name: SOL Publishable Benchmark (disabled)
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'research/sol/**'
-      - '.github/workflows/sol-publishable.yml'
-
-permissions:
-  contents: read
 
 jobs:
-  benchmark:
+  disabled:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Install independent-evaluation dependency
-        run: python -m pip install --disable-pip-version-check --quiet pyarrow
-      - name: Run official BIG-bench and held-out CLUTRR evaluations
-        working-directory: research/sol
-        run: |
-          set -euxo pipefail
-          mkdir -p artifacts
-          python -m py_compile sol_benchmark.py sol_v2.py sol_v3.py sol_v4.py clutrr_probe.py clutrr_eval.py clutrr_eval_v2.py clutrr_eval_v3.py
-          python sol_v4.py 2>&1 | tee artifacts/run.log
-          cp -R .cache artifacts/official_tasks
-          python clutrr_probe.py 2>&1 | tee artifacts/clutrr_probe.log
-          python clutrr_eval_v3.py 2>&1 | tee artifacts/clutrr_chart.log
-      - name: Preserve benchmark inputs and code hash
-        working-directory: research/sol
-        run: |
-          python - <<'PY'
-          import hashlib, json, pathlib
-          code_files = [
-              pathlib.Path('sol_benchmark.py'), pathlib.Path('sol_v2.py'),
-              pathlib.Path('sol_v3.py'), pathlib.Path('sol_v4.py'),
-              pathlib.Path('clutrr_probe.py'), pathlib.Path('clutrr_eval.py'),
-              pathlib.Path('clutrr_eval_v2.py'), pathlib.Path('clutrr_eval_v3.py'),
-          ]
-          payload = {
-              'code_sha256': {
-                  p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in code_files
-              },
-              'datasets': {
-                  p.name: hashlib.sha256(p.read_bytes()).hexdigest()
-                  for p in sorted(pathlib.Path('.cache').glob('*.json'))
-              },
-              'clutrr_cache': {
-                  str(p.relative_to('.clutrr_cache')): hashlib.sha256(p.read_bytes()).hexdigest()
-                  for p in sorted(pathlib.Path('.clutrr_cache').rglob('*')) if p.is_file()
-              },
-          }
-          pathlib.Path('artifacts/reproducibility.json').write_text(json.dumps(payload, indent=2))
-          PY
-      - name: Upload SOL evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: sol-publishable-evidence
-          path: |
-            research/sol/artifacts/**
-            research/sol/sol_benchmark.py
-            research/sol/sol_v2.py
-            research/sol/sol_v3.py
-            research/sol/sol_v4.py
-            research/sol/clutrr_probe.py
-            research/sol/clutrr_eval.py
-            research/sol/clutrr_eval_v2.py
-            research/sol/clutrr_eval_v3.py
-          if-no-files-found: warn
+      - run: echo disabled
