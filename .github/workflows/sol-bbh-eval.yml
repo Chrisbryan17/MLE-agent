@@ -1,10 +1,13 @@
 name: SOL BBH Isolated Eval
 
 on:
-  push:
-    branches:
-      - sol-bbh-eval
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'research/sol_bbh/frontier_jury_smoke.py'
+      - '.github/workflows/sol-bbh-eval.yml'
 
 permissions:
   contents: read
