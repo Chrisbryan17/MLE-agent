@@ -1,0 +1,40 @@
+name: LiveBench Final Closeout
+
+on:
+  pull_request:
+    branches:
+      - universal-closeout
+    paths:
+      - '.github/workflows/livebench-final-closeout.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-livebench-closeout
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check --quiet pyarrow sympy shapely z3-solver
+      - name: Run complete repaired LiveBench evaluation
+        working-directory: research/universal_validation
+        run: |
+          mkdir -p artifacts/livebench_final_closeout
+          python -m py_compile bbeh_exact_robust.py livebench_geometry_exact.py livebench_zebra_exact.py livebench_reasoning_eval_v4.py
+          python livebench_reasoning_eval_v4.py 2>&1 | tee artifacts/livebench_final_closeout/run.log
+          cp artifacts/livebench_eval_v4/results.json artifacts/livebench_final_closeout/results.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: universal-livebench-final-closeout
+          path: |
+            research/universal_validation/artifacts/livebench_final_closeout/**
+            research/universal_validation/livebench_geometry_exact.py
+            research/universal_validation/livebench_zebra_exact.py
+          if-no-files-found: error
