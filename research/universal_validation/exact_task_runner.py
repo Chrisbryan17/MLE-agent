@@ -8,16 +8,17 @@ import os
 import pathlib
 import resource
 import statistics
-import sys
 import time
 
 import bbeh_exact_robust as core
 import bbeh_spatial_exact as spatial
 import bbeh_temporal_sequence_exact as temporal
+import bbeh_web_of_lies_fast as web_fast
 
 SOLVERS = dict(core.SOLVERS)
 SOLVERS['bbeh_spatial_reasoning'] = spatial.solve
 SOLVERS['bbeh_temporal_sequence'] = temporal.solve
+SOLVERS['bbeh_web_of_lies'] = web_fast.solve
 
 
 def percentile(values, probability):
