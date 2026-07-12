@@ -1,0 +1,63 @@
+name: Universal BBEH Jury Recovery
+
+on:
+  pull_request:
+    branches:
+      - universal-closeout
+    paths:
+      - 'research/universal_validation/bbeh_jury_recovery.py'
+      - '.github/workflows/universal-bbeh-jury-recovery.yml'
+
+permissions:
+  contents: read
+  models: read
+
+jobs:
+  jury:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [language, world]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-bbeh-jury-recovery
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch pinned BBEH
+        run: |
+          mkdir -p research/universal_validation/.external
+          git clone https://github.com/google-deepmind/bbeh.git research/universal_validation/.external/bbeh
+          git -C research/universal_validation/.external/bbeh checkout 80d12ca916b7158f22293fcf3144f4d3d854d4be
+      - name: Run prediction-sealed jury shard
+        working-directory: research/universal_validation
+        env:
+          BBEH_ROOT: .external/bbeh
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p artifacts/bbeh_jury_recovery
+          python -m py_compile bbeh_jury_recovery.py
+          python bbeh_jury_recovery.py --shard '${{ matrix.shard }}' 2>&1 | tee artifacts/bbeh_jury_recovery/${{ matrix.shard }}.log
+      - name: Seal shard hashes
+        working-directory: research/universal_validation
+        run: |
+          python - <<'PY'
+          import hashlib, json, pathlib
+          root = pathlib.Path('artifacts/bbeh_jury_recovery')
+          payload = {
+              str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest()
+              for path in root.rglob('*') if path.is_file()
+          }
+          (root / 'SHA256.json').write_text(json.dumps(payload, indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bbeh-jury-${{ matrix.shard }}
+          path: |
+            research/universal_validation/artifacts/bbeh_jury_recovery/**
+            research/universal_validation/bbeh_jury_recovery.py
+          if-no-files-found: error
