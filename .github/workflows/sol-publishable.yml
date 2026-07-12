@@ -26,18 +26,22 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p artifacts
-          python -m py_compile sol_benchmark.py sol_v2.py
-          python sol_v2.py 2>&1 | tee artifacts/run.log
+          python -m py_compile sol_benchmark.py sol_v2.py sol_v3.py clutrr_probe.py
+          python sol_v3.py 2>&1 | tee artifacts/run.log
           cp -R .cache artifacts/official_tasks
+          python clutrr_probe.py 2>&1 | tee artifacts/clutrr_probe.log
       - name: Preserve benchmark inputs and code hash
         working-directory: research/sol
         run: |
           python - <<'PY'
           import hashlib, json, pathlib
+          code_files = [
+              pathlib.Path('sol_benchmark.py'), pathlib.Path('sol_v2.py'),
+              pathlib.Path('sol_v3.py'), pathlib.Path('clutrr_probe.py'),
+          ]
           payload = {
               'code_sha256': {
-                  p.name: hashlib.sha256(p.read_bytes()).hexdigest()
-                  for p in (pathlib.Path('sol_benchmark.py'), pathlib.Path('sol_v2.py'))
+                  p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in code_files
               },
               'datasets': {
                   p.name: hashlib.sha256(p.read_bytes()).hexdigest()
@@ -55,4 +59,6 @@ jobs:
             research/sol/artifacts/**
             research/sol/sol_benchmark.py
             research/sol/sol_v2.py
+            research/sol/sol_v3.py
+            research/sol/clutrr_probe.py
           if-no-files-found: warn
