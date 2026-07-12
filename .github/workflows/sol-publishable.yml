@@ -28,11 +28,11 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p artifacts
-          python -m py_compile sol_benchmark.py sol_v2.py sol_v3.py sol_v4.py clutrr_probe.py clutrr_eval.py clutrr_eval_v2.py
+          python -m py_compile sol_benchmark.py sol_v2.py sol_v3.py sol_v4.py clutrr_probe.py clutrr_eval.py clutrr_eval_v2.py clutrr_eval_v3.py
           python sol_v4.py 2>&1 | tee artifacts/run.log
           cp -R .cache artifacts/official_tasks
           python clutrr_probe.py 2>&1 | tee artifacts/clutrr_probe.log
-          python clutrr_eval_v2.py 2>&1 | tee artifacts/clutrr_eval.log
+          python clutrr_eval_v3.py 2>&1 | tee artifacts/clutrr_chart.log
       - name: Preserve benchmark inputs and code hash
         working-directory: research/sol
         run: |
@@ -42,7 +42,7 @@ jobs:
               pathlib.Path('sol_benchmark.py'), pathlib.Path('sol_v2.py'),
               pathlib.Path('sol_v3.py'), pathlib.Path('sol_v4.py'),
               pathlib.Path('clutrr_probe.py'), pathlib.Path('clutrr_eval.py'),
-              pathlib.Path('clutrr_eval_v2.py'),
+              pathlib.Path('clutrr_eval_v2.py'), pathlib.Path('clutrr_eval_v3.py'),
           ]
           payload = {
               'code_sha256': {
@@ -73,4 +73,5 @@ jobs:
             research/sol/clutrr_probe.py
             research/sol/clutrr_eval.py
             research/sol/clutrr_eval_v2.py
+            research/sol/clutrr_eval_v3.py
           if-no-files-found: warn
