@@ -1,0 +1,101 @@
+name: Universal Exact Matrix
+
+on:
+  pull_request:
+    branches:
+      - universal-closeout
+    paths:
+      - 'research/universal_validation/exact_task_runner.py'
+      - '.github/workflows/universal-exact-matrix.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  task:
+    strategy:
+      fail-fast: false
+      matrix:
+        task:
+          - bbeh_boolean_expressions
+          - bbeh_dyck_languages
+          - bbeh_hyperbaton
+          - bbeh_multistep_arithmetic
+          - bbeh_object_counting
+          - bbeh_shuffled_objects
+          - bbeh_web_of_lies
+          - bbeh_word_sorting
+          - bbeh_spatial_reasoning
+          - bbeh_temporal_sequence
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-exact-closeout
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check --quiet sympy
+      - name: Fetch pinned BBEH
+        run: |
+          mkdir -p research/universal_validation/.external
+          git clone https://github.com/google-deepmind/bbeh.git research/universal_validation/.external/bbeh
+          git -C research/universal_validation/.external/bbeh checkout 80d12ca916b7158f22293fcf3144f4d3d854d4be
+      - name: Run isolated task
+        working-directory: research/universal_validation
+        env:
+          BBEH_ROOT: .external/bbeh/bbeh/benchmark_tasks
+        run: |
+          python -m py_compile bbeh_exact_robust.py bbeh_spatial_exact.py bbeh_temporal_sequence_exact.py exact_task_runner.py
+          python exact_task_runner.py --task '${{ matrix.task }}'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: exact-${{ matrix.task }}
+          path: research/universal_validation/artifacts/exact_matrix/${{ matrix.task }}.json
+          if-no-files-found: error
+
+  aggregate:
+    needs: task
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: exact-*
+          path: exact-results
+          merge-multiple: true
+      - name: Aggregate and verify
+        run: |
+          python - <<'PY'
+          import hashlib, json, pathlib
+          expected={
+            'bbeh_boolean_expressions':200,
+            'bbeh_dyck_languages':200,
+            'bbeh_hyperbaton':200,
+            'bbeh_multistep_arithmetic':199,
+            'bbeh_object_counting':200,
+            'bbeh_shuffled_objects':200,
+            'bbeh_web_of_lies':200,
+            'bbeh_word_sorting':191,
+            'bbeh_spatial_reasoning':200,
+            'bbeh_temporal_sequence':189,
+          }
+          reports={}
+          for path in pathlib.Path('exact-results').glob('*.json'):
+            report=json.loads(path.read_text());reports[report['task']]=report
+          if set(reports)!=set(expected):raise SystemExit(f'missing tasks: {set(expected)-set(reports)}')
+          mismatches={task:{'expected':expected[task],'actual':reports[task]['correct']} for task in expected if reports[task]['correct']!=expected[task]}
+          code_sets={tuple(sorted(report['code_sha256'].items())) for report in reports.values()}
+          task_hashes={task:report['task_sha256'] for task,report in reports.items()}
+          total=sum(report['n'] for report in reports.values());correct=sum(report['correct'] for report in reports.values())
+          payload={'protocol':'Ten isolated GitHub-hosted runners followed by aggregation. Expected scores were frozen from the local independent run before this workflow.','tasks':reports,'aggregate':{'tasks':len(reports),'n':total,'correct':correct,'micro_accuracy':correct/total,'matching_expected':not mismatches,'mismatches':mismatches,'identical_code_hash_sets':len(code_sets)==1},'task_sha256':task_hashes,'artifact_sha256':{path.name:hashlib.sha256(path.read_bytes()).hexdigest() for path in pathlib.Path('exact-results').glob('*.json')}}
+          pathlib.Path('exact-results/EXACT_REPLICATION.json').write_text(json.dumps(payload,indent=2,default=str))
+          print(json.dumps(payload['aggregate'],indent=2))
+          if mismatches or len(code_sets)!=1:raise SystemExit('replication mismatch')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: universal-exact-replication-final
+          path: exact-results/**
+          if-no-files-found: error
