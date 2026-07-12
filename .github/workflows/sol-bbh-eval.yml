@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - sol-bbh-eval
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'research/sol_bbh/**'
+      - '.github/workflows/sol-bbh-eval.yml'
   workflow_dispatch:
 
 permissions:
