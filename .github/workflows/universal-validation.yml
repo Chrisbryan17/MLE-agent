@@ -63,3 +63,41 @@ jobs:
             research/universal_validation/PREREGISTRATION.md
             research/universal_validation/bbeh_inventory.py
           if-no-files-found: error
+
+  exact-replication:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-validation-clean
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install exact-cell dependencies
+        run: python -m pip install --disable-pip-version-check --quiet sympy
+      - name: Fetch pinned official BBEH
+        run: |
+          set -euxo pipefail
+          mkdir -p research/universal_validation/.external
+          git clone https://github.com/google-deepmind/bbeh.git research/universal_validation/.external/bbeh
+          git -C research/universal_validation/.external/bbeh checkout 80d12ca916b7158f22293fcf3144f4d3d854d4be
+      - name: Execute exact-cell replication
+        working-directory: research/universal_validation
+        env:
+          BBEH_ROOT: .external/bbeh
+        run: |
+          set -euxo pipefail
+          mkdir -p artifacts/bbeh_exact_replication
+          python -m py_compile bbeh_exact_robust.py bbeh_exact_score.py
+          python bbeh_exact_score.py 2>&1 | tee artifacts/bbeh_exact_replication/run.log
+          git -C .external/bbeh rev-parse HEAD > artifacts/bbeh_exact_replication/bbeh_commit.txt
+      - name: Upload exact replication evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: universal-validation-exact-replication
+          path: |
+            research/universal_validation/artifacts/bbeh_exact_replication/**
+            research/universal_validation/bbeh_exact_robust.py
+            research/universal_validation/bbeh_exact_score.py
+          if-no-files-found: error
