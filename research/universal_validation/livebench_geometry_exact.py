@@ -5,6 +5,7 @@ import re
 from shapely.geometry import Polygon, LineString
 from shapely.ops import split
 
+# Frozen final geometry compiler revision: strong v2 coverage + valid concurrency/output fixes.
 
 def regular_polygon(n, radius=10.0, phase=math.pi/2):
     pts=[(radius*math.cos(phase-2*math.pi*i/n), radius*math.sin(phase-2*math.pi*i/n)) for i in range(n)]
