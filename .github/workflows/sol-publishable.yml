@@ -21,16 +21,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Run official BIG-bench evaluation
+      - name: Install independent-evaluation dependency
+        run: python -m pip install --disable-pip-version-check --quiet pyarrow
+      - name: Run official BIG-bench and held-out CLUTRR evaluations
         working-directory: research/sol
         run: |
           set -euxo pipefail
           mkdir -p artifacts
-          python -m py_compile sol_benchmark.py sol_v2.py sol_v3.py sol_v4.py clutrr_probe.py clutrr_eval.py
+          python -m py_compile sol_benchmark.py sol_v2.py sol_v3.py sol_v4.py clutrr_probe.py clutrr_eval.py clutrr_eval_v2.py
           python sol_v4.py 2>&1 | tee artifacts/run.log
           cp -R .cache artifacts/official_tasks
           python clutrr_probe.py 2>&1 | tee artifacts/clutrr_probe.log
-          python clutrr_eval.py 2>&1 | tee artifacts/clutrr_eval.log
+          python clutrr_eval_v2.py 2>&1 | tee artifacts/clutrr_eval.log
       - name: Preserve benchmark inputs and code hash
         working-directory: research/sol
         run: |
@@ -40,6 +42,7 @@ jobs:
               pathlib.Path('sol_benchmark.py'), pathlib.Path('sol_v2.py'),
               pathlib.Path('sol_v3.py'), pathlib.Path('sol_v4.py'),
               pathlib.Path('clutrr_probe.py'), pathlib.Path('clutrr_eval.py'),
+              pathlib.Path('clutrr_eval_v2.py'),
           ]
           payload = {
               'code_sha256': {
@@ -50,8 +53,8 @@ jobs:
                   for p in sorted(pathlib.Path('.cache').glob('*.json'))
               },
               'clutrr_cache': {
-                  p.name: hashlib.sha256(p.read_bytes()).hexdigest()
-                  for p in sorted(pathlib.Path('.clutrr_cache').glob('*.jsonl'))
+                  str(p.relative_to('.clutrr_cache')): hashlib.sha256(p.read_bytes()).hexdigest()
+                  for p in sorted(pathlib.Path('.clutrr_cache').rglob('*')) if p.is_file()
               },
           }
           pathlib.Path('artifacts/reproducibility.json').write_text(json.dumps(payload, indent=2))
@@ -69,4 +72,5 @@ jobs:
             research/sol/sol_v4.py
             research/sol/clutrr_probe.py
             research/sol/clutrr_eval.py
+            research/sol/clutrr_eval_v2.py
           if-no-files-found: warn
