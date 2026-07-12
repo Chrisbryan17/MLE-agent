@@ -13,6 +13,8 @@ import sys
 import time
 from pathlib import Path
 
+import z3
+
 BASE=Path(__file__).resolve().parent
 ROOT=Path(os.environ.get('BBEH_ROOT','.external/bbeh/bbeh/benchmark_tasks'))
 FILES={'core':BASE/'bbeh_exact_robust.py','spatial':BASE/'bbeh_spatial_exact.py','temporal':BASE/'bbeh_temporal_sequence_exact.py','runner':Path(__file__).resolve()}
@@ -24,32 +26,20 @@ def percentile(values,p):
  values=sorted(values);position=(len(values)-1)*p;low=int(position);high=min(len(values)-1,low+1);fraction=position-low
  return values[low]*(1-fraction)+values[high]*fraction
 
-def install_fast_boolean_csp(core):
+def install_z3_boolean_csp(core):
  def satisfiable(constraints,fixed):
-  assignment=dict(fixed)
-  names=sorted(set(fixed)|{name for constraint in constraints for name in constraint.scope})
-  occurrences={name:sum(name in constraint.scope for constraint in constraints) for name in names}
-  def compatible(constraint):
-   assigned={name:assignment[name] for name in constraint.scope if name in assignment}
-   for allowed in constraint.allowed:
-    if all(allowed[constraint.scope.index(name)]==value for name,value in assigned.items()):return True
-   return False
-  def search():
-   if any(not compatible(constraint) for constraint in constraints):return False
-   unresolved=[name for name in names if name not in assignment]
-   if not unresolved:return True
-   name=max(unresolved,key=lambda item:occurrences[item])
-   for value in (False,True):
-    assignment[name]=value
-    if search():return True
-   assignment.pop(name,None)
-   return False
-  return search()
+  names=sorted(set(fixed)|{name for constraint in constraints for name in constraint.scope});variables={name:z3.Bool(name) for name in names};solver=z3.Solver()
+  for name,value in fixed.items():solver.add(variables[name]==value)
+  for constraint in constraints:
+   rows=[]
+   for allowed in constraint.allowed:rows.append(z3.And([variables[name]==allowed[index] for index,name in enumerate(constraint.scope)]))
+   solver.add(z3.Or(rows) if rows else z3.BoolVal(False))
+  return solver.check()==z3.sat
  core._csp_satisfiable=satisfiable
 
 def main():
  parser=argparse.ArgumentParser();parser.add_argument('--task',required=True);args=parser.parse_args();task=args.task
- core=load('matrix_core',FILES['core']);install_fast_boolean_csp(core)
+ core=load('matrix_core',FILES['core']);install_z3_boolean_csp(core)
  if task=='bbeh_spatial_reasoning':solver=load('matrix_spatial',FILES['spatial']).solve;source='spatial'
  elif task=='bbeh_temporal_sequence':solver=load('matrix_temporal',FILES['temporal']).solve;source='temporal'
  else:solver=core.SOLVERS[task];source='core'
