@@ -1,0 +1,106 @@
+name: Universal Validation Closeout
+
+on:
+  pull_request:
+    branches:
+      - universal-validation-clean
+    paths:
+      - 'research/universal_validation/document_closeout.py'
+      - 'research/universal_validation/bbeh_spatial_exact.py'
+      - 'research/universal_validation/bbeh_temporal_sequence_exact.py'
+      - 'research/universal_validation/exact_validation_suite.py'
+      - 'research/universal_validation/bbeh_hybrid_closeout.py'
+      - '.github/workflows/universal-closeout.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  closeout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-closeout
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install closeout dependencies
+        run: |
+          python -m pip install --disable-pip-version-check --quiet \
+            numpy scipy scikit-learn pyarrow sympy shapely z3-solver
+      - name: Fetch pinned BBEH
+        run: |
+          mkdir -p research/universal_validation/.external
+          git clone https://github.com/google-deepmind/bbeh.git research/universal_validation/.external/bbeh
+          git -C research/universal_validation/.external/bbeh checkout 80d12ca916b7158f22293fcf3144f4d3d854d4be
+      - name: Reproduce full exact portfolio
+        working-directory: research/universal_validation
+        env:
+          BBEH_ROOT: .external/bbeh/bbeh/benchmark_tasks
+        run: |
+          mkdir -p artifacts/exact_closeout
+          python -m py_compile bbeh_exact_robust.py bbeh_spatial_exact.py bbeh_temporal_sequence_exact.py exact_validation_suite.py
+          python exact_validation_suite.py 2>&1 | tee artifacts/exact_closeout/run.log
+      - name: Score complete LiveBench public reasoning snapshot
+        working-directory: research/universal_validation
+        run: |
+          mkdir -p artifacts/livebench_eval_v4
+          python -m py_compile livebench_geometry_exact.py livebench_zebra_exact.py livebench_reasoning_eval_v4.py
+          python livebench_reasoning_eval_v4.py 2>&1 | tee artifacts/livebench_eval_v4/closeout_run.log
+      - name: Run five document benchmarks end to end
+        working-directory: research/universal_validation
+        run: |
+          mkdir -p artifacts/document_closeout
+          python -m py_compile document_closeout.py
+          python document_closeout.py 2>&1 | tee artifacts/document_closeout/run.log
+      - name: Build complete 4,520-example BBEH hybrid aggregate
+        working-directory: research/universal_validation
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p artifacts/bbeh_hybrid_closeout
+          python -m py_compile bbeh_hybrid_closeout.py
+          python bbeh_hybrid_closeout.py 2>&1 | tee artifacts/bbeh_hybrid_closeout/run.log
+      - name: Seal hashes and gate status
+        working-directory: research/universal_validation
+        run: |
+          python - <<'PY'
+          import hashlib, json, pathlib, platform, sys
+          roots = {
+              'livebench': pathlib.Path('artifacts/livebench_eval_v4/results.json'),
+              'bbeh_hybrid': pathlib.Path('artifacts/bbeh_hybrid_closeout/results.json'),
+              'documents': pathlib.Path('artifacts/document_closeout/results.json'),
+              'exact_replication': pathlib.Path('artifacts/exact_closeout/results.json'),
+          }
+          payload = {
+              'python': sys.version,
+              'platform': platform.platform(),
+              'gates': {name: json.loads(path.read_text()).get('aggregate', json.loads(path.read_text()).get('datasets')) for name, path in roots.items()},
+              'sha256': {name: hashlib.sha256(path.read_bytes()).hexdigest() for name, path in roots.items()},
+              'code_sha256': {
+                  str(path): hashlib.sha256(path.read_bytes()).hexdigest()
+                  for path in pathlib.Path('.').glob('*.py')
+                  if path.name in {
+                      'bbeh_exact_robust.py','bbeh_spatial_exact.py','bbeh_temporal_sequence_exact.py',
+                      'exact_validation_suite.py','livebench_geometry_exact.py','livebench_zebra_exact.py',
+                      'livebench_reasoning_eval_v4.py','document_closeout.py','bbeh_hybrid_closeout.py'
+                  }
+              },
+          }
+          pathlib.Path('artifacts/CLOSEOUT_MANIFEST.json').write_text(json.dumps(payload, indent=2, default=str))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: universal-validation-final-closeout
+          path: |
+            research/universal_validation/artifacts/**
+            research/universal_validation/document_closeout.py
+            research/universal_validation/bbeh_spatial_exact.py
+            research/universal_validation/bbeh_temporal_sequence_exact.py
+            research/universal_validation/exact_validation_suite.py
+            research/universal_validation/bbeh_hybrid_closeout.py
+          if-no-files-found: error
