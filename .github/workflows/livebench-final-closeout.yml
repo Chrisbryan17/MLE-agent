@@ -5,6 +5,7 @@ on:
     branches:
       - universal-closeout
     paths:
+      - 'research/universal_validation/livebench_geometry_exact.py'
       - '.github/workflows/livebench-final-closeout.yml'
 
 permissions:
@@ -28,11 +29,12 @@ jobs:
         run: |
           mkdir -p artifacts/livebench_final_closeout
           python -m py_compile bbeh_exact_robust.py livebench_geometry_exact.py livebench_zebra_exact.py livebench_reasoning_eval_v4.py
+          sha256sum livebench_geometry_exact.py | tee artifacts/livebench_final_closeout/geometry.sha256
           python livebench_reasoning_eval_v4.py 2>&1 | tee artifacts/livebench_final_closeout/run.log
           cp artifacts/livebench_eval_v4/results.json artifacts/livebench_final_closeout/results.json
       - uses: actions/upload-artifact@v4
         with:
-          name: universal-livebench-final-closeout
+          name: universal-livebench-final-closeout-v2
           path: |
             research/universal_validation/artifacts/livebench_final_closeout/**
             research/universal_validation/livebench_geometry_exact.py
