@@ -1,68 +1,10 @@
-name: SOL BBH Frontier
+name: SOL BBH Frontier (disabled)
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'research/sol/**'
-      - 'research/sol_bbh/**'
-      - '.github/workflows/sol-bbh-frontier.yml'
-
-permissions:
-  contents: read
-  models: read
 
 jobs:
-  benchmark:
+  disabled:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Run complete official BBH suite
-        working-directory: research/sol_bbh
-        run: |
-          set -euxo pipefail
-          mkdir -p artifacts
-          python -m py_compile bbh_frontier.py semantic_smoke_v2.py
-          python bbh_frontier.py 2>&1 | tee artifacts/run.log
-          cp -R .bbh_cache artifacts/official_bbh
-      - name: Benchmark official-CoT semantic jury candidates
-        working-directory: research/sol_bbh
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MODELS: openai/gpt-4.1,openai/gpt-4o,deepseek/DeepSeek-R1
-        run: python semantic_smoke_v2.py 2>&1 | tee artifacts/semantic_smoke_v2.log
-      - name: Preserve code and data hashes
-        working-directory: research/sol_bbh
-        run: |
-          python - <<'PY'
-          import hashlib, json, pathlib
-          code_files = [pathlib.Path('bbh_frontier.py'), pathlib.Path('semantic_smoke_v2.py')]
-          payload = {
-              'code': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in code_files},
-              'bbh': {
-                  p.name: hashlib.sha256(p.read_bytes()).hexdigest()
-                  for p in sorted(pathlib.Path('.bbh_cache').glob('*.json'))
-              },
-              'prompts': {
-                  p.name: hashlib.sha256(p.read_bytes()).hexdigest()
-                  for p in sorted(pathlib.Path('.bbh_prompts').glob('*.txt'))
-              },
-          }
-          pathlib.Path('artifacts/reproducibility.json').write_text(json.dumps(payload, indent=2))
-          PY
-      - name: Upload BBH evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: sol-bbh-frontier-evidence
-          path: |
-            research/sol_bbh/artifacts/**
-            research/sol_bbh/bbh_frontier.py
-            research/sol_bbh/semantic_smoke_v2.py
-          if-no-files-found: error
+      - run: echo disabled
