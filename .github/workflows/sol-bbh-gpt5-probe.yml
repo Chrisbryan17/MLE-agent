@@ -31,5 +31,7 @@ jobs:
         if: always()
         with:
           name: gpt5-probe
-          path: research/sol_bbh/gpt5_probe.log
+          path: |
+            research/sol_bbh/gpt5_probe.log
+            research/sol_bbh/gpt5_probe_response.json
           if-no-files-found: warn
