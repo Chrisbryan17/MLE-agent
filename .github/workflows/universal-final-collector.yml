@@ -1,0 +1,131 @@
+name: Universal Final Collector
+
+on:
+  pull_request:
+    branches:
+      - universal-validation-clean
+    paths:
+      - 'research/universal_validation/FINAL_COLLECT_RUN.txt'
+      - 'research/universal_validation/final_closure_collect.py'
+      - '.github/workflows/universal-final-collector.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  collect-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install exact and benchmark dependencies
+        run: python -m pip install --disable-pip-version-check --quiet pyarrow sympy shapely z3-solver
+      - name: Wait for and download immutable evidence runs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euxo pipefail
+          mkdir -p research/universal_validation/artifacts/final_closure/downloads
+          wait_run() {
+            run_id="$1"
+            label="$2"
+            for attempt in $(seq 1 360); do
+              status=$(gh run view "$run_id" --repo "$GITHUB_REPOSITORY" --json status --jq .status 2>/dev/null || echo unknown)
+              conclusion=$(gh run view "$run_id" --repo "$GITHUB_REPOSITORY" --json conclusion --jq .conclusion 2>/dev/null || echo '')
+              echo "$label run=$run_id status=$status conclusion=$conclusion"
+              if [ "$status" = completed ]; then
+                [ "$conclusion" = success ] || return 1
+                return 0
+              fi
+              sleep 60
+            done
+            return 1
+          }
+          download_run() {
+            run_id="$1"
+            label="$2"
+            mkdir -p "research/universal_validation/artifacts/final_closure/downloads/$label"
+            gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --dir "research/universal_validation/artifacts/final_closure/downloads/$label"
+          }
+          wait_run 29198729053 bbeh_semantic
+          download_run 29198729053 bbeh_semantic
+          wait_run 29199747387 bbeh_residual
+          download_run 29199747387 bbeh_residual
+          wait_run 29199836857 exact_replication_prior
+          download_run 29199836857 exact_replication_prior
+      - name: Locate final document run and download evidence
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euxo pipefail
+          for attempt in $(seq 1 360); do
+            run_id=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "Universal Final Documents" --branch universal-final-closure --limit 10 --json databaseId,status,conclusion,createdAt --jq 'sort_by(.createdAt) | reverse | .[0].databaseId' 2>/dev/null || true)
+            if [ -n "$run_id" ] && [ "$run_id" != null ]; then
+              status=$(gh run view "$run_id" --repo "$GITHUB_REPOSITORY" --json status --jq .status)
+              conclusion=$(gh run view "$run_id" --repo "$GITHUB_REPOSITORY" --json conclusion --jq .conclusion)
+              echo "documents run=$run_id status=$status conclusion=$conclusion"
+              if [ "$status" = completed ]; then
+                [ "$conclusion" = success ] || exit 1
+                mkdir -p research/universal_validation/artifacts/final_closure/downloads/documents
+                gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --dir research/universal_validation/artifacts/final_closure/downloads/documents
+                break
+              fi
+            fi
+            sleep 60
+          done
+          test -d research/universal_validation/artifacts/final_closure/downloads/documents
+      - name: Fresh exact portfolio reproduction
+        run: |
+          set -euxo pipefail
+          mkdir -p research/universal_validation/.external
+          git clone https://github.com/google-deepmind/bbeh.git research/universal_validation/.external/bbeh
+          git -C research/universal_validation/.external/bbeh checkout 80d12ca916b7158f22293fcf3144f4d3d854d4be
+          cd research/universal_validation
+          export BBEH_ROOT=.external/bbeh
+          rm -rf artifacts/bbeh_exact_replication
+          python -m py_compile bbeh_exact_robust.py bbeh_exact_score.py
+          python bbeh_exact_score.py | tee artifacts/final_closure/fresh_exact.log
+          mkdir -p artifacts/final_closure/downloads/exact_replication_fresh
+          cp -R artifacts/bbeh_exact_replication artifacts/final_closure/downloads/exact_replication_fresh/
+          cp bbeh_exact_robust.py bbeh_exact_score.py artifacts/final_closure/downloads/exact_replication_fresh/
+      - name: Fresh complete LiveBench score
+        working-directory: research/universal_validation
+        run: |
+          set -euxo pipefail
+          rm -rf artifacts/livebench_eval_v4
+          python -m py_compile bbeh_exact_robust.py livebench_geometry_exact.py livebench_zebra_exact.py livebench_reasoning_eval_v4.py
+          python livebench_reasoning_eval_v4.py | tee artifacts/final_closure/livebench_fresh.log
+          mkdir -p artifacts/final_closure/downloads/livebench_fresh
+          cp -R artifacts/livebench_eval_v4 artifacts/final_closure/downloads/livebench_fresh/
+          cp livebench_geometry_exact.py livebench_zebra_exact.py livebench_reasoning_eval_v4.py artifacts/final_closure/downloads/livebench_fresh/
+      - name: Verify and seal all four gates
+        working-directory: research/universal_validation
+        run: |
+          set -euxo pipefail
+          python -m py_compile final_closure_collect.py
+          python final_closure_collect.py
+          python - <<'PY'
+          import hashlib, json, pathlib, platform, sys
+          root = pathlib.Path('artifacts/final_closure')
+          report = {
+              'python': sys.version,
+              'platform': platform.platform(),
+              'files': {
+                  str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest()
+                  for path in sorted(root.rglob('*')) if path.is_file()
+              },
+          }
+          (root / 'FINAL_MANIFEST.json').write_text(json.dumps(report, indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: universal-final-closure-evidence
+          path: |
+            research/universal_validation/artifacts/final_closure/**
+            research/universal_validation/final_closure_collect.py
+          if-no-files-found: error
