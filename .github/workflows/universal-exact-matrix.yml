@@ -7,6 +7,7 @@ on:
     paths:
       - 'research/universal_validation/exact_matrix_trigger.txt'
       - 'research/universal_validation/exact_task_runner.py'
+      - 'research/universal_validation/bbeh_web_of_lies_fast.py'
       - 'research/universal_validation/exact_matrix_aggregate.py'
       - '.github/workflows/universal-exact-matrix.yml'
 
@@ -39,7 +40,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install dependencies
-        run: python -m pip install --disable-pip-version-check --quiet sympy
+        run: python -m pip install --disable-pip-version-check --quiet sympy z3-solver
       - name: Fetch pinned BBEH
         run: |
           mkdir -p research/universal_validation/.external
@@ -51,7 +52,7 @@ jobs:
           BBEH_TASK_ROOT: .external/bbeh/bbeh/benchmark_tasks
         run: |
           mkdir -p artifacts/exact_matrix
-          python -m py_compile bbeh_exact_robust.py bbeh_spatial_exact.py bbeh_temporal_sequence_exact.py exact_task_runner.py
+          python -m py_compile bbeh_exact_robust.py bbeh_spatial_exact.py bbeh_temporal_sequence_exact.py bbeh_web_of_lies_fast.py exact_task_runner.py
           python exact_task_runner.py --task '${{ matrix.task }}' 2>&1 | tee artifacts/exact_matrix/${{ matrix.task }}.log
       - uses: actions/upload-artifact@v4
         with:
@@ -89,4 +90,5 @@ jobs:
             research/universal_validation/artifacts/exact_matrix_final/**
             research/universal_validation/exact_task_runner.py
             research/universal_validation/exact_matrix_aggregate.py
+            research/universal_validation/bbeh_web_of_lies_fast.py
           if-no-files-found: error
