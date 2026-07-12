@@ -29,6 +29,7 @@ jobs:
           mkdir -p artifacts
           python -m py_compile bbh_frontier.py
           python bbh_frontier.py 2>&1 | tee artifacts/run.log
+          cp -R .bbh_cache artifacts/official_bbh
       - name: Preserve code and data hashes
         working-directory: research/sol_bbh
         run: |
