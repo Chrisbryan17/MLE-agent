@@ -3,8 +3,9 @@ name: Universal Exact Matrix
 on:
   pull_request:
     branches:
-      - universal-validation-clean
+      - universal-closeout
     paths:
+      - 'research/universal_validation/exact_matrix_trigger.txt'
       - 'research/universal_validation/exact_task_runner.py'
       - 'research/universal_validation/exact_matrix_aggregate.py'
       - '.github/workflows/universal-exact-matrix.yml'
@@ -33,7 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: universal-closeout
+          ref: universal-exact-matrix
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -67,7 +68,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: universal-closeout
+          ref: universal-exact-matrix
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
