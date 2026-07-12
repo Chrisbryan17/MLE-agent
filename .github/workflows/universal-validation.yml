@@ -35,10 +35,13 @@ jobs:
           BBEH_ROOT: .external/bbeh
         run: |
           set -euxo pipefail
-          mkdir -p artifacts/bbeh_inventory
+          mkdir -p artifacts/bbeh_inventory artifacts/bbeh_snapshot
           python -m py_compile bbeh_inventory.py
           python bbeh_inventory.py | tee artifacts/bbeh_inventory/run.log
           git -C .external/bbeh rev-parse HEAD > artifacts/bbeh_inventory/bbeh_commit.txt
+          cp -R .external/bbeh/bbeh/benchmark_tasks artifacts/bbeh_snapshot/
+          cp .external/bbeh/bbeh/evaluate.py artifacts/bbeh_snapshot/evaluate.py
+          cp .external/bbeh/leaderboard.md artifacts/bbeh_snapshot/leaderboard.md
           python - <<'PY'
           import hashlib, json, pathlib, platform, sys
           files = [pathlib.Path('bbeh_inventory.py'), pathlib.Path('PREREGISTRATION.md')]
@@ -50,12 +53,13 @@ jobs:
           }
           pathlib.Path('artifacts/bbeh_inventory/reproducibility.json').write_text(json.dumps(payload, indent=2))
           PY
-      - name: Upload frozen inventory
+      - name: Upload frozen inventory and corpus
         uses: actions/upload-artifact@v4
         with:
           name: universal-validation-bbeh-inventory
           path: |
             research/universal_validation/artifacts/bbeh_inventory/**
+            research/universal_validation/artifacts/bbeh_snapshot/**
             research/universal_validation/PREREGISTRATION.md
             research/universal_validation/bbeh_inventory.py
           if-no-files-found: error
