@@ -1,0 +1,42 @@
+name: LiveBench Geometry Transfer V3
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'research/universal_validation/livebench_reasoning_eval_v3.py'
+      - 'research/universal_validation/livebench_geometry_exact.py'
+      - '.github/workflows/livebench-eval-v3.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-validation-clean
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check --quiet pyarrow sympy shapely
+      - name: Evaluate repaired geometry compiler
+        working-directory: research/universal_validation
+        run: |
+          mkdir -p artifacts/livebench_eval_v3
+          python -m py_compile bbeh_exact_robust.py livebench_geometry_exact.py livebench_reasoning_eval_v3.py
+          python livebench_reasoning_eval_v3.py 2>&1 | tee artifacts/livebench_eval_v3/run.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: universal-validation-livebench-results-v3
+          path: |
+            research/universal_validation/artifacts/livebench_eval_v3/**
+            research/universal_validation/livebench_geometry_exact.py
+            research/universal_validation/livebench_reasoning_eval_v3.py
+          if-no-files-found: error
