@@ -35,6 +35,7 @@ jobs:
           BBEH_ROOT: .external/bbeh
         run: |
           set -euxo pipefail
+          mkdir -p artifacts/bbeh_inventory
           python -m py_compile bbeh_inventory.py
           python bbeh_inventory.py | tee artifacts/bbeh_inventory/run.log
           git -C .external/bbeh rev-parse HEAD > artifacts/bbeh_inventory/bbeh_commit.txt
