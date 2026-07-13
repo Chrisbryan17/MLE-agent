@@ -1,0 +1,55 @@
+name: Universal Buggy Tables Exact
+
+on:
+  pull_request:
+    branches:
+      - universal-exact-closeout-v4
+    paths:
+      - 'research/universal_validation/bbeh_buggy_tables_exact_v1.py'
+      - 'research/universal_validation/bbeh_buggy_tables_eval.py'
+      - '.github/workflows/universal-buggy-tables-exact.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-buggy-tables-exact-v1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch pinned BBEH
+        run: |
+          mkdir -p research/universal_validation/.external
+          git clone https://github.com/google-deepmind/bbeh.git research/universal_validation/.external/bbeh
+          git -C research/universal_validation/.external/bbeh checkout 80d12ca916b7158f22293fcf3144f4d3d854d4be
+      - name: Evaluate all corruption and aggregation families
+        working-directory: research/universal_validation
+        env:
+          BBEH_TASK_ROOT: .external/bbeh/bbeh/benchmark_tasks
+        run: |
+          mkdir -p artifacts/buggy_tables_exact
+          python -m py_compile bbeh_buggy_tables_exact_v1.py bbeh_buggy_tables_eval.py
+          python bbeh_buggy_tables_eval.py 2>&1 | tee artifacts/buggy_tables_exact/run.log
+      - name: Seal artifact hashes
+        working-directory: research/universal_validation
+        run: |
+          python - <<'PY'
+          import hashlib,json,pathlib
+          root=pathlib.Path('artifacts/buggy_tables_exact')
+          (root/'SHA256.json').write_text(json.dumps({str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in root.rglob('*') if p.is_file()},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: universal-buggy-tables-exact
+          path: |
+            research/universal_validation/artifacts/buggy_tables_exact/**
+            research/universal_validation/bbeh_buggy_tables_exact_v1.py
+            research/universal_validation/bbeh_buggy_tables_eval.py
+          if-no-files-found: error
