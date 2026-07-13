@@ -1,0 +1,56 @@
+name: Universal Semantic Residual Bootstrap
+
+on:
+  pull_request:
+    branches:
+      - universal-exact-closeout-v4
+    paths:
+      - '.github/workflows/universal-semantic-residual-bootstrap.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-structured-residual-pass-20260713
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch pinned BBEH corpus
+        run: |
+          mkdir -p research/universal_validation/.external
+          git clone --filter=blob:none https://github.com/google-deepmind/bbeh.git research/universal_validation/.external/bbeh
+          git -C research/universal_validation/.external/bbeh checkout 80d12ca916b7158f22293fcf3144f4d3d854d4be
+      - name: Assemble semantic bundle
+        working-directory: research/universal_validation
+        run: |
+          set -euxo pipefail
+          OUT=artifacts/semantic_residual_bootstrap
+          mkdir -p "$OUT/tasks"
+          for task in \
+            bbeh_causal_understanding \
+            bbeh_disambiguation_qa \
+            bbeh_movie_recommendation \
+            bbeh_sarc_triples \
+            bbeh_sportqa \
+            bbeh_nycc \
+            bbeh_linguini; do
+            cp ".external/bbeh/bbeh/benchmark_tasks/$task/task.json" "$OUT/tasks/$task.json"
+          done
+          python - <<'PY'
+          import hashlib, json, pathlib
+          root=pathlib.Path('artifacts/semantic_residual_bootstrap')
+          manifest={str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
+                    for p in sorted(root.rglob('*')) if p.is_file()}
+          (root/'SHA256.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: universal-semantic-residual-bootstrap
+          path: research/universal_validation/artifacts/semantic_residual_bootstrap/**
+          if-no-files-found: error

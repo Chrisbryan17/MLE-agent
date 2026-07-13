@@ -1,0 +1,109 @@
+name: Universal Semantic Jury V2
+
+on:
+  pull_request:
+    branches:
+      - universal-exact-closeout-v4
+    paths:
+      - 'research/universal_validation/semantic_jury_v2.py'
+      - '.github/workflows/universal-semantic-jury-v2.yml'
+
+permissions:
+  contents: read
+  models: read
+
+jobs:
+  predict:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 14
+      matrix:
+        task:
+          - bbeh_causal_understanding
+          - bbeh_disambiguation_qa
+          - bbeh_linguini
+          - bbeh_movie_recommendation
+          - bbeh_nycc
+          - bbeh_sarc_triples
+          - bbeh_sportqa
+        model:
+          - id: openai/gpt-4o-mini
+            key: gpt4omini
+          - id: cohere/Cohere-command-a
+            key: cohere
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-structured-residual-pass-20260713
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch pinned BBEH
+        run: |
+          mkdir -p research/universal_validation/.external
+          git clone --filter=blob:none https://github.com/google-deepmind/bbeh.git research/universal_validation/.external/bbeh
+          git -C research/universal_validation/.external/bbeh checkout 80d12ca916b7158f22293fcf3144f4d3d854d4be
+      - name: Generate and seal predictions
+        working-directory: research/universal_validation
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euxo pipefail
+          OUT="artifacts/semantic_jury_v2/${{ matrix.task }}__${{ matrix.model.key }}"
+          python -m py_compile semantic_jury_v2.py
+          python semantic_jury_v2.py predict \
+            --task '${{ matrix.task }}' \
+            --model '${{ matrix.model.id }}' \
+            --task-root .external/bbeh/bbeh/benchmark_tasks \
+            --out "$OUT" 2>&1 | tee "$OUT.run.log"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: semantic-predictions-${{ matrix.task }}-${{ matrix.model.key }}
+          path: research/universal_validation/artifacts/semantic_jury_v2/${{ matrix.task }}__${{ matrix.model.key }}/**
+          if-no-files-found: error
+
+  score:
+    needs: predict
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-structured-residual-pass-20260713
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch pinned BBEH only after prediction jobs sealed
+        run: |
+          mkdir -p research/universal_validation/.external
+          git clone --filter=blob:none https://github.com/google-deepmind/bbeh.git research/universal_validation/.external/bbeh
+          git -C research/universal_validation/.external/bbeh checkout 80d12ca916b7158f22293fcf3144f4d3d854d4be
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: semantic-predictions-*
+          path: research/universal_validation/artifacts/semantic_jury_v2/predictions
+          merge-multiple: true
+      - name: Score immutable prediction artifacts
+        working-directory: research/universal_validation
+        run: |
+          set -euxo pipefail
+          OUT=artifacts/semantic_jury_v2/scored
+          mkdir -p "$OUT"
+          python semantic_jury_v2.py score \
+            --task-root .external/bbeh/bbeh/benchmark_tasks \
+            --prediction-root artifacts/semantic_jury_v2/predictions \
+            --out "$OUT" 2>&1 | tee "$OUT/run.log"
+          python - <<'PY'
+          import hashlib,json,pathlib
+          root=pathlib.Path('artifacts/semantic_jury_v2/scored')
+          manifest={str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(root.rglob('*')) if p.is_file()}
+          (root/'SHA256.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: universal-semantic-jury-v2-scored
+          path: research/universal_validation/artifacts/semantic_jury_v2/scored/**
+          if-no-files-found: error
