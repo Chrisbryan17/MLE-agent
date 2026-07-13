@@ -1,0 +1,76 @@
+name: Universal Exact Closeout V4
+
+on:
+  pull_request:
+    branches:
+      - universal-shuffled-exact-v3
+    paths:
+      - 'research/universal_validation/bbeh_multistep_exact_v4.py'
+      - 'research/universal_validation/bbeh_word_sorting_exact_v5.py'
+      - 'research/universal_validation/bbeh_temporal_sequence_exact_v2.py'
+      - 'research/universal_validation/bbeh_web_of_lies_exact_v7.py'
+      - 'research/universal_validation/bbeh_exact_closeout_v4.py'
+      - '.github/workflows/universal-exact-closeout-v4.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-exact-closeout-v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check --quiet sympy shapely z3-solver
+      - name: Fetch pinned BBEH
+        run: |
+          mkdir -p research/universal_validation/.external
+          git clone https://github.com/google-deepmind/bbeh.git research/universal_validation/.external/bbeh
+          git -C research/universal_validation/.external/bbeh checkout 80d12ca916b7158f22293fcf3144f4d3d854d4be
+      - name: Run complete ten-task exact portfolio
+        working-directory: research/universal_validation
+        env:
+          BBEH_TASK_ROOT: .external/bbeh/bbeh/benchmark_tasks
+        run: |
+          mkdir -p artifacts/exact_closeout_v4
+          python -m py_compile \
+            bbeh_exact_robust.py \
+            bbeh_adaptive_exact_v2.py \
+            bbeh_multistep_exact_v4.py \
+            bbeh_shuffled_exact_v3.py \
+            bbeh_spatial_exact.py \
+            bbeh_temporal_sequence_exact_v2.py \
+            bbeh_web_of_lies_exact_v7.py \
+            bbeh_word_sorting_exact_v5.py \
+            bbeh_exact_closeout_v4.py
+          python bbeh_exact_closeout_v4.py 2>&1 | tee artifacts/exact_closeout_v4/run.log
+      - name: Seal artifact hashes
+        working-directory: research/universal_validation
+        run: |
+          python - <<'PY'
+          import hashlib, json, pathlib
+          root = pathlib.Path('artifacts/exact_closeout_v4')
+          payload = {
+              str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest()
+              for path in root.rglob('*') if path.is_file()
+          }
+          (root / 'SHA256.json').write_text(json.dumps(payload, indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: universal-exact-closeout-v4
+          path: |
+            research/universal_validation/artifacts/exact_closeout_v4/**
+            research/universal_validation/bbeh_multistep_exact_v4.py
+            research/universal_validation/bbeh_word_sorting_exact_v5.py
+            research/universal_validation/bbeh_temporal_sequence_exact_v2.py
+            research/universal_validation/bbeh_web_of_lies_exact_v7.py
+            research/universal_validation/bbeh_exact_closeout_v4.py
+          if-no-files-found: error
