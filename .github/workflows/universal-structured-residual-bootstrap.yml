@@ -1,0 +1,66 @@
+name: Universal Structured Residual Bootstrap
+
+on:
+  pull_request:
+    branches:
+      - universal-exact-closeout-v4
+    paths:
+      - '.github/workflows/universal-structured-residual-bootstrap.yml'
+      - 'research/universal_validation/structured_residual/**'
+      - 'research/universal_validation/bbeh_structured_residual_closeout.py'
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-structured-residual-pass-20260713
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch pinned BBEH corpus
+        run: |
+          mkdir -p research/universal_validation/.external
+          git clone --filter=blob:none https://github.com/google-deepmind/bbeh.git research/universal_validation/.external/bbeh
+          git -C research/universal_validation/.external/bbeh checkout 80d12ca916b7158f22293fcf3144f4d3d854d4be
+      - name: Assemble bootstrap bundle
+        working-directory: research/universal_validation
+        run: |
+          set -euxo pipefail
+          OUT=artifacts/structured_residual_bootstrap
+          mkdir -p "$OUT/tasks" "$OUT/source"
+          for task in \
+            bbeh_zebra_puzzles \
+            bbeh_geometric_shapes \
+            bbeh_time_arithmetic \
+            bbeh_buggy_tables \
+            bbeh_boardgame_qa \
+            bbeh_object_properties; do
+            cp ".external/bbeh/bbeh/benchmark_tasks/$task/task.json" "$OUT/tasks/$task.json"
+          done
+          cp bbeh_exact_robust.py "$OUT/source/"
+          cp bbeh_adaptive_exact_v2.py "$OUT/source/"
+          cp bbeh_multistep_exact_v4.py "$OUT/source/"
+          cp bbeh_shuffled_exact_v3.py "$OUT/source/"
+          cp bbeh_spatial_exact.py "$OUT/source/"
+          cp bbeh_temporal_sequence_exact_v2.py "$OUT/source/"
+          cp bbeh_web_of_lies_exact_v7.py "$OUT/source/"
+          cp bbeh_word_sorting_exact_v5.py "$OUT/source/"
+          cp bbeh_exact_closeout_v4.py "$OUT/source/"
+          python - <<'PY'
+          import hashlib, json, pathlib
+          root=pathlib.Path('artifacts/structured_residual_bootstrap')
+          manifest={str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
+                    for p in sorted(root.rglob('*')) if p.is_file()}
+          (root/'SHA256.json').write_text(json.dumps(manifest,indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: universal-structured-residual-bootstrap
+          path: research/universal_validation/artifacts/structured_residual_bootstrap/**
+          if-no-files-found: error
