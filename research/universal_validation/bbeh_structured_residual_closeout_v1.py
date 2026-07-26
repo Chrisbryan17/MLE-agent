@@ -26,6 +26,55 @@ def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def audit_zebra_grammar(examples: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    errors: list[dict[str, Any]] = []
+    clue_count = 0
+    compiled = 0
+    parse_errors = 0
+    for example_index, example in enumerate(examples):
+        prompt = str(example["input"])
+        try:
+            problem = zebra.parse_problem(prompt)
+        except Exception as exc:
+            parse_errors += 1
+            errors.append(
+                {
+                    "example_index": example_index,
+                    "clue_index": None,
+                    "clue": None,
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+            )
+            continue
+        all_values = tuple(
+            value for values in problem.categories.values() for value in values
+        )
+        for clue_index, clue in enumerate(problem.clues):
+            clue_count += 1
+            try:
+                zebra.compile_clue(clue, all_values)
+            except Exception as exc:
+                errors.append(
+                    {
+                        "example_index": example_index,
+                        "clue_index": clue_index,
+                        "clue": clue,
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
+                )
+            else:
+                compiled += 1
+    return {
+        "protocol": "input-only-grammar-audit",
+        "examples": len(examples),
+        "parse_errors": parse_errors,
+        "clues": clue_count,
+        "compiled_clues": compiled,
+        "uncompiled_clues": clue_count - compiled,
+        "errors": errors,
+    }
+
+
 def generate_predictions(
     examples: Sequence[dict[str, Any]],
     solver: Callable[[str], str | None],
@@ -132,7 +181,10 @@ def main() -> None:
     prediction_path = OUT / "predictions.json"
     seal_path = OUT / "predictions.sha256"
     score_path = OUT / "first_score.json"
+    grammar_path = OUT / "grammar_audit.json"
 
+    grammar_audit = audit_zebra_grammar(examples)
+    grammar_path.write_bytes(_canonical_json_bytes(grammar_audit))
     generated = generate_predictions(examples, zebra.solve, prediction_path, seal_path)
     score = score_predictions(examples, prediction_path, seal_path, score_path)
     error_families: dict[str, int] = {}
@@ -152,7 +204,29 @@ def main() -> None:
         "task_sha256": _sha256(task_path.read_bytes()),
         "prediction_sha256": score["prediction_sha256"],
         "score_sha256": _sha256(score_path.read_bytes()),
-        "summary": {key: score[key] for key in ("n", "correct", "answered", "errors", "accuracy", "coverage", "selective_accuracy")},
+        "grammar_audit_sha256": _sha256(grammar_path.read_bytes()),
+        "grammar_audit": {
+            key: grammar_audit[key]
+            for key in (
+                "examples",
+                "parse_errors",
+                "clues",
+                "compiled_clues",
+                "uncompiled_clues",
+            )
+        },
+        "summary": {
+            key: score[key]
+            for key in (
+                "n",
+                "correct",
+                "answered",
+                "errors",
+                "accuracy",
+                "coverage",
+                "selective_accuracy",
+            )
+        },
         "error_families": error_families,
     }
     (OUT / "results.json").write_bytes(_canonical_json_bytes(report))
