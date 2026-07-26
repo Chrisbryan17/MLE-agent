@@ -108,3 +108,50 @@ Using the clues provided below, answer the question at the end.
 Clue 1: The person at the 2nd position is immediately to the left of Alice.
 Question: What position is Alice at?"""
     assert zebra.solve(fixed) == "3"
+
+
+def test_pure_python_csp_solves_large_grid_without_z3(monkeypatch) -> None:
+    monkeypatch.setattr(zebra, "z3", None)
+    puzzle = """There are 5 people next to each other in a row in positions 1, 2, 3, 4, 5 who have the following characteristics.
+Everyone has a different name: Alice, Bob, Cara, Diego, Eve.
+Everyone likes a different color: red, blue, green, black, white.
+Using the clues provided below, answer the question at the end.
+Clue 1: Alice is the person at the 1st position.
+Clue 2: Bob is immediately to the left of Cara.
+Clue 3: Cara is the person at the 3rd position.
+Clue 4: Diego is next to Eve.
+Clue 5: Diego is somewhere to the left of Eve.
+Clue 6: The person who likes red is Alice.
+Clue 7: The person who likes blue is Bob.
+Clue 8: The person who likes green is Cara.
+Clue 9: The person who likes black is Diego.
+Question: What position is Eve at?"""
+    assert zebra.solve(puzzle) == "5"
+
+
+def test_csp_matches_bruteforce_on_random_small_instances() -> None:
+    rng = random.Random(19)
+    problem = zebra.Problem(
+        size=4,
+        categories={
+            "name": ("A", "B", "C", "D"),
+            "color": ("red", "blue", "green", "black"),
+        },
+        clues=(),
+        question="What position is A at?",
+    )
+    values = tuple(value for category in problem.categories.values() for value in category)
+    relation_kinds = ("equal", "not_equal", "left", "next", "immediate_left")
+
+    for _ in range(80):
+        relations: list[zebra.Relation] = []
+        for _ in range(rng.randint(2, 8)):
+            left, right = rng.sample(values, 2)
+            relations.append(zebra.Relation(rng.choice(relation_kinds), (left, right)))
+        if rng.random() < 0.7:
+            entity = rng.choice(values)
+            relations.append(zebra.Relation("position", (entity,), rng.randint(1, 4)))
+        if rng.random() < 0.3:
+            relations.append(zebra.Relation("end", (rng.choice(values),)))
+
+        assert zebra._solve_csp(problem, relations) == zebra._solve_small(problem, relations)
