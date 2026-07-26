@@ -50,6 +50,20 @@ ORDINAL_WORDS = {
 RELATION_HINT_RE = re.compile(
     r"\b(?:left|right|between|next|position|end|away|before|after|adjacent)\b"
 )
+FIXED_POSITION_RE = re.compile(
+    r"the person at the (\d+)(?:st|nd|rd|th) position", re.I
+)
+FIXED_POSITION_PREFIX = "__fixed_position__"
+
+
+def _position_token(position: int) -> str:
+    return f"{FIXED_POSITION_PREFIX}{position}"
+
+
+def _fixed_position(token: str) -> int | None:
+    if token.startswith(FIXED_POSITION_PREFIX):
+        return int(token[len(FIXED_POSITION_PREFIX):])
+    return None
 
 
 def _category_key(prefix: str) -> str:
@@ -105,13 +119,21 @@ def _all_values(problem: Problem) -> tuple[str, ...]:
     return tuple(value for values in problem.categories.values() for value in values)
 
 
-def _mentions(text: str, values: Iterable[str]) -> list[str]:
+def _mentions(
+    text: str,
+    values: Iterable[str],
+    *,
+    include_positions: bool = False,
+) -> list[str]:
     lowered = text.lower()
     hits: list[tuple[int, int, str]] = []
     for value in sorted(values, key=len, reverse=True):
         pattern = r"(?<![\w-])" + re.escape(value.lower()) + r"(?![\w-])"
         for match in re.finditer(pattern, lowered):
             hits.append((match.start(), match.end(), value))
+    if include_positions:
+        for match in FIXED_POSITION_RE.finditer(text):
+            hits.append((match.start(), match.end(), _position_token(int(match.group(1)))))
     hits.sort(key=lambda item: (item[0], -(item[1] - item[0])))
     occupied: list[tuple[int, int]] = []
     result: list[str] = []
@@ -125,7 +147,7 @@ def _mentions(text: str, values: Iterable[str]) -> list[str]:
 
 def compile_clue(clue: str, all_values: Iterable[str]) -> Relation:
     low = clue.lower().strip().rstrip(".")
-    values = _mentions(clue, all_values)
+    values = _mentions(clue, all_values, include_positions=True)
     if not values:
         raise ValueError(f"no values in clue: {clue}")
 
@@ -136,17 +158,18 @@ def compile_clue(clue: str, all_values: Iterable[str]) -> Relation:
     if any(phrase in low for phrase in ("at the far right", "at the right end", "in the last position")):
         return Relation("last", (values[0],))
 
+    has_fixed_position = any(_fixed_position(value) is not None for value in values)
     word_position = re.search(
         r"(?:in|at)\s+(?:the\s+)?(" + "|".join(ORDINAL_WORDS) + r")\s+position",
         low,
     )
-    if word_position:
+    if word_position and not has_fixed_position:
         return Relation("position", (values[0],), ORDINAL_WORDS[word_position.group(1)])
     numeric_position = re.search(
         r"(?:in|at)\s+(?:the\s+)?(?:position\s+)?(\d+)(?:st|nd|rd|th)?(?:\s+position)?\b",
         low,
     )
-    if numeric_position:
+    if numeric_position and not has_fixed_position:
         return Relation("position", (values[0],), int(numeric_position.group(1)))
 
     if "immediately to the left of" in low or "directly to the left of" in low:
@@ -166,6 +189,12 @@ def compile_clue(clue: str, all_values: Iterable[str]) -> Relation:
     if "next to" in low:
         return Relation("next", (values[0], values[1]))
 
+    if has_fixed_position and len(values) >= 2:
+        if re.search(r"\b(?:is|are) not\b|\bisn't\b|\baren't\b", low):
+            return Relation("not_equal", (values[0], values[1]))
+        if re.search(r"\b(?:is|are)\b", low):
+            return Relation("equal", (values[0], values[1]))
+
     if RELATION_HINT_RE.search(low):
         raise ValueError(f"uncompiled clue: {clue}")
     if len(values) >= 2 and re.search(r"\b(?:is|are) not\b|\bisn't\b|\baren't\b", low):
@@ -177,9 +206,12 @@ def compile_clue(clue: str, all_values: Iterable[str]) -> Relation:
 
 def _relation_holds(relation: Relation, assignment: dict[str, int], size: int) -> bool:
     values = relation.values
-    if any(value not in assignment for value in values):
+    if any(_fixed_position(value) is None and value not in assignment for value in values):
         return True
-    pos = [assignment[value] for value in values]
+    pos = [
+        fixed if (fixed := _fixed_position(value)) is not None else assignment[value]
+        for value in values
+    ]
     if relation.kind == "end":
         return pos[0] in {1, size}
     if relation.kind == "position":
@@ -240,7 +272,10 @@ def _solve_small(problem: Problem, relations: list[Relation]) -> str | None:
 
 
 def _z3_expression(relation: Relation, variables: dict[str, object], size: int):
-    p = [variables[value] for value in relation.values]
+    p = [
+        z3.IntVal(fixed) if (fixed := _fixed_position(value)) is not None else variables[value]
+        for value in relation.values
+    ]
     if relation.kind == "end":
         return z3.Or(p[0] == 1, p[0] == size)
     if relation.kind == "position":
