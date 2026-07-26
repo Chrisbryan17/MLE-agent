@@ -68,6 +68,7 @@ jobs:
           name: universal-structured-residual-v1
           path: |
             research/universal_validation/artifacts/structured_residual_v1/**
+            research/universal_validation/.external/bbeh/bbeh/benchmark_tasks/bbeh_zebra_puzzles/task.json
             research/universal_validation/bbeh_zebra_exact_v1.py
             research/universal_validation/bbeh_zebra_exact_v2.py
             research/universal_validation/test_bbeh_zebra_exact_v1.py
