@@ -1,0 +1,87 @@
+name: Export BoardgameQA Source All Splits
+
+on:
+  pull_request:
+    branches:
+      - universal-exact-closeout-v4
+    paths:
+      - '.github/workflows/export-boardgame-source-all.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check --quiet huggingface-hub pandas pyarrow
+      - name: Export every pinned parquet split
+        run: |
+          mkdir -p boardgame_source_all
+          python - <<'PY'
+          import gzip
+          import hashlib
+          import json
+          from pathlib import Path
+
+          import pandas as pd
+          from huggingface_hub import HfApi, hf_hub_download
+
+          repo_id = 'tasksource/Boardgame-QA'
+          revision = 'b9c9237e7646a6730a232024c7d324278b769528'
+          api = HfApi()
+          filenames = sorted(
+              name for name in api.list_repo_files(
+                  repo_id=repo_id,
+                  repo_type='dataset',
+                  revision=revision,
+              )
+              if name.startswith('data/') and name.endswith('.parquet')
+          )
+          if not filenames:
+              raise RuntimeError('no parquet files found at pinned revision')
+
+          root = Path('boardgame_source_all')
+          metadata = {
+              'repo_id': repo_id,
+              'revision': revision,
+              'files': [],
+              'total_rows': 0,
+          }
+          combined = root / 'boardgame_qa_all.jsonl.gz'
+          with gzip.open(combined, 'wt', encoding='utf-8') as output:
+              for filename in filenames:
+                  source = Path(hf_hub_download(
+                      repo_id=repo_id,
+                      repo_type='dataset',
+                      revision=revision,
+                      filename=filename,
+                  ))
+                  frame = pd.read_parquet(source)
+                  for row in frame.to_dict(orient='records'):
+                      output.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + '\n')
+                  metadata['files'].append({
+                      'filename': filename,
+                      'rows': len(frame),
+                      'columns': list(frame.columns),
+                      'sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
+                  })
+                  metadata['total_rows'] += len(frame)
+          metadata['export_sha256'] = hashlib.sha256(combined.read_bytes()).hexdigest()
+          (root / 'metadata.json').write_text(
+              json.dumps(metadata, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          print(json.dumps(metadata, indent=2, sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: boardgame-qa-structured-source-all
+          path: boardgame_source_all/**
+          if-no-files-found: error
