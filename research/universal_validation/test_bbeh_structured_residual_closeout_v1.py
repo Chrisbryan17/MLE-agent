@@ -72,3 +72,27 @@ def test_first_score_counts_abstentions_and_exceptions_wrong(tmp_path) -> None:
     assert score["errors"] == 1
     assert score["accuracy"] == 1 / 3
     assert score["coverage"] == 1 / 3
+
+
+def test_grammar_audit_reports_uncompiled_clues_without_targets() -> None:
+    examples = [
+        {
+            "input": """There are 3 people next to each other in a row in positions 1, 2, 3 who have the following characteristics.
+Everyone has a different name: Alice, Bob, Cara.
+Using the clues provided below, answer the question at the end.
+Clue 1: Alice is immediately to the left of Bob.
+Clue 2: Alice is two spaces away from Cara.
+Question: What position is Alice at?""",
+            "target": "1",
+        }
+    ]
+
+    audit = closeout.audit_zebra_grammar(examples)
+
+    assert audit["examples"] == 1
+    assert audit["clues"] == 2
+    assert audit["compiled_clues"] == 1
+    assert audit["uncompiled_clues"] == 1
+    assert audit["errors"][0]["clue_index"] == 1
+    assert "two spaces away" in audit["errors"][0]["clue"]
+    assert all("target" not in row for row in audit["errors"])
