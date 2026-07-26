@@ -26,7 +26,7 @@ def test_prediction_artifact_excludes_targets_and_is_hash_sealed(tmp_path) -> No
     assert payload["protocol"] == "targets-hidden-during-generation"
     assert payload["rows"][0]["prediction"] == "1"
     assert payload["rows"][1]["prediction"] is None
-    assert "target" not in json.dumps(payload).lower()
+    assert all("target" not in row for row in payload["rows"])
     assert seal_path.read_text().strip() == hashlib.sha256(raw).hexdigest()
 
 
