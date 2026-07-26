@@ -37,6 +37,19 @@ NUMBER_WORDS = {
     "seven": 7,
     "eight": 8,
 }
+ORDINAL_WORDS = {
+    "first": 1,
+    "second": 2,
+    "third": 3,
+    "fourth": 4,
+    "fifth": 5,
+    "sixth": 6,
+    "seventh": 7,
+    "eighth": 8,
+}
+RELATION_HINT_RE = re.compile(
+    r"\b(?:left|right|between|next|position|end|away|before|after|adjacent)\b"
+)
 
 
 def _category_key(prefix: str) -> str:
@@ -118,18 +131,31 @@ def compile_clue(clue: str, all_values: Iterable[str]) -> Relation:
 
     if "at one of the ends" in low or "at either end" in low:
         return Relation("end", (values[0],))
-    if "at the far left" in low or "in the first position" in low:
+    if any(phrase in low for phrase in ("at the far left", "at the left end", "in the first position")):
         return Relation("position", (values[0],), 1)
-    position = re.search(r"(?:in|at) (?:the )?(\d+)(?:st|nd|rd|th)? position", low)
-    if position:
-        return Relation("position", (values[0],), int(position.group(1)))
+    if any(phrase in low for phrase in ("at the far right", "at the right end", "in the last position")):
+        return Relation("last", (values[0],))
+
+    word_position = re.search(
+        r"(?:in|at)\s+(?:the\s+)?(" + "|".join(ORDINAL_WORDS) + r")\s+position",
+        low,
+    )
+    if word_position:
+        return Relation("position", (values[0],), ORDINAL_WORDS[word_position.group(1)])
+    numeric_position = re.search(
+        r"(?:in|at)\s+(?:the\s+)?(?:position\s+)?(\d+)(?:st|nd|rd|th)?(?:\s+position)?\b",
+        low,
+    )
+    if numeric_position:
+        return Relation("position", (values[0],), int(numeric_position.group(1)))
+
     if "immediately to the left of" in low or "directly to the left of" in low:
         return Relation("immediate_left", (values[0], values[1]))
     if "immediately to the right of" in low or "directly to the right of" in low:
         return Relation("immediate_right", (values[0], values[1]))
     if "somewhere in between" in low and "in that order" in low and len(values) >= 3:
         return Relation("between_ordered", (values[0], values[1], values[2]))
-    if "immediately between" in low and len(values) >= 3:
+    if ("immediately between" in low or "directly between" in low) and len(values) >= 3:
         return Relation("between_immediate", (values[0], values[1], values[2]))
     if "somewhere to the left of" in low:
         return Relation("left", (values[0], values[1]))
@@ -139,9 +165,12 @@ def compile_clue(clue: str, all_values: Iterable[str]) -> Relation:
         return Relation("not_next", (values[0], values[1]))
     if "next to" in low:
         return Relation("next", (values[0], values[1]))
+
+    if RELATION_HINT_RE.search(low):
+        raise ValueError(f"uncompiled clue: {clue}")
     if len(values) >= 2 and re.search(r"\b(?:is|are) not\b|\bisn't\b|\baren't\b", low):
         return Relation("not_equal", (values[0], values[1]))
-    if len(values) >= 2:
+    if len(values) >= 2 and re.search(r"\b(?:is|are)\b", low):
         return Relation("equal", (values[0], values[1]))
     raise ValueError(f"uncompiled clue: {clue}")
 
@@ -155,6 +184,8 @@ def _relation_holds(relation: Relation, assignment: dict[str, int], size: int) -
         return pos[0] in {1, size}
     if relation.kind == "position":
         return pos[0] == relation.amount
+    if relation.kind == "last":
+        return pos[0] == size
     if relation.kind == "immediate_left":
         return pos[0] + 1 == pos[1]
     if relation.kind == "immediate_right":
@@ -214,6 +245,8 @@ def _z3_expression(relation: Relation, variables: dict[str, object], size: int):
         return z3.Or(p[0] == 1, p[0] == size)
     if relation.kind == "position":
         return p[0] == relation.amount
+    if relation.kind == "last":
+        return p[0] == size
     if relation.kind == "immediate_left":
         return p[0] + 1 == p[1]
     if relation.kind == "immediate_right":
