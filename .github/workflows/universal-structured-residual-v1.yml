@@ -6,6 +6,7 @@ on:
       - universal-exact-closeout-v4
     paths:
       - 'research/universal_validation/bbeh_zebra_exact_v1.py'
+      - 'research/universal_validation/bbeh_zebra_exact_v2.py'
       - 'research/universal_validation/test_bbeh_zebra_exact_v1.py'
       - 'research/universal_validation/bbeh_structured_residual_closeout_v1.py'
       - 'research/universal_validation/test_bbeh_structured_residual_closeout_v1.py'
@@ -68,6 +69,7 @@ jobs:
           path: |
             research/universal_validation/artifacts/structured_residual_v1/**
             research/universal_validation/bbeh_zebra_exact_v1.py
+            research/universal_validation/bbeh_zebra_exact_v2.py
             research/universal_validation/test_bbeh_zebra_exact_v1.py
             research/universal_validation/bbeh_structured_residual_closeout_v1.py
             research/universal_validation/test_bbeh_structured_residual_closeout_v1.py
