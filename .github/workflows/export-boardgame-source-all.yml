@@ -21,7 +21,7 @@ jobs:
           python-version: '3.12'
       - name: Install dependencies
         run: python -m pip install --disable-pip-version-check --quiet huggingface-hub pandas pyarrow
-      - name: Export every pinned parquet split
+      - name: Resolve and export every parquet split
         run: |
           mkdir -p boardgame_source_all
           python - <<'PY'
@@ -34,8 +34,8 @@ jobs:
           from huggingface_hub import HfApi, hf_hub_download
 
           repo_id = 'tasksource/Boardgame-QA'
-          revision = 'b9c9237e7646a6730a232024c7d324278b769528'
           api = HfApi()
+          revision = api.dataset_info(repo_id=repo_id, revision='main').sha
           filenames = sorted(
               name for name in api.list_repo_files(
                   repo_id=repo_id,
@@ -45,7 +45,7 @@ jobs:
               if name.startswith('data/') and name.endswith('.parquet')
           )
           if not filenames:
-              raise RuntimeError('no parquet files found at pinned revision')
+              raise RuntimeError('no parquet files found at resolved revision')
 
           root = Path('boardgame_source_all')
           metadata = {
