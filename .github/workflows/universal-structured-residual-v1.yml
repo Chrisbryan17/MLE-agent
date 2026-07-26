@@ -75,6 +75,11 @@ jobs:
           path: |
             research/universal_validation/artifacts/structured_residual_v1/**
             research/universal_validation/.external/bbeh/bbeh/benchmark_tasks/bbeh_zebra_puzzles/task.json
+            research/universal_validation/.external/bbeh/bbeh/benchmark_tasks/bbeh_boardgame_qa/task.json
+            research/universal_validation/.external/bbeh/bbeh/benchmark_tasks/bbeh_buggy_tables/task.json
+            research/universal_validation/.external/bbeh/bbeh/benchmark_tasks/bbeh_time_arithmetic/task.json
+            research/universal_validation/.external/bbeh/bbeh/benchmark_tasks/bbeh_geometric_shapes/task.json
+            research/universal_validation/.external/bbeh/bbeh/benchmark_tasks/bbeh_object_properties/task.json
             research/universal_validation/bbeh_zebra_exact_v1.py
             research/universal_validation/bbeh_zebra_exact_v2.py
             research/universal_validation/bbeh_zebra_exact_v3.py
