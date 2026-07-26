@@ -10,7 +10,7 @@ import sys
 import time
 from typing import Any, Callable, Sequence
 
-import bbeh_zebra_exact_v1 as zebra
+import bbeh_zebra_exact_v2 as zebra
 
 PINNED_BBEH_COMMIT = "80d12ca916b7158f22293fcf3144f4d3d854d4be"
 TASK_NAME = "bbeh_zebra_puzzles"
