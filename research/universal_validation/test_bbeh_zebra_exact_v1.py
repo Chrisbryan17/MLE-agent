@@ -54,3 +54,39 @@ Using the clues provided below, answer the question at the end.
 Clue 1: Alice is somewhere to the left of Cara.
 Question: What position is Alice at?"""
     assert zebra.solve(ambiguous) is None
+
+
+def test_compile_position_and_end_variants() -> None:
+    values = ("Alice", "Bob", "Cara")
+    cases = {
+        "Alice is in the second position.": zebra.Relation("position", ("Alice",), 2),
+        "Alice is in the 2nd position.": zebra.Relation("position", ("Alice",), 2),
+        "Alice is in position 2.": zebra.Relation("position", ("Alice",), 2),
+        "Alice is at position 2.": zebra.Relation("position", ("Alice",), 2),
+        "Alice is in the last position.": zebra.Relation("last", ("Alice",)),
+        "Alice is at the far right.": zebra.Relation("last", ("Alice",)),
+        "Alice is at the left end.": zebra.Relation("position", ("Alice",), 1),
+        "Alice is at the right end.": zebra.Relation("last", ("Alice",)),
+    }
+    for clue, expected in cases.items():
+        assert zebra.compile_clue(clue, values) == expected
+
+
+def test_compile_directly_between_variant() -> None:
+    relation = zebra.compile_clue(
+        "Bob is directly between Alice and Cara.",
+        ("Alice", "Bob", "Cara"),
+    )
+    assert relation == zebra.Relation("between_immediate", ("Bob", "Alice", "Cara"))
+
+
+def test_unknown_relational_language_fails_closed() -> None:
+    try:
+        zebra.compile_clue(
+            "Alice is two spaces away from Bob.",
+            ("Alice", "Bob", "Cara"),
+        )
+    except ValueError as exc:
+        assert "uncompiled clue" in str(exc).lower()
+    else:
+        raise AssertionError("unknown relation was silently compiled as equality")
