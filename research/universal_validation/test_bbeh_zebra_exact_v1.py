@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import random
 
-import bbeh_zebra_exact_v1 as zebra
+import bbeh_zebra_exact_v2 as zebra
 
 
 BASE_PUZZLE = """There are 3 people next to each other in a row in positions 1, 2, 3 who have the following characteristics.
