@@ -10,7 +10,7 @@ import sys
 import time
 from typing import Any, Callable, Sequence
 
-import bbeh_zebra_exact_v2 as zebra
+import bbeh_zebra_exact_v3 as zebra
 
 PINNED_BBEH_COMMIT = "80d12ca916b7158f22293fcf3144f4d3d854d4be"
 TASK_NAME = "bbeh_zebra_puzzles"
@@ -46,13 +46,10 @@ def audit_zebra_grammar(examples: Sequence[dict[str, Any]]) -> dict[str, Any]:
                 }
             )
             continue
-        all_values = tuple(
-            value for values in problem.categories.values() for value in values
-        )
         for clue_index, clue in enumerate(problem.clues):
             clue_count += 1
             try:
-                zebra.compile_clue(clue, all_values)
+                zebra.compile_clue_choices(clue, problem)
             except Exception as exc:
                 errors.append(
                     {
