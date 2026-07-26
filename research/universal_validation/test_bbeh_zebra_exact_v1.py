@@ -90,3 +90,21 @@ def test_unknown_relational_language_fails_closed() -> None:
         assert "uncompiled clue" in str(exc).lower()
     else:
         raise AssertionError("unknown relation was silently compiled as equality")
+
+
+def test_fixed_position_entities_compile_and_solve() -> None:
+    fixed = """There are 3 people next to each other in a row in positions 1, 2, 3 who have the following characteristics.
+Everyone has a different name: Alice, Bob, Cara.
+Using the clues provided below, answer the question at the end.
+Clue 1: Alice is the person at the 2nd position.
+Question: What position is Alice at?"""
+    assert zebra.solve(fixed) == "2"
+
+
+def test_fixed_position_can_be_left_operand() -> None:
+    fixed = """There are 3 people next to each other in a row in positions 1, 2, 3 who have the following characteristics.
+Everyone has a different name: Alice, Bob, Cara.
+Using the clues provided below, answer the question at the end.
+Clue 1: The person at the 2nd position is immediately to the left of Alice.
+Question: What position is Alice at?"""
+    assert zebra.solve(fixed) == "3"
