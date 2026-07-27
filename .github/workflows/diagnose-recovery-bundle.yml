@@ -20,5 +20,34 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           show-progress: false
-      - name: Verify recovery bundle
-        run: python research/universal_validation/checkpoints/2026-07-27/restore_dual_track_source.py
+      - name: Capture recovery diagnostics
+        id: diagnose
+        shell: bash
+        run: |
+          set +e
+          d=research/universal_validation/checkpoints/2026-07-27
+          {
+            python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          d = Path('research/universal_validation/checkpoints/2026-07-27')
+          parts = sorted(d.glob('DUAL_TRACK_RECOVERY_SOURCE.part*.b64'))
+          encoded = b''.join(p.read_bytes() for p in parts)
+          manifest = json.loads((d / 'DUAL_TRACK_RECOVERY_SOURCE_MANIFEST.json').read_text())
+          print('parts', [(p.name, p.stat().st_size) for p in parts])
+          print('actual_base64_sha256', hashlib.sha256(encoded).hexdigest())
+          print('expected_base64_sha256', manifest['base64_file_sha256'])
+          PY
+            python "$d"/restore_dual_track_source.py
+          } > recovery-diagnostic.log 2>&1
+          status=$?
+          echo "status=$status" >> recovery-diagnostic.log
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: recovery-diagnostic
+          path: recovery-diagnostic.log
+          if-no-files-found: error
+      - name: Enforce diagnosis result
+        run: test "${{ steps.diagnose.outputs.exit_code }}" = "0"
