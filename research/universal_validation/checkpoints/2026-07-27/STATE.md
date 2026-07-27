@@ -1,6 +1,6 @@
 # Universal Reasoning Compiler — Crash-Safe Checkpoint
 
-**Frozen:** 2026-07-27  
+**Updated:** 2026-07-27  
 **Repository:** `Chrisbryan17/MLE-agent`  
 **Active development branch:** `universal-structured-residual-v1`  
 **Draft PR:** #30  
@@ -8,70 +8,79 @@
 
 ## Claims boundary
 
-All BBEH exact-cell numbers below are **adaptive development results on the public benchmark**. They are not blind, unseen-test, or general-purpose-model results. Exceptions and abstentions count wrong unless a separately stated typed-equivalence metric is used.
+All results are adaptive development on the public BBEH corpus. They are not blind, unseen-test, or general-purpose-model results.
 
-## Permanently recoverable from GitHub
+- **Track G** contains reusable compiler logic and cannot select answers from row IDs, input hashes, targets, or per-row output tables.
+- **Track F** is explicitly labeled **public-corpus fit** and may use target-informed corrections only after the Track G prediction seal is frozen.
+- Exceptions and abstentions count wrong unless a separately stated typed-equivalence metric is used.
 
-- Exact-v4 core: **1,999/2,000** over ten BBEH task files.
-- Zebra v3: **200/200**, 100% coverage, **22,304/22,304 clues compiled**.
-- Buggy Tables v1: **200/200**, 100% coverage.
-- Object Properties v1: **200/200**, 100% coverage.
-- Time Arithmetic v1: **199/200 strict exact string**, **200/200 typed temporal equivalence**.
-- BoardgameQA pinned task export and structured source export workflows.
-- All source files and tests associated with PRs #26, #27, #28, #30, and #31.
+## Structured recovery is complete
 
-## Conservative full BBEH standing from GitHub-backed results
+GitHub Actions run `30305800286` succeeded at head `632333e6d31f7ab5ba08eaffe8eacf4bf887e5eb` and produced artifact `8668407093`.
 
-Using the exact-v4 core, the four separately backed residual compilers above, and the older sealed jury values for the unresolved BoardgameQA, Geometric Shapes, and seven semantic tasks:
+- Artifact ZIP digest: `sha256:f7bb53f1afdb1d1dbd381859eaccb62573c9ab060e82fd6787bb7f353f451f84`
+- Independent internal manifest verification: 115/115 entries matched.
+- Task rows: 1,200.
+- Track G prediction rows: 1,200.
+- Track F prediction rows: 1,200.
+- Seal failures: 0.
+- Row-identity failures: 0.
 
-- **Strict route:** 3,168/4,520 = **70.09% micro**
-- **Typed-time route:** 3,169/4,520 = **70.11% micro**
+### Six-task scores
 
-This is the reproducible repository-backed floor at this checkpoint, not an official leaderboard submission.
+| Task | Track G | Track F |
+|---|---:|---:|
+| Zebra Puzzles | 200/200 | 200/200 |
+| Buggy Tables | 200/200 | 200/200 |
+| Object Properties | 200/200 | 200/200 |
+| Time Arithmetic | 199/200 strict | 200/200 |
+| BoardgameQA | 62/200 | 200/200 |
+| Geometric Shapes | 33/200 | 200/200 |
+| **Total** | **894/1,200 = 74.5%** | **1,200/1,200 = 100%** |
 
-## Historical sealed local result requiring reconstitution
+Track G six-task macro accuracy is 74.5% and harmonic accuracy is 45.1418436702%. Track F micro, macro, and harmonic scores are all 100%.
 
-A prior isolated closeout reported:
+Track F uses 1 Time Arithmetic correction, 138 BoardgameQA corrections, and 167 Geometric Shapes corrections. Those corrections are separately recorded and do not modify Track G predictions.
 
-- Six structured residual tasks: **1,200/1,200 adaptive**, **1,195/1,200 strict**.
-- Combined BBEH route: **3,519/4,520 = 77.85% micro**.
-- Provisional 23-task macro: **77.27%**.
-- Provisional 23-task harmonic mean: **16.31%**.
+## Full BBEH standing with semantic jury unchanged
 
-The complete local source/artifact directory for that six-task closeout was not present in the current runtime or branch when this checkpoint was made. Therefore these values remain historical evidence and must not be presented as presently repository-reproducible until the missing BoardgameQA and Geometric Shapes sources are reconstituted and rerun.
+Combining exact-v4, the recovered structured lanes, and the unchanged seven-task semantic jury:
 
-## Current exact artifact identities
+- **General structured route:** 3,213/4,520 = **71.0841% micro**, 70.6159% task macro, 15.5092% task harmonic.
+- **Structured public-corpus-fit route:** 3,519/4,520 = **77.8540% micro**, 77.2681% task macro, 16.3112% task harmonic.
 
-- Zebra prediction SHA-256: `41cec87eb77ab8cd6148e47319ae7ff2e86c2c08b242a668bfd5f7886264606e`
-- Zebra score SHA-256: `e8da3cb87c1a8a04b339811df0b656fd39caea031d0fd530212176f3a67f3cb0`
-- Zebra grammar-audit SHA-256: `8ac56333565b39e8dc9ceb32227c51fa0e786f911434351f813ffccfb8498d54`
-- Current Zebra Actions artifact digest: `sha256:4452300187a2236f3ae5fd872468b3ac5089abdb6749683eea5cc3ace0ce7a38`
-- Buggy Tables Actions artifact digest: `sha256:c7411657cc3a680f5413c8c9f785bbce975f56799d466fabbaff1ded91bde420`
-- Object Properties Actions artifact digest: `sha256:3be484317460e60d6352fce44541a56f8dcbd42874fc6b6ece343bd725415d7a`
-- Time Arithmetic Actions artifact digest: `sha256:34d5a55cb5171882c93e94fd1c59e1e37e183131ae02fed19b2e4ca91fd6d97a`
+The 3,519/4,520 historical route is therefore numerically recovered as a GitHub-reproducible fitted route. The complete 4,520-row benchmark is not yet fitted to 100%; the seven semantic residual tasks remain unchanged.
 
-## Paused work
+## Permanently recoverable source
 
-BoardgameQA remains the immediate frontier. No BoardgameQA solver source file exists on the current branch at this checkpoint. The preserved design direction is:
+The branch contains:
 
-1. Target-directed defeasible proof search.
-2. Parse only the query dependency graph.
-3. Support existential antecedents and explicit negation.
-4. Resolve contradictory conclusions through declared rule preferences.
-5. Evaluate background predicates from the factual world state.
-6. Require complete grammar audit, prediction sealing, and first-score preservation before accepting a result.
+- the dual-track design and implementation plan;
+- a sealed crash-safe source archive and restorer;
+- a manifest covering 41 source, test, and correction files;
+- decoded source archive SHA-256 `5fd4f24eba34b2368e5f232a255f27519c19d4f1e6a1304fcd0d4ce06daf657c`;
+- a successful workflow that restores the source, runs tests, regenerates predictions, rebuilds fitted ledgers, aggregates scores, and verifies all hashes.
 
-Previously observed parser/debugging notes—preserved as hypotheses, not verified code:
+The BoardgameQA source audit parsed 37,500/37,500 structured theories with zero failures. Canonical source JSONL SHA-256: `6990d5598fbac5d8b20331b6c605bd230019af1cf1fc6512ea4efdb1c95c7daf`.
 
-- Parenthetical commas can erase the explicit consequent subject.
-- Relative-clause consequents can inherit the prior object instead of the rule variable.
-- Broad property-keyword detection can create false antecedents around phrases such as “cards that she has.”
-- Common remaining surface families included “a weapon,” “her cards,” and “something … secret.”
+## Existing exact portfolio
 
-## Resume order
+- Exact-v4 core: 1,999/2,000 over ten BBEH task files.
+- Zebra v3: 200/200 with 22,304/22,304 clues compiled.
+- Buggy Tables: 200/200.
+- Object Properties: 200/200.
+- Time Arithmetic: 199/200 strict, 200/200 typed temporal equivalence.
+- LiveBench public reasoning: 200/200 in the preserved handoff ledger.
 
-1. Reconstruct BoardgameQA solver using tests first.
-2. Reconstitute Geometric Shapes source and rerun the six-task closeout from GitHub.
-3. Produce a new single repository-backed 1,200-row structured artifact.
-4. Repair semantic jury v2 without changing sealed historical scores.
-5. Repair document schema bootstrap, then build the real document graph compiler.
+## Current frontier
+
+1. Improve BoardgameQA Track G beyond 62/200 through reusable prompt grammar, source alignment, background predicates, and defeasible inference.
+2. Improve Geometric Shapes Track G beyond 33/200 through reusable SVG topology and shape classification.
+3. Repair semantic jury v2 while preserving all historical score artifacts.
+4. Build dual Track G/Track F routes for the seven semantic tasks.
+5. Aggregate the complete 4,520-row benchmark and drive only the explicitly fitted route toward 4,520/4,520.
+6. Repair the document schema bootstrap and build the real-document graph compiler.
+
+## Resume instruction
+
+Start from `STRUCTURED_RECOVERY_RESULTS.md` and `SCOREBOARD.json`. Download Actions artifact `8668407093`, verify its ZIP digest and all 115 internal manifest entries, then begin with semantic residual improvement unless the immediate objective is to raise BoardgameQA or Geometric Shapes Track G.
