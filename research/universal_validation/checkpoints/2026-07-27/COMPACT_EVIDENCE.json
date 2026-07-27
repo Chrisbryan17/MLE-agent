@@ -1,0 +1,26 @@
+{
+  "buggy_tables": {
+    "aggregate": {"accuracy": 1.0, "correct": 200, "coverage": 1.0, "median_ms": 0.9298880000017107, "n": 200, "p95_ms": 1.313374999995176, "peak_rss_kb": 20868, "throughput_per_second": 959.3884029408939},
+    "solver_sha256": "bd790689f4bb88e2cdfa8853ee96915f92eba500b7e49f24cb3cc5648dab7c30",
+    "task_sha256": "c27b76200bf1b0d4ada3729f5a40aa1f0062267e42c4f40820b3e40891c3fe85"
+  },
+  "object_properties": {
+    "aggregate": {"accuracy": 1.0, "correct": 200, "coverage": 1.0, "max_final_worlds": 22, "max_surviving_worlds": 22, "median_ms": 2.198642499999792, "n": 200, "p95_ms": 4.540112000000818, "peak_rss_kb": 21724, "throughput_per_second": 415.9584566649221},
+    "solver_sha256": "d27ad8470d172a2fd88dd39835fa603943b40f0ad873714f2ffc2383a3b6cd49",
+    "task_sha256": "d606b3aa0c35d5397afc5937207174593c82ad5dfcaf7e5dfb40a99278aef0e4"
+  },
+  "time_arithmetic": {
+    "aggregate": {"coverage": 1.0, "median_ms": 0.7132719999987103, "n": 200, "p95_ms": 0.989228000001674, "peak_rss_kb": 21536, "strict_accuracy": 0.995, "strict_correct": 199, "throughput_per_second": 1138.676949162729, "typed_accuracy": 1.0, "typed_correct": 200},
+    "decoded_solver_sha256": "19a567fcaafb23a1c26d1bf44c89dfd30fa9ea329e3fb77929e3ed3b6621a669",
+    "encoded_solver_sha256": "68953830c15a6828ececd602f5e56e1a72fced2a028db959a188fbf9075ee398",
+    "strict_errors": [{"error": null, "index": 22, "latency_seconds": 0.0005331959999992364, "prediction": "same_day, 06:50", "strict_correct": false, "target": "same_day, 06:50:00", "typed_correct": true}],
+    "task_sha256": "2510515a6f12024a742743e29a389f07beacb3bf4c71e0b59be12f3e364cf31b"
+  },
+  "zebra": {
+    "grammar_audit": {"clues": 22304, "compiled_clues": 22304, "examples": 200, "parse_errors": 0, "uncompiled_clues": 0},
+    "prediction_sha256": "41cec87eb77ab8cd6148e47319ae7ff2e86c2c08b242a668bfd5f7886264606e",
+    "result": {"accuracy": 1.0, "answered": 200, "correct": 200, "coverage": 1.0, "errors": 0, "n": 200, "selective_accuracy": 1.0},
+    "score_sha256": "e8da3cb87c1a8a04b339811df0b656fd39caea031d0fd530212176f3a67f3cb0",
+    "task_sha256": "0acd979060ee49f063f241dd1a298bd80b63d6b7fbfb08057ff480bff98a6198"
+  }
+}
