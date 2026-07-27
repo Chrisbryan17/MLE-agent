@@ -36,16 +36,6 @@ jobs:
       - name: Restore crash-safe recovery source when materialized files are absent
         run: |
           if [ ! -f research/universal_validation/bbeh_boardgame_general_v1.py ]; then
-            set -euxo pipefail
-            ls -l research/universal_validation/checkpoints/2026-07-27/DUAL_TRACK_RECOVERY_SOURCE.part*.b64
-            wc -c research/universal_validation/checkpoints/2026-07-27/DUAL_TRACK_RECOVERY_SOURCE.part*.b64
-            cat research/universal_validation/checkpoints/2026-07-27/DUAL_TRACK_RECOVERY_SOURCE.part*.b64 | sha256sum
-            python - <<'PY'
-            import json
-            from pathlib import Path
-            p = Path('research/universal_validation/checkpoints/2026-07-27/DUAL_TRACK_RECOVERY_SOURCE_MANIFEST.json')
-            print(json.loads(p.read_text())['base64_file_sha256'])
-            PY
             python research/universal_validation/checkpoints/2026-07-27/restore_dual_track_source.py
           fi
       - name: Fetch pinned BBEH corpus
