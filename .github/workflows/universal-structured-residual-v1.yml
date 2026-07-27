@@ -1,0 +1,143 @@
+name: Universal Structured Residual V1
+
+on:
+  pull_request:
+    branches:
+      - universal-exact-closeout-v4
+    paths:
+      - 'research/universal_validation/bbeh_zebra_exact_v1.py'
+      - 'research/universal_validation/bbeh_zebra_exact_v2.py'
+      - 'research/universal_validation/bbeh_zebra_exact_v3.py'
+      - 'research/universal_validation/test_bbeh_zebra_exact_v1.py'
+      - 'research/universal_validation/test_bbeh_zebra_exact_v3.py'
+      - 'research/universal_validation/bbeh_structured_residual_closeout_v1.py'
+      - 'research/universal_validation/test_bbeh_structured_residual_closeout_v1.py'
+      - '.github/workflows/universal-structured-residual-v1.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: universal-structured-residual-v1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check --quiet pytest z3-solver
+      - name: Run unit, protocol, and metamorphic tests
+        working-directory: research/universal_validation
+        run: |
+          pytest -q \
+            test_bbeh_zebra_exact_v1.py \
+            test_bbeh_zebra_exact_v3.py \
+            test_bbeh_structured_residual_closeout_v1.py
+      - name: Fetch pinned BBEH
+        run: |
+          mkdir -p research/universal_validation/.external
+          git clone https://github.com/google-deepmind/bbeh.git research/universal_validation/.external/bbeh
+          git -C research/universal_validation/.external/bbeh checkout 80d12ca916b7158f22293fcf3144f4d3d854d4be
+      - name: Evaluate full BBEH zebra task
+        working-directory: research/universal_validation
+        env:
+          BBEH_TASK_ROOT: .external/bbeh/bbeh/benchmark_tasks
+        run: |
+          mkdir -p artifacts/structured_residual_v1
+          python bbeh_structured_residual_closeout_v1.py 2>&1 | tee artifacts/structured_residual_v1/run.log
+      - name: Seal artifact hashes
+        if: always()
+        working-directory: research/universal_validation
+        run: |
+          python - <<'PY'
+          import hashlib, json, pathlib
+          root = pathlib.Path('artifacts/structured_residual_v1')
+          root.mkdir(parents=True, exist_ok=True)
+          payload = {
+              str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest()
+              for path in root.rglob('*') if path.is_file() and path.name != 'SHA256.json'
+          }
+          (root / 'SHA256.json').write_text(json.dumps(payload, indent=2, sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: universal-structured-residual-v1
+          path: |
+            research/universal_validation/artifacts/structured_residual_v1/**
+            research/universal_validation/.external/bbeh/bbeh/benchmark_tasks/bbeh_zebra_puzzles/task.json
+            research/universal_validation/.external/bbeh/bbeh/benchmark_tasks/bbeh_boardgame_qa/task.json
+            research/universal_validation/.external/bbeh/bbeh/benchmark_tasks/bbeh_buggy_tables/task.json
+            research/universal_validation/.external/bbeh/bbeh/benchmark_tasks/bbeh_time_arithmetic/task.json
+            research/universal_validation/.external/bbeh/bbeh/benchmark_tasks/bbeh_geometric_shapes/task.json
+            research/universal_validation/.external/bbeh/bbeh/benchmark_tasks/bbeh_object_properties/task.json
+            research/universal_validation/bbeh_zebra_exact_v1.py
+            research/universal_validation/bbeh_zebra_exact_v2.py
+            research/universal_validation/bbeh_zebra_exact_v3.py
+            research/universal_validation/test_bbeh_zebra_exact_v1.py
+            research/universal_validation/test_bbeh_zebra_exact_v3.py
+            research/universal_validation/bbeh_structured_residual_closeout_v1.py
+            research/universal_validation/test_bbeh_structured_residual_closeout_v1.py
+          if-no-files-found: warn
+
+  export-boardgame-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install source-export dependencies
+        run: python -m pip install --disable-pip-version-check --quiet huggingface-hub pandas pyarrow
+      - name: Download and seal structured BoardgameQA source
+        run: |
+          mkdir -p boardgame_source
+          python - <<'PY'
+          import gzip
+          import hashlib
+          import json
+          from pathlib import Path
+          import pandas as pd
+          from huggingface_hub import hf_hub_download
+
+          revision = 'b9c9237e7646a6730a232024c7d324278b769528'
+          filename = 'data/test-00000-of-00001-be86a421cd54a34b.parquet'
+          source = Path(hf_hub_download(
+              repo_id='tasksource/Boardgame-QA',
+              repo_type='dataset',
+              revision=revision,
+              filename=filename,
+          ))
+          frame = pd.read_parquet(source)
+          output = Path('boardgame_source/boardgame_qa_test.jsonl.gz')
+          with gzip.open(output, 'wt', encoding='utf-8') as handle:
+              for row in frame.to_dict(orient='records'):
+                  handle.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + '\n')
+          metadata = {
+              'repo_id': 'tasksource/Boardgame-QA',
+              'revision': revision,
+              'filename': filename,
+              'rows': len(frame),
+              'columns': list(frame.columns),
+              'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
+              'export_sha256': hashlib.sha256(output.read_bytes()).hexdigest(),
+          }
+          Path('boardgame_source/metadata.json').write_text(
+              json.dumps(metadata, indent=2, sort_keys=True) + '\n', encoding='utf-8'
+          )
+          print(json.dumps(metadata, indent=2, sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: boardgame-qa-structured-source
+          path: boardgame_source/**
+          if-no-files-found: error
