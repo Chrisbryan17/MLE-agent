@@ -1,0 +1,45 @@
+name: Export Pinned BBEH BoardgameQA Task
+
+on:
+  push:
+    branches:
+      - universal-structured-residual-v1
+    paths:
+      - '.github/workflows/export-bbeh-boardgame-task.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-structured-residual-v1
+      - name: Fetch pinned BBEH
+        run: |
+          git clone https://github.com/google-deepmind/bbeh.git .external/bbeh
+          git -C .external/bbeh checkout 80d12ca916b7158f22293fcf3144f4d3d854d4be
+      - name: Copy task and metadata
+        run: |
+          mkdir -p export
+          cp .external/bbeh/bbeh/benchmark_tasks/bbeh_boardgame_qa/task.json export/task.json
+          python - <<'PY'
+          import hashlib, json, pathlib
+          p = pathlib.Path('export/task.json')
+          data = json.loads(p.read_text())
+          meta = {
+              'pinned_bbeh_commit': '80d12ca916b7158f22293fcf3144f4d3d854d4be',
+              'rows': len(data['examples']),
+              'sha256': hashlib.sha256(p.read_bytes()).hexdigest(),
+          }
+          pathlib.Path('export/metadata.json').write_text(json.dumps(meta, indent=2, sort_keys=True) + '\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pinned-bbeh-boardgame-task
+          path: export/**
+          if-no-files-found: error
