@@ -1,0 +1,20 @@
+{
+  "checkpoint_date": "2026-07-27",
+  "repository": "Chrisbryan17/MLE-agent",
+  "branch": "universal-structured-residual-v1",
+  "pull_request": 30,
+  "checkpoint_commits": [
+    "9efafb342bbdccf3d478fab47ca41e0b9556c432",
+    "69300351d46670560f587e3d305c44003ad8b75f",
+    "4d4c5541dc3f75fd1de4005348e27ccf2650c388",
+    "4dd4a180bd437b6b239f00307c849800a708ba90"
+  ],
+  "actions_artifact_digests": {
+    "zebra_v3": "sha256:4452300187a2236f3ae5fd872468b3ac5089abdb6749683eea5cc3ace0ce7a38",
+    "buggy_tables_v1": "sha256:c7411657cc3a680f5413c8c9f785bbce975f56799d466fabbaff1ded91bde420",
+    "object_properties_v1": "sha256:3be484317460e60d6352fce44541a56f8dcbd42874fc6b6ece343bd725415d7a",
+    "time_arithmetic_v1": "sha256:34d5a55cb5171882c93e94fd1c59e1e37e183131ae02fed19b2e4ca91fd6d97a",
+    "boardgame_source_all": "sha256:7ee4bc3129194afd8787ab3b5dfed95701e6ef75a31351f2f57eeaf8070ee486",
+    "pinned_boardgame_task": "sha256:5e14c3ac30036f2722e2d280adbe7d7a176bb4bbba72075d7344065116a951be"
+  }
+}
