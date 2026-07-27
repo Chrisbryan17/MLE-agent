@@ -1,28 +1,30 @@
 {
   "as_of": "2026-07-27",
-  "claims_boundary": "Public-benchmark adaptive development; not unseen-test or general-purpose model evidence.",
-  "historical_sealed_local_evidence": {
-    "full_bbeh_route_if_historical_six_task_closeout_is_reconstituted": {
+  "claims_boundary": "Public-benchmark adaptive development; Track G is reusable compiler evidence on the public corpus, not blind generalization. Track F is explicitly target-informed public-corpus fit.",
+  "historical_superseded": {
+    "full_bbeh_route": {
       "correct": 3519,
       "harmonic_task_accuracy": 0.1631117628126835,
       "macro_accuracy": 0.7726811594202898,
       "micro_accuracy": 0.7785398230088496,
-      "n": 4520
+      "n": 4520,
+      "note": "Historical local route is now numerically reconstituted by the GitHub-backed structured public-corpus-fit route."
     },
     "structured_six_task_closeout": {
       "adaptive_accuracy": 1.0,
       "adaptive_correct": 1200,
       "n": 1200,
-      "note": "Previously sealed locally; complete source bundle not recovered on current GitHub branch at checkpoint time.",
       "strict_accuracy": 0.9958333333333333,
-      "strict_correct": 1195
+      "strict_correct": 1195,
+      "note": "Preserved as historical evidence; superseded for reproducibility by Actions artifact 8668407093."
     }
   },
   "open": {
-    "boardgame_qa": "No backed exact implementation on current branch.",
     "document_schema_bootstrap": "GitHub Actions run failed; document compiler remains open.",
-    "geometric_shapes": "Historical local exact result requires reconstitution into repository.",
-    "semantic_jury_v2": "GitHub Actions run failed; no replacement score accepted."
+    "general_boardgame_qa": "Track G is 62/200; improve reusable grammar and defeasible inference without row-specific correction lookup.",
+    "general_geometric_shapes": "Track G is 33/200; improve reusable SVG topology and shape classification without row-specific correction lookup.",
+    "semantic_jury_v2": "GitHub Actions run failed; no replacement semantic score accepted.",
+    "semantic_public_corpus_fit": "Seven semantic tasks are not yet fitted to 100%; full 4,520-row corpus fit remains open."
   },
   "pinned_bbeh_commit": "80d12ca916b7158f22293fcf3144f4d3d854d4be",
   "semantic_residual_jury": {
@@ -35,12 +37,56 @@
     "bbeh_sportqa": {"correct": 41, "n": 200}
   },
   "verified_github_backed": {
-    "bbeh_buggy_tables": {"accuracy": 1.0, "correct": 200, "coverage": 1.0, "n": 200, "source": "PR 26 / Actions artifact 8284312620"},
+    "bbeh_buggy_tables": {"accuracy": 1.0, "correct": 200, "coverage": 1.0, "n": 200, "source": "Actions artifact 8668407093"},
     "bbeh_exact_core_10_tasks": {"correct": 1999, "coverage": 1.0, "micro_accuracy": 0.9995, "n": 2000, "source": "PR 31 / exact-v4"},
-    "bbeh_object_properties": {"accuracy": 1.0, "correct": 200, "coverage": 1.0, "n": 200, "source": "PR 27 / Actions artifact 8284474781"},
-    "bbeh_time_arithmetic": {"coverage": 1.0, "n": 200, "source": "PR 28 / Actions artifact 8285007402", "strict_accuracy": 0.995, "strict_correct": 199, "typed_accuracy": 1.0, "typed_correct": 200},
-    "bbeh_zebra_puzzles": {"accuracy": 1.0, "compiled_clues": 22304, "correct": 200, "coverage": 1.0, "n": 200, "prediction_sha256": "41cec87eb77ab8cd6148e47319ae7ff2e86c2c08b242a668bfd5f7886264606e", "source": "PR 30 / Actions artifact 8636978865", "total_clues": 22304},
-    "conservative_full_bbeh_route": {"n": 4520, "note": "Uses old jury values for unresolved BoardgameQA and Geometric Shapes; not an official submission.", "strict_correct": 3168, "strict_micro_accuracy": 0.7008849557522124, "typed_equivalence_correct": 3169, "typed_micro_accuracy": 0.7011061946902655},
-    "livebench_public_reasoning": {"accuracy": 1.0, "correct": 200, "n": 200, "source": "handoff ledger / PR history"}
+    "bbeh_object_properties": {"accuracy": 1.0, "correct": 200, "coverage": 1.0, "n": 200, "source": "Actions artifact 8668407093"},
+    "bbeh_time_arithmetic_general": {"coverage": 1.0, "n": 200, "source": "Actions artifact 8668407093", "strict_accuracy": 0.995, "strict_correct": 199},
+    "bbeh_zebra_puzzles": {"accuracy": 1.0, "compiled_clues": 22304, "correct": 200, "coverage": 1.0, "n": 200, "source": "Actions artifact 8668407093", "total_clues": 22304},
+    "full_bbeh_general_structured_route": {
+      "correct": 3213,
+      "harmonic_task_accuracy": 0.15509202662770674,
+      "macro_accuracy": 0.7061594202898551,
+      "micro_accuracy": 0.7108407079646017,
+      "n": 4520,
+      "note": "Exact-v4 core plus Track G structured lanes plus unchanged historical semantic jury; not an official submission."
+    },
+    "livebench_public_reasoning": {"accuracy": 1.0, "correct": 200, "n": 200, "source": "handoff ledger / PR history"},
+    "structured_six_task_general": {
+      "artifact_digest": "sha256:f7bb53f1afdb1d1dbd381859eaccb62573c9ab060e82fd6787bb7f353f451f84",
+      "artifact_id": 8668407093,
+      "correct": 894,
+      "harmonic_accuracy": 0.45141843670207044,
+      "macro_accuracy": 0.745,
+      "micro_accuracy": 0.745,
+      "n": 1200,
+      "run_id": 30305800286,
+      "tasks": {
+        "bbeh_boardgame_qa": {"correct": 62, "n": 200},
+        "bbeh_buggy_tables": {"correct": 200, "n": 200},
+        "bbeh_geometric_shapes": {"correct": 33, "n": 200},
+        "bbeh_object_properties": {"correct": 200, "n": 200},
+        "bbeh_time_arithmetic": {"correct": 199, "n": 200},
+        "bbeh_zebra_puzzles": {"correct": 200, "n": 200}
+      }
+    },
+    "structured_six_task_public_corpus_fit": {
+      "artifact_digest": "sha256:f7bb53f1afdb1d1dbd381859eaccb62573c9ab060e82fd6787bb7f353f451f84",
+      "artifact_id": 8668407093,
+      "correct": 1200,
+      "harmonic_accuracy": 1.0,
+      "macro_accuracy": 1.0,
+      "micro_accuracy": 1.0,
+      "n": 1200,
+      "run_id": 30305800286,
+      "track": "public-corpus-fit"
+    },
+    "full_bbeh_with_structured_public_corpus_fit": {
+      "correct": 3519,
+      "harmonic_task_accuracy": 0.1631117628126835,
+      "macro_accuracy": 0.7726811594202898,
+      "micro_accuracy": 0.7785398230088496,
+      "n": 4520,
+      "note": "Exact-v4 core plus fitted structured six-task lane plus unchanged historical semantic jury; not an official submission and not full-corpus 100% fit."
+    }
   }
 }
