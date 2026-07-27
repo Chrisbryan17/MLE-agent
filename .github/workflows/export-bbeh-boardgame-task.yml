@@ -1,6 +1,11 @@
 name: Export Pinned BBEH BoardgameQA Task
 
 on:
+  pull_request:
+    branches:
+      - universal-exact-closeout-v4
+    paths:
+      - '.github/workflows/export-bbeh-boardgame-task.yml'
   push:
     branches:
       - universal-structured-residual-v1
