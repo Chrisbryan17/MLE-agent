@@ -1,5 +1,10 @@
 name: Diagnose Recovery Bundle
 on:
+  pull_request:
+    branches: [universal-exact-closeout-v4]
+    paths:
+      - 'research/universal_validation/checkpoints/2026-07-27/**'
+      - '.github/workflows/diagnose-recovery-bundle.yml'
   push:
     branches: [universal-structured-residual-v1]
     paths:
@@ -12,5 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          show-progress: false
       - name: Verify recovery bundle
         run: python research/universal_validation/checkpoints/2026-07-27/restore_dual_track_source.py
