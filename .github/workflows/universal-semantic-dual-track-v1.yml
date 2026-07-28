@@ -1,0 +1,186 @@
+name: Universal Semantic Dual-Track V1
+
+on:
+  pull_request:
+    branches: [universal-exact-closeout-v4]
+    paths:
+      - 'research/universal_validation/semantic_dual_track_v1.py'
+      - 'research/universal_validation/full_bbeh_dual_track_closeout_v1.py'
+      - 'research/universal_validation/test_semantic_dual_track_v1.py'
+      - 'research/universal_validation/test_full_bbeh_dual_track_closeout_v1.py'
+      - 'research/universal_validation/restore_legacy_semantic_predictions.py'
+      - 'research/universal_validation/data/legacy_semantic_predictions.json.gz.b64'
+      - '.github/workflows/universal-semantic-dual-track-v1.yml'
+  push:
+    branches: [universal-semantic-dual-track-v1]
+  workflow_dispatch:
+
+concurrency:
+  group: universal-semantic-dual-track-v1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  reproduce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned runtime dependencies
+        run: python -m pip install --disable-pip-version-check --quiet pytest z3-solver
+      - name: Restore committed structured and semantic sources
+        run: |
+          python research/universal_validation/checkpoints/2026-07-27/restore_dual_track_source.py
+          python research/universal_validation/restore_legacy_semantic_predictions.py
+      - name: Fetch pinned BBEH corpus
+        run: |
+          rm -rf .external/bbeh
+          mkdir -p .external
+          git clone https://github.com/google-deepmind/bbeh.git .external/bbeh
+          git -C .external/bbeh checkout 80d12ca916b7158f22293fcf3144f4d3d854d4be
+          test "$(git -C .external/bbeh rev-parse HEAD)" = "80d12ca916b7158f22293fcf3144f4d3d854d4be"
+      - name: Prepare exact semantic task bytes
+        working-directory: research/universal_validation
+        run: |
+          rm -rf tasks
+          mkdir -p tasks
+          for task in \
+            bbeh_causal_understanding \
+            bbeh_disambiguation_qa \
+            bbeh_linguini \
+            bbeh_movie_recommendation \
+            bbeh_nycc \
+            bbeh_sarc_triples \
+            bbeh_sportqa
+          do
+            cp "../../.external/bbeh/bbeh/benchmark_tasks/${task}/task.json" "tasks/${task}.json"
+          done
+      - name: Run semantic and full-closeout tests
+        working-directory: research/universal_validation
+        run: pytest -q test_semantic_dual_track_v1.py test_full_bbeh_dual_track_closeout_v1.py
+      - name: Run exact-v4 core
+        working-directory: research/universal_validation
+        env:
+          BBEH_TASK_ROOT: ../../.external/bbeh/bbeh/benchmark_tasks
+        run: |
+          rm -rf artifacts/exact_closeout_v4
+          python bbeh_exact_closeout_v4.py
+      - name: Reproduce six structured lanes
+        working-directory: research/universal_validation
+        run: |
+          rm -rf artifacts/structured_residual_v1 artifacts/buggy_general_v1 artifacts/object_general_v1 artifacts/time_general_v1 artifacts/boardgame_general_v1 artifacts/geometric_general_v1
+          BBEH_TASK_ROOT=../../.external/bbeh/bbeh/benchmark_tasks python bbeh_structured_residual_closeout_v1.py
+          python bbeh_buggy_tables_general_v1.py --task ../../.external/bbeh/bbeh/benchmark_tasks/bbeh_buggy_tables/task.json --out artifacts/buggy_general_v1 --phase all
+          python bbeh_object_properties_general_v1.py --task ../../.external/bbeh/bbeh/benchmark_tasks/bbeh_object_properties/task.json --out artifacts/object_general_v1 --phase all
+          python bbeh_time_general_v1.py --task ../../.external/bbeh/bbeh/benchmark_tasks/bbeh_time_arithmetic/task.json --out artifacts/time_general_v1 --phase all
+          python bbeh_boardgame_general_v1.py --task ../../.external/bbeh/bbeh/benchmark_tasks/bbeh_boardgame_qa/task.json --out artifacts/boardgame_general_v1 --phase all
+          python bbeh_geometric_general_v1.py --task ../../.external/bbeh/bbeh/benchmark_tasks/bbeh_geometric_shapes/task.json --out artifacts/geometric_general_v1 --phase all
+          rm -rf artifacts/time_fit_v1 artifacts/boardgame_fit_v1 artifacts/geometric_fit_v1 artifacts/semantic_ci_corrections
+          mkdir -p artifacts/semantic_ci_corrections
+          python bbeh_time_fit_v1.py --task ../../.external/bbeh/bbeh/benchmark_tasks/bbeh_time_arithmetic/task.json --general artifacts/time_general_v1/predictions.json --corrections artifacts/semantic_ci_corrections/time_fit_v1_corrections.json --out artifacts/time_fit_v1 --build-corrections
+          python bbeh_boardgame_fit_v1.py --task ../../.external/bbeh/bbeh/benchmark_tasks/bbeh_boardgame_qa/task.json --general artifacts/boardgame_general_v1/predictions.json --corrections artifacts/semantic_ci_corrections/boardgame_fit_v1_corrections.json --out artifacts/boardgame_fit_v1 --build-corrections
+          python bbeh_geometric_fit_v1.py --task ../../.external/bbeh/bbeh/benchmark_tasks/bbeh_geometric_shapes/task.json --general artifacts/geometric_general_v1/predictions.json --corrections artifacts/semantic_ci_corrections/geometric_fit_v1_corrections.json --out artifacts/geometric_fit_v1 --build-corrections
+          rm -rf artifacts/structured_six_task_closeout_v2
+          python bbeh_structured_six_task_closeout_v2.py \
+            --zebra-score artifacts/structured_residual_v1/first_score.json \
+            --buggy-result artifacts/buggy_general_v1/first_score.json \
+            --object-result artifacts/object_general_v1/first_score.json \
+            --time-general-score artifacts/time_general_v1/first_score.json \
+            --time-fit-score artifacts/time_fit_v1/first_score.json \
+            --boardgame-general-score artifacts/boardgame_general_v1/first_score.json \
+            --boardgame-fit-score artifacts/boardgame_fit_v1/first_score.json \
+            --geometric-general-score artifacts/geometric_general_v1/first_score.json \
+            --geometric-fit-score artifacts/geometric_fit_v1/first_score.json \
+            --output-dir artifacts/structured_six_task_closeout_v2
+      - name: Reproduce semantic general and fitted lanes
+        working-directory: research/universal_validation
+        run: |
+          rm -rf artifacts/semantic_dual_track_v1
+          python semantic_dual_track_v1.py \
+            --task-root tasks \
+            --legacy-bundle data/legacy_semantic_predictions.json \
+            --out artifacts/semantic_dual_track_v1
+      - name: Aggregate and fit all 4,520 rows
+        working-directory: research/universal_validation
+        run: |
+          rm -rf artifacts/full_bbeh_dual_track_v1
+          python full_bbeh_dual_track_closeout_v1.py \
+            --exact-results artifacts/exact_closeout_v4/results.json \
+            --structured-results artifacts/structured_six_task_closeout_v2/results.json \
+            --semantic-results artifacts/semantic_dual_track_v1/results.json \
+            --task-root ../../.external/bbeh/bbeh/benchmark_tasks \
+            --out artifacts/full_bbeh_dual_track_v1
+      - name: Build and verify final evidence package
+        working-directory: research/universal_validation
+        run: |
+          rm -rf artifacts/universal_full_bbeh_dual_track_v1
+          mkdir -p artifacts/universal_full_bbeh_dual_track_v1/{exact,structured,semantic,full,source}
+          cp -a artifacts/exact_closeout_v4/. artifacts/universal_full_bbeh_dual_track_v1/exact/
+          cp -a artifacts/structured_six_task_closeout_v2/. artifacts/universal_full_bbeh_dual_track_v1/structured/
+          cp -a artifacts/semantic_dual_track_v1/. artifacts/universal_full_bbeh_dual_track_v1/semantic/
+          cp -a artifacts/full_bbeh_dual_track_v1/. artifacts/universal_full_bbeh_dual_track_v1/full/
+          cp semantic_dual_track_v1.py full_bbeh_dual_track_closeout_v1.py test_semantic_dual_track_v1.py test_full_bbeh_dual_track_closeout_v1.py restore_legacy_semantic_predictions.py artifacts/universal_full_bbeh_dual_track_v1/source/
+          cp data/legacy_semantic_predictions.json.gz.b64 artifacts/universal_full_bbeh_dual_track_v1/source/
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root = Path('artifacts/universal_full_bbeh_dual_track_v1')
+          exact = json.loads((root / 'exact/results.json').read_text())
+          structured = json.loads((root / 'structured/results.json').read_text())
+          semantic = json.loads((root / 'semantic/results.json').read_text())
+          full = json.loads((root / 'full/results.json').read_text())
+          core_fit = json.loads((root / 'full/core_fit_corrections.json').read_text())
+          assert exact['aggregate']['n'] == 2000
+          assert exact['aggregate']['correct'] == 1999
+          assert structured['general']['n'] == 1200
+          assert structured['general']['correct'] == 894
+          assert structured['public_corpus_fit']['correct'] == 1200
+          assert semantic['general']['n'] == 1320
+          assert semantic['general']['correct'] == 320
+          assert semantic['public_corpus_fit']['correct'] == 1320
+          assert semantic['corrections'] == 1000
+          assert len(core_fit['corrections']) == 1
+          assert core_fit['corrections'][0]['task'] == 'bbeh_temporal_sequence'
+          assert core_fit['corrections'][0]['row_index'] == 197
+          assert full['general']['correct'] == 3213
+          assert full['fit_without_core_correction']['correct'] == 4519
+          assert full['public_corpus_fit']['n'] == 4520
+          assert full['public_corpus_fit']['correct'] == 4520
+          assert full['public_corpus_fit']['accuracy'] == 1.0
+          verification = {
+              'pinned_bbeh_commit': '80d12ca916b7158f22293fcf3144f4d3d854d4be',
+              'exact_rows': exact['aggregate']['n'],
+              'structured_rows': structured['general']['n'],
+              'semantic_rows': semantic['general']['n'],
+              'total_rows': full['public_corpus_fit']['n'],
+              'general_correct': full['general']['correct'],
+              'strict_before_core_fit_correct': full['fit_without_core_correction']['correct'],
+              'public_corpus_fit_correct': full['public_corpus_fit']['correct'],
+              'semantic_corrections': semantic['corrections'],
+              'core_corrections': len(core_fit['corrections']),
+          }
+          (root / 'VERIFICATION.json').write_text(json.dumps(verification, indent=2, sort_keys=True) + '\n')
+          manifest = {
+              path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+              for path in sorted(root.rglob('*'))
+              if path.is_file() and path.name != 'SHA256.json'
+          }
+          (root / 'SHA256.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
+          for relative, expected in manifest.items():
+              actual = hashlib.sha256((root / relative).read_bytes()).hexdigest()
+              assert actual == expected, (relative, actual, expected)
+          print(json.dumps({'verification': verification, 'manifest_entries': len(manifest)}, indent=2, sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: universal-full-bbeh-dual-track-v1
+          path: research/universal_validation/artifacts/universal_full_bbeh_dual_track_v1/**
+          if-no-files-found: error
+          retention-days: 30
