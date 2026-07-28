@@ -34,7 +34,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install pinned runtime dependencies
-        run: python -m pip install --disable-pip-version-check --quiet pytest z3-solver sympy
+        run: python -m pip install --disable-pip-version-check --quiet pytest z3-solver sympy python-dateutil
       - name: Restore committed structured and semantic sources
         run: |
           python research/universal_validation/checkpoints/2026-07-27/restore_dual_track_source.py
