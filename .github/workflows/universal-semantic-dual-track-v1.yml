@@ -2,7 +2,7 @@ name: Universal Semantic Dual-Track V1
 
 on:
   pull_request:
-    branches: [universal-exact-closeout-v4]
+    branches: [universal-structured-residual-v1, universal-exact-closeout-v4]
     paths:
       - 'research/universal_validation/semantic_dual_track_v1.py'
       - 'research/universal_validation/full_bbeh_dual_track_closeout_v1.py'
