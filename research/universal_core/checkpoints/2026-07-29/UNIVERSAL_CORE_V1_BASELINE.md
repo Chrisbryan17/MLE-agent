@@ -58,11 +58,11 @@ The release gates were fixed before GitHub-hosted execution:
 
 ## GitHub-hosted verification
 
-The first complete successful GitHub-hosted reproduction ran against implementation head `144561370b4d4fa1f5d7be1b779837b8de8aa7d1`.
+The final-head GitHub-hosted reproduction ran against implementation head `7a6efcd59189be55dd041842469168891727a79f`.
 
 - Workflow: `Universal Core V1`
-- GitHub Actions run: `30518229488`
-- Job: `verify` (`90792728550`)
+- GitHub Actions run: `30518363065`
+- Job: `verify` (`90793134729`)
 - Runtime: CPython `3.12.13`
 - pytest: `9.0.2`
 - Z3: `4.15.3`
@@ -71,16 +71,14 @@ The first complete successful GitHub-hosted reproduction ran against implementat
 - Lightweight-semantic generated holdout: **300/300**
 - Combined generated holdout: **1,300/1,300**, 100% coverage
 - Release report digest: `fafbbd0ff75cdf3fb2759e5c518da8f66ff1dc97abe7ac42a3d64178fcd572db`
-- Artifact: `universal-core-v1-evidence` (`8749713444`)
-- Artifact size: `92,580` bytes
-- Artifact digest: `sha256:3b87f32b9db60cdc7e6aadc16b4f0ffeb3765c9d78dc4d626cfd014522523e56`
+- Artifact: `universal-core-v1-evidence` (`8749759531`)
+- Artifact size: `92,578` bytes
+- Artifact digest: `sha256:5dec59ac7fdb0bc7a56f2d915d34c115c135a3df2be72e751ef5341ae486d519`
 - Archive verification: exact branch and commit match; zero deleted protected paths
 - Prohibited-mechanism scan: zero findings
 - Sealed sample replay: byte-identical
 
 Independent artifact verification reproduced the ZIP digest, matched all **83** top-level SHA-256 manifest entries, matched all **25** nested sealed-attempt manifests, and found zero digest mismatches. Both independently reproduced sample attempts had the same solver digest `933ddd418151790123477a6a6de4d3c90d4da996da3d853147679ef8fc74e668` and prediction digest `5d236ed04e603f77e33fd8c0cfe8a190a8bf3d1b74788c37b13b8390d44ae597`.
-
-The checkpoint update is evidence-only. The draft PR remains unmerged, and the workflow is rerun after this checkpoint commit so the final PR head is also validated.
 
 ## Known V1 limits
 
