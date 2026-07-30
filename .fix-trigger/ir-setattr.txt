@@ -1,0 +1,1 @@
+repair object.__setattr__ regression
