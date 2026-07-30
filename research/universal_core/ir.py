@@ -174,7 +174,7 @@ class TaskSpec:
         object.__setattr__(self, "fields", fields)
         object.__setattr__(self, "relations", relations)
         object.__setattr__(self, "constraints", constraints)
-        object._setattr__(self, "capabilities", capabilities)
+        object.__setattr__(self, "capabilities", capabilities)
         object.__setattr__(self, "objective", self.objective.strip())
         object.__setattr__(self, "provenance", tuple(int(item) for item in self.provenance))
         object.__setattr__(self, "competing_hypotheses", tuple(self.competing_hypotheses))
