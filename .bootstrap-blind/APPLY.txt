@@ -1,1 +1,0 @@
-Apply the staged commit series through the base-side workflow.
