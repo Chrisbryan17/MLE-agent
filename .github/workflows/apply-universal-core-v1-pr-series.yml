@@ -1,0 +1,46 @@
+name: Apply Universal Core V1 PR Commit Series
+
+on:
+  pull_request:
+    branches: [universal-core-v1-design]
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.bootstrap/**'
+      - '.github/workflows/apply-universal-core-v1-series.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply-series:
+    if: github.event.pull_request.head.ref == 'universal-core-v1' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-v1
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify and reconstruct patch series
+        run: |
+          cat .bootstrap/part-* > /tmp/universal-core-v1-series.mbox.gz
+          echo 'ac90cfc1fbf3f9821b8419630f0ab81570111009ad5600478b135059db4c4c6d  /tmp/universal-core-v1-series.mbox.gz' | sha256sum -c -
+          gunzip -c /tmp/universal-core-v1-series.mbox.gz > /tmp/universal-core-v1-series.mbox
+
+      - name: Apply atomic implementation commits
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git am --3way /tmp/universal-core-v1-series.mbox
+
+      - name: Remove one-shot head transport
+        run: |
+          rm -rf .bootstrap
+          rm -f .github/workflows/apply-universal-core-v1-series.yml
+          git add -A
+          git commit -m 'chore: remove one-shot patch transport'
+
+      - name: Push completed history
+        run: git push origin HEAD:universal-core-v1
