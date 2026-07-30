@@ -1,0 +1,12 @@
+{
+  "instructions": "Apply the same affine arithmetic transformation to each input number.",
+  "demonstrations": [
+    {"input": 1, "output": 5},
+    {"input": 2, "output": 8},
+    {"input": 4, "output": 14},
+    {"input": -1, "output": -1},
+    {"input": 10, "output": 32}
+  ],
+  "hidden_inputs": [3, 8],
+  "output_schema": {"kind": "integer"}
+}

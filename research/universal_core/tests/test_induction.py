@@ -93,3 +93,23 @@ def test_heuristic_backend_infers_discriminative_keyword_classifier() -> None:
         {"token": "red", "label": "alert"},
         {"token": "blue", "label": "normal"},
     ]
+
+
+def test_keyword_classifier_uses_explicit_instruction_cues_with_three_demos() -> None:
+    from universal_core.contracts import Demonstration, OutputSchema
+
+    demonstrations = (
+        Demonstration("879 update report scarlet incident", "alert"),
+        Demonstration("context status azure 939 report", "normal"),
+        Demonstration("scarlet system update signal 687", "alert"),
+    )
+    proposals = HeuristicProposalBackend().propose(
+        "The token scarlet means alert, and the token azure means normal.",
+        demonstrations,
+        OutputSchema(kind="string", enum_values=("alert", "normal")),
+    )
+    classifier = next(p for p in proposals if p.program_data.get("template") == "keyword_relation")
+    assert classifier.program_data["parameters"]["rules"] == [
+        {"token": "scarlet", "label": "alert"},
+        {"token": "azure", "label": "normal"},
+    ]

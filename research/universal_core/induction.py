@@ -118,6 +118,10 @@ def _template_run(data: Mapping[str, Any], value: Any) -> Any:
             if str(rule["token"]).casefold() in text:
                 return rule["label"]
         return parameters.get("default")
+    if template == "finite_ordering":
+        from .templates import TemplateProgram
+
+        return TemplateProgram.from_data(data).run(value)
     raise ValueError(f"unsupported template: {template}")
 
 
@@ -202,6 +206,24 @@ def _tokenize(text: str) -> set[str]:
     return {token for token in re.findall(r"[a-z0-9]+", text.casefold()) if len(token) > 1}
 
 
+def _parse_numeric_filter_instruction(instructions: str) -> tuple[str, int | float] | None:
+    lowered = instructions.casefold()
+    patterns = (
+        (r"(?:at least|no less than)\s+(-?\d+(?:\.\d+)?)", ">="),
+        (r"(?:greater than|more than|above)\s+(-?\d+(?:\.\d+)?)", ">"),
+        (r"(?:at most|no more than)\s+(-?\d+(?:\.\d+)?)", "<="),
+        (r"(?:less than|fewer than|below)\s+(-?\d+(?:\.\d+)?)", "<"),
+        (r"(?:equal to|equals|exactly)\s+(-?\d+(?:\.\d+)?)", "=="),
+    )
+    for pattern, comparison in patterns:
+        match = re.search(pattern, lowered)
+        if match:
+            raw = match.group(1)
+            value: int | float = float(raw) if "." in raw else int(raw)
+            return comparison, value
+    return None
+
+
 class HeuristicProposalBackend:
     def propose(
         self,
@@ -257,11 +279,16 @@ class HeuristicProposalBackend:
             scalar_outputs = all(not isinstance(demo.output, Sequence) or isinstance(demo.output, str | bytes) for demo in demonstrations)
             if scalar_outputs and all_rows:
                 fields = _field_candidates(all_rows)
+                parsed_filter = _parse_numeric_filter_instruction(instructions)
                 comparisons = ("==", "!=", "<", "<=", ">", ">=")
                 for predicate_field in fields:
                     observed = sorted({_extract_field(row, predicate_field) for row in all_rows}, key=repr)
-                    for comparison in comparisons:
-                        for threshold in observed:
+                    predicate_options = [parsed_filter] if parsed_filter is not None else [
+                        (comparison, threshold)
+                        for comparison in comparisons
+                        for threshold in observed
+                    ]
+                    for comparison, threshold in predicate_options:
                             filter_step = {
                                 "operator": "filter_compare",
                                 "source": "$input",
@@ -323,28 +350,57 @@ class HeuristicProposalBackend:
                     "parameters": {"operator": operator, "start_field": "start", "goal_field": "goal"},
                 }
                 add(data, (Capability.TRAVERSE_GRAPH, Capability.COMPUTE_PATH), f"answer {operator} query", 0.90, "graph query template fits")
+            if all("entities" in demo.input and "query" in demo.input for demo in demonstrations):
+                data = {
+                    "kind": "template",
+                    "version": 1,
+                    "template": "finite_ordering",
+                    "parameters": {},
+                }
+                add(data, (Capability.SOLVE_CONSTRAINTS, Capability.SEARCH), "solve finite ordering constraints", 0.93, "dynamic ordering template fits")
 
         if all(isinstance(demo.input, str) and isinstance(demo.output, str) for demo in demonstrations):
             labels = sorted({demo.output for demo in demonstrations})
-            rules: list[dict[str, str]] = []
-            valid = len(labels) >= 2
-            for label in labels:
-                own = [_tokenize(demo.input) for demo in demonstrations if demo.output == label]
-                other = set().union(*[_tokenize(demo.input) for demo in demonstrations if demo.output != label])
-                shared = set.intersection(*own) if own else set()
-                discriminative = sorted(shared - other, key=lambda token: (len(token), token))
-                if not discriminative:
-                    valid = False
-                    break
-                rules.append({"token": discriminative[0], "label": label})
-            if valid:
+            explicit_pairs = re.findall(
+                r"(?:the\s+)?token\s+([a-z0-9_-]+)\s+means\s+([a-z0-9_-]+)",
+                instructions.casefold(),
+            )
+            explicit_rules = [
+                {"token": token, "label": label}
+                for token, label in explicit_pairs
+                if label in labels
+            ]
+            if len({rule["label"] for rule in explicit_rules}) == len(labels):
+                rules = explicit_rules
+                confidence = 0.94
+                rationale = "instructions explicitly define cue-to-label relations"
+            else:
+                rules = []
+                valid = len(labels) >= 2
+                for label in labels:
+                    own = [_tokenize(demo.input) for demo in demonstrations if demo.output == label]
+                    other = set().union(*[_tokenize(demo.input) for demo in demonstrations if demo.output != label])
+                    shared = set.intersection(*own) if own else set()
+                    discriminative = sorted(
+                        (token for token in shared - other if not token.isdigit()),
+                        key=lambda token: (len(token), token),
+                    )
+                    if not discriminative:
+                        valid = False
+                        break
+                    rules.append({"token": discriminative[0], "label": label})
+                if not valid:
+                    rules = []
+                confidence = 0.76
+                rationale = "shared label-specific tokens fit"
+            if rules:
                 data = {
                     "kind": "template",
                     "version": 1,
                     "template": "keyword_relation",
                     "parameters": {"rules": rules, "default": None},
                 }
-                add(data, (Capability.CLASSIFY, Capability.EXTRACT), "classify by discriminative relation tokens", 0.76, "shared label-specific tokens fit")
+                add(data, (Capability.CLASSIFY, Capability.EXTRACT), "classify by discriminative relation tokens", confidence, rationale)
 
         instruction_words = _tokenize(instructions)
         for index, proposal in enumerate(candidates):
@@ -425,7 +481,7 @@ class JsonProposalBackend:
             return parsed.to_data()
         if kind == "template":
             allowed = {"kind", "version", "template", "parameters"}
-            if set(program) - allowed or program.get("template") not in {"affine", "graph_query", "keyword_relation"}:
+            if set(program) - allowed or program.get("template") not in {"affine", "graph_query", "keyword_relation", "finite_ordering"}:
                 raise ValueError("proposal schema contains invalid template")
             return program
         if kind == "minilang":

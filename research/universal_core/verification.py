@@ -105,7 +105,9 @@ def _renaming_map(values: Sequence[Any]) -> dict[str, str]:
         if isinstance(value, str):
             strings.add(value)
         elif isinstance(value, Mapping):
-            for item in value.values():
+            for key, item in value.items():
+                if key in {"query", "type", "operator", "directed"}:
+                    continue
                 collect(item)
         elif isinstance(value, list | tuple):
             for item in value:
@@ -124,7 +126,10 @@ def _rename(value: Any, mapping: Mapping[str, str]) -> Any:
     if isinstance(value, tuple):
         return tuple(_rename(item, mapping) for item in value)
     if isinstance(value, Mapping):
-        return {key: _rename(item, mapping) for key, item in value.items()}
+        return {
+            key: item if key in {"query", "type", "operator", "directed"} else _rename(item, mapping)
+            for key, item in value.items()
+        }
     return value
 
 
@@ -207,6 +212,13 @@ def _bounded_counterexample_check(candidate: CandidateSolver) -> VerificationChe
         a = data["parameters"]["a"]
         b = data["parameters"]["b"]
         cases = [(value, a * value + b) for value in (-11, -3, 0, 7, 19)]
+    elif data.get("kind") == "template" and data.get("template") == "finite_ordering":
+        cases = [({
+            "entities": ["lumen", "mira", "nox"],
+            "before": [["lumen", "mira"], ["mira", "nox"]],
+            "adjacent": [],
+            "query": "last",
+        }, "nox")]
     elif data.get("kind") == "template" and data.get("template") == "keyword_relation":
         cases = [
             (f"fresh context {rule['token']} marker", rule["label"])

@@ -1,0 +1,11 @@
+{
+  "instructions": "The token scarlet means alert, and the token azure means normal. Classify each contextual status.",
+  "demonstrations": [
+    {"input": "scarlet system incident", "output": "alert"},
+    {"input": "azure routine update", "output": "normal"},
+    {"input": "scarlet context event", "output": "alert"},
+    {"input": "azure status report", "output": "normal"}
+  ],
+  "hidden_inputs": ["fresh scarlet signal", "fresh azure signal"],
+  "output_schema": {"kind": "string", "enum_values": ["alert", "normal"]}
+}
