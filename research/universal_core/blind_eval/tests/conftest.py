@@ -41,9 +41,17 @@ class FakeRunner:
             predictions.append(PredictionRow(index,answer,FailureStatus.SOLVED,1.0))
         attempt=output_root/"attempts"/"attempt-0001"; attempt.mkdir(parents=True)
         serial=[{"index":r.index,"prediction":r.prediction,"status":r.status.value,"confidence":r.confidence,"runtime_ms":0.0,"error":None} for r in predictions]
-        (attempt/"predictions.json").write_bytes(canonical_json_bytes(serial)); (attempt/"ATTEMPT.json").write_bytes(canonical_json_bytes({"attempt_id":"attempt-0001"}))
-        hashes={name:sha256_hex((attempt/name).read_bytes()) for name in ("ATTEMPT.json","predictions.json")}; (attempt/"SHA256.json").write_bytes(canonical_json_bytes(hashes))
-        return AttemptResult(FailureStatus.SOLVED,tuple(predictions),package.package_digest,"ab"*32,sha256_hex(canonical_json_bytes(serial)),"attempt-0001",str(attempt),{"verified":True})
+        prediction_bytes=canonical_json_bytes(serial)
+        prediction_digest=sha256_hex(prediction_bytes)
+        freeze_data={"fixture":"protocol mechanics only","package_digest":package.package_digest}
+        manifest_bytes=canonical_json_bytes(freeze_data)
+        freeze_digest=sha256_hex(manifest_bytes)
+        attempt_bytes=canonical_json_bytes({"attempt_id":"attempt-0001","freeze_digest":freeze_digest,"prediction_digest":prediction_digest,"supersedes_attempt":None})
+        contents={"manifest.json":manifest_bytes,"predictions.json":prediction_bytes,"ATTEMPT.json":attempt_bytes}
+        for name,content in contents.items(): (attempt/name).write_bytes(content)
+        hashes={name:sha256_hex(content) for name,content in sorted(contents.items())}
+        (attempt/"SHA256.json").write_bytes(canonical_json_bytes(hashes))
+        return AttemptResult(FailureStatus.SOLVED,tuple(predictions),package.package_digest,"ab"*32,prediction_digest,"attempt-0001",str(attempt),{"verified":True})
 
 @pytest.fixture
 def fake_runner_factory(): return lambda:FakeRunner()
