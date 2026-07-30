@@ -34,9 +34,44 @@ A successful protocol run can establish that an evaluator committed to challenge
 5. Run deterministic scoring and independent offline audit.
 6. Report Levels 1–4 separately, with Level 4 first-attempt raw accuracy at observed coverage as the headline metric.
 
-## Verification status
+## GitHub-hosted protocol verification
 
-Local and hosted test totals, workflow run IDs, job IDs, artifact IDs, artifact digests, and independently verified manifest counts are intentionally absent until exact-head CI succeeds. They will be recorded in one evidence-only commit without changing protocol behavior.
+The behaviorally complete protocol head was `fa3beeaa4eecd9a1d90089a29055f92b133e6753`.
+
+- Blind-evaluation workflow run: `30543220433`
+- Blind-evaluation job: `90872773776`
+- Frozen Universal Core regression workflow run: `30543220430`
+- Frozen Universal Core regression job: `90872773822`
+- Frozen-core tests: **84 passed**, 0 failed, 0 errors, 0 skipped
+- Blind-protocol tests: **41 passed**, 0 failed, 0 errors, 0 skipped
+- Combined test total: **125 passed**
+- Archive identity and protected-path verification: passed
+- Frozen top-level Universal Core production-byte verification: passed
+- Prohibited-mechanism scan: zero findings
+- Tamper-matrix tests: **3 passed**
+- Protocol fixture replays: byte-identical
+
+Hosted artifact:
+
+- Name: `universal-core-blind-eval-v1-evidence`
+- Artifact ID: `8759571928`
+- Size: `66,272` bytes
+- Artifact digest: `sha256:70a4bde52f06aad4b1c5edf718edfd5b4e85630fbbefc0c00ce4349d2eb8e0b4`
+- Deterministic nested evidence ZIP digest: `sha256:9b9c8c8b54b168a4fc06eef2d2214a6438601122d5859ac875ce1befb20e4ed1`
+
+Independent artifact verification found:
+
+- **60/60** top-level `SHA256SUMS` entries matched;
+- two byte-identical protocol replays;
+- **13/13** nested checksum entries matched in each replay;
+- **12/12** nested audit-manifest entries matched in each replay;
+- one sealed attempt manifest per replay with zero mismatches;
+- commitment, public-challenge binding, private-reveal, submission, score-report, prediction, and solver-freeze digests all matched;
+- zero unsafe ZIP paths.
+
+The mechanics fixture contained one Level 1 affine task with three hidden rows, all scored correctly. Levels 2–4 contained zero rows. That fixture score validates plumbing only and must never be represented as blind generalization performance.
+
+The evidence-only checkpoint commit that contains this section is revalidated by the same complete workflows. Because a commit cannot contain the future run and artifact identifiers generated after that commit exists, the draft PR metadata records the exact final documentation-head run and artifact without another source commit.
 
 ## Known limits
 
