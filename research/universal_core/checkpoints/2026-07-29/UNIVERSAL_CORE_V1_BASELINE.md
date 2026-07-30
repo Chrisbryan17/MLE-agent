@@ -58,11 +58,11 @@ The release gates were fixed before GitHub-hosted execution:
 
 ## GitHub-hosted verification
 
-The final-head GitHub-hosted reproduction ran against implementation head `7a6efcd59189be55dd041842469168891727a79f`.
+The final-head GitHub-hosted reproduction ran against implementation head `d3fbca8671551748510dd52cd947386495632f49`.
 
 - Workflow: `Universal Core V1`
-- GitHub Actions run: `30518363065`
-- Job: `verify` (`90793134729`)
+- GitHub Actions run: `30518496930`
+- Job: `verify` (`90793532663`)
 - Runtime: CPython `3.12.13`
 - pytest: `9.0.2`
 - Z3: `4.15.3`
@@ -71,9 +71,9 @@ The final-head GitHub-hosted reproduction ran against implementation head `7a6ef
 - Lightweight-semantic generated holdout: **300/300**
 - Combined generated holdout: **1,300/1,300**, 100% coverage
 - Release report digest: `fafbbd0ff75cdf3fb2759e5c518da8f66ff1dc97abe7ac42a3d64178fcd572db`
-- Artifact: `universal-core-v1-evidence` (`8749759531`)
-- Artifact size: `92,578` bytes
-- Artifact digest: `sha256:5dec59ac7fdb0bc7a56f2d915d34c115c135a3df2be72e751ef5341ae486d519`
+- Artifact: `universal-core-v1-evidence` (`8749812327`)
+- Artifact size: `92,559` bytes
+- Artifact digest: `sha256:6b9a3944389e2fb53b869ca86ad14f76414e6c8b90eed6a2e1763b625389c2b4`
 - Archive verification: exact branch and commit match; zero deleted protected paths
 - Prohibited-mechanism scan: zero findings
 - Sealed sample replay: byte-identical
