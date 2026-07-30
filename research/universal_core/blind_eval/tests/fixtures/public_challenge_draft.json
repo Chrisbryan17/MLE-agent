@@ -1,0 +1,23 @@
+{
+  "protocol_version": "universal-core-blind-eval-v1",
+  "suite_id": "fixture-suite-001",
+  "frozen_core_commit": "89a54d44d0ef3a4f1078cdad9a15564b3b31ecd9",
+  "public_scoring_specification": "Exact first-attempt scoring with mandatory level reports.",
+  "metadata": {"fixture_scope": "protocol mechanics only"},
+  "tasks": [
+    {
+      "task_id": "fixture-affine",
+      "instructions": "For each number x, return 3*x + 2.",
+      "demonstrations": [
+        {"input": 0, "output": 2},
+        {"input": 1, "output": 5},
+        {"input": 2, "output": 8},
+        {"input": -1, "output": -1},
+        {"input": 4, "output": 14}
+      ],
+      "hidden_inputs": [3, 7, -4],
+      "output_schema": {"kind": "number", "format": null, "enum_values": [], "nullable": false},
+      "resource_limits": {}
+    }
+  ]
+}
