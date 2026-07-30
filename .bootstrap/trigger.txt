@@ -1,1 +1,1 @@
-trigger atomic Universal Core V1 patch application via pull request base workflow
+trigger atomic Universal Core V1 patch application via corrected digest
