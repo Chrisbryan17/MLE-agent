@@ -389,3 +389,8 @@ def verify_candidate(
         deterministic=deterministic,
         accepted=accepted,
     )
+
+
+def output_matches_schema(schema: OutputSchema, value: Any) -> bool:
+    """Public schema predicate used after hidden execution."""
+    return _schema_accepts(schema, value)

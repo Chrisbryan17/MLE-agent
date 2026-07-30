@@ -202,3 +202,63 @@ def verify_attempt(attempt_dir: Path) -> None:
     freeze_digest = sha256_hex(canonical_json_bytes(freeze_data))
     if attempt_data.get("freeze_digest") != freeze_digest:
         raise ValueError("freeze digest mismatch")
+
+
+def write_unresolved_attempt(
+    output_root: Path,
+    *,
+    package_digest: str,
+    status: str,
+    reason: str,
+    predictions: Sequence[PredictionRow],
+    timestamp: str = "1970-01-01T00:00:00Z",
+    audit: Mapping[str, Any] | None = None,
+) -> Path:
+    attempts_root = output_root / "attempts"
+    attempts_root.mkdir(parents=True, exist_ok=True)
+    target = attempts_root / "attempt-0001"
+    if target.exists():
+        raise AttemptExistsError(f"first attempt already exists: {target}")
+    temporary = attempts_root / f".attempt-0001.{uuid.uuid4().hex}.tmp"
+    temporary.mkdir(exist_ok=False)
+    try:
+        manifest_data = {
+            "version": 1,
+            "kind": "unresolved",
+            "package_digest": package_digest,
+            "status": status,
+            "reason": reason,
+            "timestamp": timestamp,
+            "audit": dict(audit or {}),
+        }
+        manifest_bytes = canonical_json_bytes(manifest_data)
+        prediction_bytes = canonical_json_bytes(_prediction_data(predictions))
+        attempt_bytes = canonical_json_bytes(
+            {
+                "attempt_id": "attempt-0001",
+                "freeze_digest": sha256_hex(manifest_bytes),
+                "prediction_digest": sha256_hex(prediction_bytes),
+                "supersedes_attempt": None,
+            }
+        )
+        contents = {
+            "manifest.json": manifest_bytes,
+            "predictions.json": prediction_bytes,
+            "ATTEMPT.json": attempt_bytes,
+        }
+        for name, content in contents.items():
+            _atomic_write(temporary / name, content)
+        _atomic_write(
+            temporary / "SHA256.json",
+            canonical_json_bytes({name: sha256_hex(content) for name, content in sorted(contents.items())}),
+        )
+        _fsync_directory(temporary)
+        try:
+            os.rename(temporary, target)
+        except FileExistsError as exc:
+            raise AttemptExistsError(f"first attempt already exists: {target}") from exc
+        _fsync_directory(attempts_root)
+        return target
+    finally:
+        if temporary.exists():
+            shutil.rmtree(temporary)
