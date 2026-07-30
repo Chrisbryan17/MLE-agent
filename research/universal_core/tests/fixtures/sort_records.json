@@ -1,0 +1,14 @@
+{
+  "task_name": "opaque-private-task-91",
+  "instructions": "Return the records sorted by their numeric score in ascending order.",
+  "demonstrations": [
+    {"input": [["a", 2], ["b", 1]], "output": [["b", 1], ["a", 2]]},
+    {"input": [["c", 4], ["d", 3]], "output": [["d", 3], ["c", 4]]},
+    {"input": [["e", 9], ["f", 5]], "output": [["f", 5], ["e", 9]]}
+  ],
+  "hidden_inputs": [
+    [["x", 7], ["y", 5]],
+    [["m", -1], ["n", 3], ["o", 0]]
+  ],
+  "output_schema": {"kind": "list"}
+}
