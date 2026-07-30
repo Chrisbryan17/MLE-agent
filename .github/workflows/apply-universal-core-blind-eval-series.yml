@@ -1,0 +1,45 @@
+name: Apply Universal Core Blind Eval Commit Series
+
+on:
+  pull_request:
+    branches: [universal-core-blind-eval-v1-design]
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.bootstrap-blind/**'
+      - '.github/workflows/apply-universal-core-blind-eval-series.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply-series:
+    if: github.event.pull_request.head.ref == 'universal-core-blind-eval-v1' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-blind-eval-v1
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify and reconstruct patch series
+        run: |
+          cat .bootstrap-blind/part-* | base64 -d > /tmp/blind-series.mbox.gz
+          echo '41ff4d8d8bde60b83534379d861c4c870bf016bf008d164154b2afb19861ab84  /tmp/blind-series.mbox.gz' | sha256sum -c -
+          gunzip -c /tmp/blind-series.mbox.gz > /tmp/blind-series.mbox
+
+      - name: Apply atomic implementation commits
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git am --3way /tmp/blind-series.mbox
+
+      - name: Remove one-shot transport
+        run: |
+          rm -rf .bootstrap-blind
+          git add -A
+          git commit -m 'chore: remove one-shot blind evaluation transport'
+
+      - name: Push completed history
+        run: git push origin HEAD:universal-core-blind-eval-v1
