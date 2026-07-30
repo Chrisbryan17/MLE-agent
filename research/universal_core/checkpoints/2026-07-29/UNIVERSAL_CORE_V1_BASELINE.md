@@ -1,9 +1,9 @@
 # Universal Core V1 Baseline
 
 **Baseline date:** 2026-07-29  
+**GitHub verification date:** 2026-07-30  
 **Implementation branch:** `universal-core-v1`  
 **Design branch:** `universal-core-v1-design`  
-**Implementation parent through Task 14:** `c34591a4cfbc69d84590f64c813dbc911385a703`  
 **Immutable archive branch:** `archive/universal-bbeh-dual-track-4520-2026-07-28`  
 **Immutable archive commit:** `a0c099a41c85f267ca6323235a019b2052107873`
 
@@ -36,9 +36,6 @@ The fixed release harness evaluates:
 - demonstration budgets of 3, 5, 10, and 20 for exact families, and 3, 5, and 20 for the semantic family;
 - randomized task names, demonstration reordering, unseen input hashes, and prohibited-route scans.
 
-
-The local fixed release harness produced:
-
 | Lane | Correct | Attempted | Rows | Accuracy | Coverage |
 |---|---:|---:|---:|---:|---:|
 | Exact generated holdout | 1,000 | 1,000 | 1,000 | 100% | 100% |
@@ -47,23 +44,43 @@ The local fixed release harness produced:
 
 These scores are internal generated-holdout evidence under the claims boundary above.
 
-The release gates are fixed before GitHub-hosted execution:
+The release gates were fixed before GitHub-hosted execution:
 
-| Gate | Threshold |
-|---|---:|
-| Exact generated-hidden accuracy | at least 95% |
-| Lightweight-semantic generated-hidden accuracy | at least 80% |
-| Overall coverage | at least 90% |
-| Deterministic replay | 100% |
-| Task-name and metadata invariance | 100% |
-| Security-policy violations | 0 |
-| Archive-regression failures | 0 |
+| Gate | Threshold | Verified result |
+|---|---:|---:|
+| Exact generated-hidden accuracy | at least 95% | 100% |
+| Lightweight-semantic generated-hidden accuracy | at least 80% | 100% |
+| Overall coverage | at least 90% | 100% |
+| Deterministic replay | 100% | 100% |
+| Task-name and metadata invariance | 100% | 100% |
+| Security-policy violations | 0 | 0 |
+| Archive-regression failures | 0 | 0 |
 
-## GitHub-hosted evidence protocol
+## GitHub-hosted verification
 
-The workflow `.github/workflows/universal-core-v1.yml` must succeed on Python 3.12 with pytest 9.0.2 and z3-solver 4.15.3.0. It fetches the immutable archive reference, verifies the exact archive commit and non-deletion policy, runs the complete test suite, generates the 1,300-row release report, reproduces a sealed sample twice, scans for prohibited mechanisms, builds a SHA-256 evidence manifest, and uploads `universal-core-v1-evidence`.
+The first complete successful GitHub-hosted reproduction ran against implementation head `144561370b4d4fa1f5d7be1b779837b8de8aa7d1`.
 
-At this document's initial commit, no successful GitHub Actions run or artifact existed yet. The draft PR must remain draft until a follow-up evidence-only commit records the actual workflow run ID, artifact ID, artifact digest, final test count, release-gate scores, and independent artifact verification.
+- Workflow: `Universal Core V1`
+- GitHub Actions run: `30518229488`
+- Job: `verify` (`90792728550`)
+- Runtime: CPython `3.12.13`
+- pytest: `9.0.2`
+- Z3: `4.15.3`
+- Tests: **84 passed**, 0 failed, 0 skipped, 0 errors
+- Exact generated holdout: **1,000/1,000**
+- Lightweight-semantic generated holdout: **300/300**
+- Combined generated holdout: **1,300/1,300**, 100% coverage
+- Release report digest: `fafbbd0ff75cdf3fb2759e5c518da8f66ff1dc97abe7ac42a3d64178fcd572db`
+- Artifact: `universal-core-v1-evidence` (`8749713444`)
+- Artifact size: `92,580` bytes
+- Artifact digest: `sha256:3b87f32b9db60cdc7e6aadc16b4f0ffeb3765c9d78dc4d626cfd014522523e56`
+- Archive verification: exact branch and commit match; zero deleted protected paths
+- Prohibited-mechanism scan: zero findings
+- Sealed sample replay: byte-identical
+
+Independent artifact verification reproduced the ZIP digest, matched all **83** top-level SHA-256 manifest entries, matched all **25** nested sealed-attempt manifests, and found zero digest mismatches. Both independently reproduced sample attempts had the same solver digest `933ddd418151790123477a6a6de4d3c90d4da996da3d853147679ef8fc74e668` and prediction digest `5d236ed04e603f77e33fd8c0cfe8a190a8bf3d1b74788c37b13b8390d44ae597`.
+
+The checkpoint update is evidence-only. The draft PR remains unmerged, and the workflow is rerun after this checkpoint commit so the final PR head is also validated.
 
 ## Known V1 limits
 
