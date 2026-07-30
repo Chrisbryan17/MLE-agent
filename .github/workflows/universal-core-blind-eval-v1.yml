@@ -1,0 +1,109 @@
+name: Universal Core Blind Evaluation V1
+
+on:
+  pull_request:
+    paths:
+      - 'research/universal_core/blind_eval/**'
+      - 'docs/superpowers/specs/2026-07-30-universal-core-blind-evaluation-v1-design.md'
+      - 'docs/superpowers/plans/2026-07-30-universal-core-blind-evaluation-v1.md'
+      - '.github/workflows/universal-core-blind-eval-v1.yml'
+  push:
+    branches: [universal-core-blind-eval-v1]
+  workflow_dispatch:
+
+concurrency:
+  group: universal-core-blind-eval-v1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Fetch and verify immutable archive
+        run: |
+          git fetch --no-tags origin archive/universal-bbeh-dual-track-4520-2026-07-28:refs/remotes/origin/archive/universal-bbeh-dual-track-4520-2026-07-28
+          test "$(git rev-parse refs/remotes/origin/archive/universal-bbeh-dual-track-4520-2026-07-28)" = "a0c099a41c85f267ca6323235a019b2052107873"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned dependencies
+        run: python -m pip install --disable-pip-version-check --quiet pytest==9.0.2 z3-solver==4.15.3.0
+
+      - name: Prepare evidence directories
+        run: mkdir -p artifacts
+
+      - name: Verify frozen Universal Core production bytes
+        run: |
+          set -euo pipefail
+          frozen=89a54d44d0ef3a4f1078cdad9a15564b3b31ecd9
+          while IFS= read -r path; do
+            git show "$frozen:$path" > /tmp/frozen-source.py
+            cmp /tmp/frozen-source.py "$path"
+          done < <(git ls-tree -r --name-only "$frozen" -- research/universal_core | grep '^research/universal_core/[^/]*\.py$' | sort)
+          echo 'frozen core source byte-identical' > artifacts/frozen-core-verification.txt
+
+      - name: Run frozen core tests
+        run: PYTHONPATH=research python -m pytest research/universal_core/tests -q --junitxml=artifacts/core-pytest.xml
+
+      - name: Run blind evaluation tests
+        run: PYTHONPATH=research python -m pytest research/universal_core/blind_eval/tests -q --junitxml=artifacts/blind-pytest.xml
+
+      - name: Verify archived system identity
+        run: PYTHONPATH=research python -m universal_core.archive_guard | tee artifacts/archive-verification.json
+
+      - name: Run protocol mechanics fixture twice
+        run: |
+          PYTHONPATH=research python -m universal_core.blind_eval.tests.run_protocol_fixture --output artifacts/run-a --repo-root . | tee artifacts/run-a-summary.json
+          PYTHONPATH=research python -m universal_core.blind_eval.tests.run_protocol_fixture --output artifacts/run-b --repo-root . | tee artifacts/run-b-summary.json
+          cmp artifacts/run-a/submission/SUBMISSION.json artifacts/run-b/submission/SUBMISSION.json
+          cmp artifacts/run-a/SCORE_REPORT.json artifacts/run-b/SCORE_REPORT.json
+          cmp artifacts/run-a/blind-eval-evidence.zip artifacts/run-b/blind-eval-evidence.zip
+          PYTHONPATH=research python -m universal_core.blind_eval.cli audit --evidence artifacts/run-a/blind-eval-evidence.zip | tee artifacts/offline-audit.json
+          echo 'byte-identical protocol replay' > artifacts/replay-verification.txt
+
+      - name: Run tamper matrix
+        run: PYTHONPATH=research python -m pytest research/universal_core/blind_eval/tests/test_tamper_matrix.py -q | tee artifacts/tamper-matrix.txt
+
+      - name: Scan production source for prohibited mechanisms
+        run: |
+          PYTHONPATH=research python - <<'PY'
+          from pathlib import Path
+          forbidden = {
+              "dynamic-eval": "eval" + "(",
+              "dynamic-exec": "exec" + "(",
+              "benchmark-route": "bbeh_",
+              "target-ledger": "correction_ledger",
+              "row-answer-lookup": "input_hash_answer",
+              "test-generator-import": "universal_core.tests.generators",
+          }
+          failures=[]
+          for path in sorted(Path("research/universal_core/blind_eval").glob("*.py")):
+              source=path.read_text(encoding="utf-8")
+              for label,token in forbidden.items():
+                  if token in source: failures.append(f"{label}: {path}: {token}")
+          if failures: raise SystemExit("\n".join(failures))
+          Path("artifacts/prohibited-mechanism-scan.txt").write_text("zero prohibited mechanisms found\n",encoding="utf-8")
+          PY
+
+      - name: Build evidence SHA-256 manifest
+        run: |
+          cd artifacts
+          find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: universal-core-blind-eval-v1-evidence
+          path: artifacts
+          retention-days: 30
+          if-no-files-found: error
