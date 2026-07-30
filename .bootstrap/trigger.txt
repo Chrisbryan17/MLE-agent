@@ -1,1 +1,0 @@
-trigger atomic Universal Core V1 patch application via corrected digest
