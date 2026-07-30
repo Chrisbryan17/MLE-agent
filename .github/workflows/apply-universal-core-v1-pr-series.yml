@@ -26,7 +26,7 @@ jobs:
       - name: Verify and reconstruct patch series
         run: |
           cat .bootstrap/part-* > /tmp/universal-core-v1-series.mbox.gz
-          echo 'ac90cfc1fbf3f9821b8419630f0ab81570111009ad5600478b135059db4c4c6d  /tmp/universal-core-v1-series.mbox.gz' | sha256sum -c -
+          echo 'ac90eac5864e2649698e53bbc128ceaf6cbd7631124eb7a9603d94956ebaa668  /tmp/universal-core-v1-series.mbox.gz' | sha256sum -c -
           gunzip -c /tmp/universal-core-v1-series.mbox.gz > /tmp/universal-core-v1-series.mbox
 
       - name: Apply atomic implementation commits
