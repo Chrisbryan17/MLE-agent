@@ -1,0 +1,35 @@
+{
+  "protocol_version": "universal-core-blind-eval-v1",
+  "suite_id": "fixture-suite-001",
+  "revealed_at": "2026-07-30T12:00:00Z",
+  "task_reveals": [
+    {
+      "task_id": "fixture-affine",
+      "targets": [11, 23, -10],
+      "family_id": "fixture-family-affine",
+      "generalization_level": 1,
+      "construction_method": "Protocol mechanics fixture only; not independent blind-evaluation evidence.",
+      "provenance": {"source_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+      "ambiguity_annotations": {}
+    }
+  ],
+  "scoring_policy": {
+    "policy_name": "exact-first-attempt",
+    "default_rule": {"kind": "EXACT", "absolute_tolerance": 0.0, "relative_tolerance": 0.0, "directed_graph": true},
+    "task_rules": {},
+    "exclusions": {}
+  },
+  "independence_attestation": {
+    "evaluator_id": "fixture-evaluator",
+    "evaluator_key": "fixture-key-not-for-scientific-use",
+    "created_at": "2026-07-30T09:00:00Z",
+    "source_reviewed": true,
+    "derived_from_repo_tests": true,
+    "developers_saw_private_material": false,
+    "external_model_assistance": null,
+    "generator_source_digests": ["bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+    "source_material_digests": ["cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"],
+    "conflicts_of_interest": ["Repository fixture; not independent"],
+    "evaluator_auditor_distinct": false
+  }
+}
