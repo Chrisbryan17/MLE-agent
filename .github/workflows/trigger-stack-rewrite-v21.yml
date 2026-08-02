@@ -32,8 +32,22 @@ jobs:
           from textwrap import dedent
 
           source = Path('.github/workflows/apply-stack-rewrite-v21.yml').read_text()
-          block = source.split("          python - <<'PY'\n", 1)[1].split("\n          PY\n", 1)[0]
-          Path('/tmp/apply_stack_rewrite.py').write_text(dedent(block))
+          block = dedent(source.split("          python - <<'PY'\n", 1)[1].split("\n          PY\n", 1)[0])
+          start = block.index("dispatch_old = '''")
+          end = block.index("program.write_text(text)", start)
+          replacement = '''dispatch_marker = '    raise ValueError(f"unsupported node kind: {kind}")\\n'
+          dispatch_block = """    if kind == "stack_rewrite":
+              if not isinstance(value, Mapping):
+                  raise TypeError("stack-rewrite input must be a mapping")
+              return _stack_rewrite(data, value, context)
+          """
+          if 'raise TypeError("stack-rewrite input must be a mapping")' not in text:
+              if dispatch_marker not in text:
+                  raise SystemExit('program dispatch marker missing')
+              text = text.replace(dispatch_marker, dispatch_block + dispatch_marker, 1)
+          '''
+          block = block[:start] + dedent(replacement) + block[end:]
+          Path('/tmp/apply_stack_rewrite.py').write_text(block)
           PY
           python /tmp/apply_stack_rewrite.py
 
