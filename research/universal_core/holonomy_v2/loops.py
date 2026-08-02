@@ -108,6 +108,39 @@ def _contains_kind(data: Any, kinds: set[str]) -> bool:
     return False
 
 
+def _state_cycles(data: Mapping[str, Any], limit: int = 8) -> tuple[tuple[Any, tuple[Any, ...]], ...]:
+    transitions = list(data.get("transitions", ()))
+    states: list[Any] = []
+    for item in transitions:
+        for state in (item["state"], item["next"]):
+            if state not in states:
+                states.append(state)
+    cycles: list[tuple[Any, tuple[Any, ...]]] = []
+
+    def walk(start: Any, state: Any, actions: tuple[Any, ...], visited: tuple[Any, ...]) -> None:
+        if len(cycles) >= limit or len(actions) >= max(1, len(states)):
+            return
+        for item in transitions:
+            if item["state"] != state:
+                continue
+            nxt = item["next"]
+            next_actions = actions + (item["action"],)
+            if nxt == start:
+                candidate = (start, next_actions)
+                if candidate not in cycles:
+                    cycles.append(candidate)
+                continue
+            if nxt in visited:
+                continue
+            walk(start, nxt, next_actions, visited + (nxt,))
+
+    for state in states:
+        walk(state, state, (), (state,))
+        if len(cycles) >= limit:
+            break
+    return tuple(cycles)
+
+
 def build_loops(
     program: Program,
     demonstrations: Iterable[Any],
@@ -129,6 +162,22 @@ def build_loops(
             data,
             f"demo-{index}",
         ))
+
+    if data.get("kind") == "state_fold" and demos:
+        base_input, _ = _demo_parts(demos[0])
+        if isinstance(base_input, Mapping):
+            for index, (state, actions) in enumerate(_state_cycles(data)):
+                cycle_input = deepcopy(dict(base_input))
+                cycle_input[data["state_field"]] = deepcopy(state)
+                cycle_input[data["actions_field"]] = list(deepcopy(actions))
+                mandatory.append(ClosedPath(
+                    LoopKind.STATE_CYCLE,
+                    True,
+                    cycle_input,
+                    deepcopy(state),
+                    data,
+                    f"state-cycle-{index}",
+                ))
 
     if data.get("kind") == "compose":
         for index, demo in enumerate(demos[:3]):
