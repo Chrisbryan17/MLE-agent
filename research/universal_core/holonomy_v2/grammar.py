@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from fractions import Fraction
 from numbers import Real
+import re
 from typing import Any, Iterable, Mapping, Sequence
 
 from .atoms import AtomPool, derive_atoms
@@ -125,6 +126,128 @@ def _token_candidate(instructions: str, demos: Sequence[Any], atoms: AtomPool) -
     return data if _fits(Program.parse(data), demos) else None
 
 
+
+def _add_if_fits(candidates: dict[str, Program], data: Mapping[str, Any], demos: Sequence[Any]) -> None:
+    try:
+        program = Program.parse(data)
+    except (KeyError, TypeError, ValueError):
+        return
+    if _fits(program, demos):
+        candidates.setdefault(program.digest, program)
+
+
+def _priority_data(instructions: str, demos: Sequence[Any]) -> Mapping[str, Any] | None:
+    lowered = instructions.casefold()
+    labels = sorted({str(_demo_parts(item)[1]) for item in demos})
+    allow_label = next((item for item in labels if item.casefold().startswith("allow")), None)
+    deny_label = next((item for item in labels if item.casefold().startswith("deny")), None)
+    if allow_label is None or deny_label is None:
+        return None
+    rules: list[dict[str, Any]] = []
+    emergency = re.search(
+        r"during a\s+([a-z_][a-z0-9_]*),\s*(allow|deny)\s+unless\s+([a-z_][a-z0-9_]*)\s+is\s+true",
+        lowered,
+    )
+    if emergency:
+        field, action, exception = emergency.groups()
+        rules.append({
+            "condition": {
+                "op": "and",
+                "terms": [
+                    {"field": field, "equals": True},
+                    {"op": "not", "term": {"field": exception, "equals": True}},
+                ],
+            },
+            "value": allow_label if action == "allow" else deny_label,
+        })
+    for left, right, action in re.findall(
+        r"([a-z_][a-z0-9_]*)\s+together with\s+([a-z_][a-z0-9_]*)\s+(allows|denies)",
+        lowered,
+    ):
+        rules.append({
+            "condition": {
+                "op": "and",
+                "terms": [
+                    {"field": left, "equals": True},
+                    {"field": right, "equals": True},
+                ],
+            },
+            "value": allow_label if action == "allows" else deny_label,
+        })
+    for left, one, two, action in re.findall(
+        r"([a-z_][a-z0-9_]*)\s+together with\s+either\s+([a-z_][a-z0-9_]*)\s+or\s+([a-z_][a-z0-9_]*)\s+(allows|denies)",
+        lowered,
+    ):
+        rules.append({
+            "condition": {
+                "op": "and",
+                "terms": [
+                    {"field": left, "equals": True},
+                    {
+                        "op": "or",
+                        "terms": [
+                            {"field": one, "equals": True},
+                            {"field": two, "equals": True},
+                        ],
+                    },
+                ],
+            },
+            "value": allow_label if action == "allows" else deny_label,
+        })
+    if not rules:
+        return None
+    default = deny_label if "remaining cases deny" in lowered else allow_label
+    return {"kind": "priority_rules", "rules": rules, "default": default}
+
+
+def _grid_data(instructions: str, inputs: Sequence[Any]) -> Mapping[str, Any] | None:
+    lowered = instructions.casefold()
+    if "orthogon" not in lowered or "jump" not in lowered or "count" not in lowered:
+        return None
+    first = inputs[0]
+    if not isinstance(first, Mapping):
+        return None
+    board_field = next((str(key) for key, value in first.items() if isinstance(value, Sequence) and value and all(isinstance(row, str) for row in value)), None)
+    actor_field = next((str(key) for key, value in first.items() if isinstance(value, str)), None)
+    if board_field is None or actor_field is None:
+        return None
+    return {
+        "kind": "grid_pattern_count",
+        "board_field": board_field,
+        "actor_field": actor_field,
+        "empty": ".",
+        "directions": [[1, 0], [-1, 0], [0, 1], [0, -1]],
+        "jump": 2,
+    }
+
+
+def _resource_data(instructions: str, inputs: Sequence[Any]) -> Mapping[str, Any] | None:
+    lowered = instructions.casefold()
+    if "non-preemptive" not in lowered or "precedence" not in lowered or "completion time" not in lowered:
+        return None
+    first = inputs[0]
+    if not isinstance(first, Mapping):
+        return None
+    jobs_field = next((str(key) for key, value in first.items() if isinstance(value, Sequence) and value and all(isinstance(item, Mapping) for item in value)), None)
+    precedence_field = next((str(key) for key, value in first.items() if isinstance(value, Sequence) and (not value or all(isinstance(item, Sequence) and not isinstance(item, (str, bytes)) and len(item) == 2 for item in value))), None)
+    if jobs_field is None or precedence_field is None:
+        return None
+    jobs = first[jobs_field]
+    fields = _common_fields(jobs)
+    id_field = next((field for field in fields if field.casefold() in {"id", "name", "job"}), None)
+    duration_field = next((field for field in fields if "duration" in field.casefold() or "time" in field.casefold()), None)
+    resource_field = next((field for field in fields if "machine" in field.casefold() or "resource" in field.casefold()), None)
+    if id_field is None or duration_field is None or resource_field is None:
+        return None
+    return {
+        "kind": "resource_makespan",
+        "jobs_field": jobs_field,
+        "precedence_field": precedence_field,
+        "id_field": id_field,
+        "duration_field": duration_field,
+        "resource_field": resource_field,
+    }
+
 def build_task_grammar(
     instructions: str,
     demonstrations: Iterable[Any],
@@ -147,6 +270,34 @@ def build_task_grammar(
         _add(candidates, token_data)
 
     inputs = [_demo_parts(item)[0] for item in demos]
+
+    if atoms.hints.cycle and all(isinstance(value, Mapping) for value in inputs):
+        first_map = inputs[0]
+        terms = []
+        for field in sorted(first_map):
+            observed = first_map[field]
+            mode = "cycle" if isinstance(observed, str) and observed in atoms.hints.cycle else "number"
+            terms.append({
+                "field": str(field),
+                "coefficient": int(atoms.hints.coefficients.get(str(field), 1)),
+                "mode": mode,
+            })
+        _add_if_fits(candidates, {
+            "kind": "modular_symbol",
+            "cycle": list(atoms.hints.cycle),
+            "terms": terms,
+            "modulus": atoms.hints.modulus or len(atoms.hints.cycle),
+        }, demos)
+
+    priority = _priority_data(instructions, demos)
+    if priority is not None:
+        _add_if_fits(candidates, priority, demos)
+    grid = _grid_data(instructions, inputs)
+    if grid is not None:
+        _add_if_fits(candidates, grid, demos)
+    resource = _resource_data(instructions, inputs)
+    if resource is not None:
+        _add_if_fits(candidates, resource, demos)
     if all(isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)) for value in inputs):
         rows = [row for table in inputs for row in table]
         fields = _common_fields(rows)

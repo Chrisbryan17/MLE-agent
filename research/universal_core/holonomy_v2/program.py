@@ -100,6 +100,98 @@ def _field(value: Any, name: Any) -> Any:
     return value[name]
 
 
+
+def _condition_matches(data: Mapping[str, Any], value: Mapping[str, Any]) -> bool:
+    op = data.get("op")
+    if op == "and":
+        return all(_condition_matches(item, value) for item in data.get("terms", ()))
+    if op == "or":
+        return any(_condition_matches(item, value) for item in data.get("terms", ()))
+    if op == "not":
+        return not _condition_matches(data["term"], value)
+    if "field" in data:
+        observed = value[data["field"]]
+        if "equals" in data:
+            return observed == data["equals"]
+        if "comparison" in data:
+            return _compare(observed, data["comparison"], data.get("value"))
+    raise ValueError("invalid rule condition")
+
+
+def _grid_count(data: Mapping[str, Any], value: Mapping[str, Any]) -> int:
+    board = value[data["board_field"]]
+    actor = value[data["actor_field"]]
+    empty = data.get("empty", ".")
+    symbols = sorted({cell for row in board for cell in row if cell not in {actor, empty}})
+    if len(symbols) != 1:
+        raise ValueError("grid requires one opposing symbol")
+    opponent = symbols[0]
+    size = len(board)
+    jump = int(data.get("jump", 2))
+    directions = [tuple(item) for item in data.get("directions", ((1, 0), (-1, 0), (0, 1), (0, -1)))]
+    total = 0
+    for row in range(size):
+        for col in range(len(board[row])):
+            if board[row][col] != actor:
+                continue
+            for dr, dc in directions:
+                mid_row, mid_col = row + dr, col + dc
+                end_row, end_col = row + jump * dr, col + jump * dc
+                if not (0 <= end_row < size and 0 <= end_col < len(board[end_row])):
+                    continue
+                if board[mid_row][mid_col] == opponent and board[end_row][end_col] == empty:
+                    total += 1
+    return total
+
+
+def _resource_makespan(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> int:
+    jobs = list(value[data["jobs_field"]])
+    if len(jobs) > context.limits.max_schedule_jobs:
+        raise BudgetExceeded("job count exceeds configured bound")
+    id_field = data["id_field"]
+    duration_field = data["duration_field"]
+    resource_field = data["resource_field"]
+    ids = [job[id_field] for job in jobs]
+    by_id = {job[id_field]: job for job in jobs}
+    resources = sorted({job[resource_field] for job in jobs}, key=str)
+    grouped = {resource: [job[id_field] for job in jobs if job[resource_field] == resource] for resource in resources}
+    base_edges = [tuple(edge) for edge in value[data["precedence_field"]]]
+    best: int | None = None
+    order_sets = [tuple(itertools.permutations(grouped[resource])) for resource in resources]
+    for selected in itertools.product(*order_sets):
+        context.tick()
+        edges = list(base_edges)
+        for order in selected:
+            edges.extend(zip(order, order[1:]))
+        outgoing = {item: [] for item in ids}
+        incoming = {item: [] for item in ids}
+        indegree = {item: 0 for item in ids}
+        for left, right in edges:
+            if right not in outgoing[left]:
+                outgoing[left].append(right)
+                incoming[right].append(left)
+                indegree[right] += 1
+        queue = deque(sorted((item for item in ids if indegree[item] == 0), key=str))
+        order: list[Any] = []
+        while queue:
+            item = queue.popleft()
+            order.append(item)
+            for nxt in sorted(outgoing[item], key=str):
+                indegree[nxt] -= 1
+                if indegree[nxt] == 0:
+                    queue.append(nxt)
+        if len(order) != len(ids):
+            continue
+        finish: dict[Any, int] = {}
+        for item in order:
+            start = max((finish[parent] for parent in incoming[item]), default=0)
+            finish[item] = start + int(by_id[item][duration_field])
+        completion = max(finish.values(), default=0)
+        best = completion if best is None else min(best, completion)
+    if best is None:
+        raise ValueError("no feasible resource order")
+    return best
+
 _ALLOWED = {item.value for item in NodeKind}
 
 
@@ -278,6 +370,30 @@ def _run(data: Mapping[str, Any], value: Any, context: EvaluationContext) -> Any
         if "default" in data:
             return data["default"]
         raise KeyError("no token matched")
-    if kind in {"modular_symbol", "priority_rules", "grid_pattern_count", "resource_makespan"}:
-        raise NotImplementedError(kind)
+    if kind == "modular_symbol":
+        if not isinstance(value, Mapping):
+            raise TypeError("symbol input must be a mapping")
+        cycle = list(data["cycle"])
+        modulus = int(data.get("modulus", len(cycle)))
+        total = 0
+        for term in data["terms"]:
+            observed = value[term["field"]]
+            number = cycle.index(observed) if term.get("mode") == "cycle" else int(observed)
+            total += int(term.get("coefficient", 1)) * number
+        return cycle[total % modulus]
+    if kind == "priority_rules":
+        if not isinstance(value, Mapping):
+            raise TypeError("rule input must be a mapping")
+        for rule in data["rules"]:
+            if _condition_matches(rule["condition"], value):
+                return rule["value"]
+        return data["default"]
+    if kind == "grid_pattern_count":
+        if not isinstance(value, Mapping):
+            raise TypeError("grid input must be a mapping")
+        return _grid_count(data, value)
+    if kind == "resource_makespan":
+        if not isinstance(value, Mapping):
+            raise TypeError("resource input must be a mapping")
+        return _resource_makespan(data, value, context)
     raise ValueError(f"unsupported node kind: {kind}")

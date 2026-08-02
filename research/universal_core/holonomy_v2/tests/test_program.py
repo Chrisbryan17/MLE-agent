@@ -64,3 +64,81 @@ def test_step_bound_is_enforced() -> None:
     program = Program.parse({"kind": "compose", "parts": [{"kind": "input"}] * 4})
     with pytest.raises(BudgetExceeded):
         program.run(1, EngineLimits(max_steps=2))
+
+
+def test_modular_symbol_program() -> None:
+    program = Program.parse({
+        "kind": "modular_symbol",
+        "cycle": ["ka", "zu", "mi", "te", "ro"],
+        "terms": [
+            {"field": "left", "coefficient": 1, "mode": "cycle"},
+            {"field": "right", "coefficient": 2, "mode": "cycle"},
+            {"field": "phase", "coefficient": 1, "mode": "number"},
+        ],
+        "modulus": 5,
+    })
+    assert program.run({"left": "te", "right": "mi", "phase": 1}) == "te"
+
+
+def test_priority_rule_program() -> None:
+    program = Program.parse({
+        "kind": "priority_rules",
+        "rules": [
+            {
+                "condition": {
+                    "op": "and",
+                    "terms": [
+                        {"field": "storm", "equals": True},
+                        {"op": "not", "term": {"field": "rescue", "equals": True}},
+                    ],
+                },
+                "value": "DENY",
+            },
+            {
+                "condition": {
+                    "op": "and",
+                    "terms": [
+                        {"field": "charter", "equals": True},
+                        {"field": "witness", "equals": True},
+                    ],
+                },
+                "value": "ALLOW",
+            },
+        ],
+        "default": "DENY",
+    })
+    assert program.run({"storm": True, "rescue": False, "charter": True, "witness": True}) == "DENY"
+    assert program.run({"storm": False, "rescue": False, "charter": True, "witness": True}) == "ALLOW"
+
+
+def test_grid_pattern_count_program() -> None:
+    program = Program.parse({
+        "kind": "grid_pattern_count",
+        "board_field": "board",
+        "actor_field": "player",
+        "empty": ".",
+        "directions": [[1, 0], [-1, 0], [0, 1], [0, -1]],
+        "jump": 2,
+    })
+    assert program.run({"board": [".B..", ".AB.", "AA.A", "B.A."], "player": "A"}) == 1
+
+
+def test_resource_makespan_program() -> None:
+    program = Program.parse({
+        "kind": "resource_makespan",
+        "jobs_field": "jobs",
+        "precedence_field": "precedence",
+        "id_field": "id",
+        "duration_field": "duration",
+        "resource_field": "machine",
+    })
+    value = {
+        "jobs": [
+            {"duration": 7, "id": "j0", "machine": "M1"},
+            {"duration": 1, "id": "j1", "machine": "M2"},
+            {"duration": 1, "id": "j2", "machine": "M1"},
+            {"duration": 3, "id": "j3", "machine": "M2"},
+        ],
+        "precedence": [["j1", "j0"], ["j0", "j3"]],
+    }
+    assert program.run(value) == 11

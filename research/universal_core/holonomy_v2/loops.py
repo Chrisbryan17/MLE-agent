@@ -52,9 +52,9 @@ def _demo_parts(item: Any) -> tuple[Any, Any]:
 def _field_names(data: Any) -> tuple[str, ...]:
     found: set[str] = set()
     if isinstance(data, Mapping):
-        field = data.get("field")
-        if isinstance(field, str):
-            found.add(field)
+        for key, field in data.items():
+            if (key == "field" or key.endswith("_field")) and isinstance(field, str):
+                found.add(field)
         for value in data.values():
             found.update(_field_names(value))
     elif isinstance(data, Sequence) and not isinstance(data, (str, bytes, bytearray)):
@@ -80,7 +80,7 @@ def _rename_program(value: Any, mapping: Mapping[str, str]) -> Any:
     if isinstance(value, Mapping):
         result: dict[str, Any] = {}
         for key, item in value.items():
-            if key == "field" and isinstance(item, str):
+            if (key == "field" or key.endswith("_field")) and isinstance(item, str):
                 result[key] = mapping.get(item, item)
             else:
                 result[key] = _rename_program(item, mapping)

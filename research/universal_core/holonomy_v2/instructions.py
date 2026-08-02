@@ -19,6 +19,7 @@ class InstructionHints:
     modulus: int | None = None
     coefficients: Mapping[str, int] = field(default_factory=lambda: MappingProxyType({}))
     aggregate: str | None = None
+    cycle: tuple[str, ...] = ()
 
     def to_data(self) -> dict[str, object]:
         return {
@@ -33,6 +34,7 @@ class InstructionHints:
             "modulus": self.modulus,
             "coefficients": dict(self.coefficients),
             "aggregate": self.aggregate,
+            "cycle": list(self.cycle),
         }
 
 
@@ -86,6 +88,10 @@ def parse_instruction_hints(text: str) -> InstructionHints:
     ))))
     modulus_match = re.search(r"(?:modulo|mod)\s+(\d+)", lowered)
     modulus = int(modulus_match.group(1)) if modulus_match else None
+    cycle_match = re.search(r"cycle\s+in\s+this\s+order:\s*([^.]+)", lowered)
+    cycle = () if cycle_match is None else tuple(
+        token.strip() for token in cycle_match.group(1).split(",") if token.strip()
+    )
     coeff = {name: int(raw) for raw, name in re.findall(r"(\d+)\s*\*\s*([a-z_][a-z0-9_]*)", lowered)}
 
     if "sum" in lowered:
@@ -111,4 +117,5 @@ def parse_instruction_hints(text: str) -> InstructionHints:
         modulus=modulus,
         coefficients=MappingProxyType(dict(sorted(coeff.items()))),
         aggregate=aggregate,
+        cycle=cycle,
     )
