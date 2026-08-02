@@ -138,9 +138,16 @@ def _add_if_fits(candidates: dict[str, Program], data: Mapping[str, Any], demos:
 
 def _priority_data(instructions: str, demos: Sequence[Any]) -> Mapping[str, Any] | None:
     lowered = instructions.casefold()
-    labels = sorted({str(_demo_parts(item)[1]) for item in demos})
-    allow_label = next((item for item in labels if item.casefold().startswith("allow")), None)
-    deny_label = next((item for item in labels if item.casefold().startswith("deny")), None)
+    labels = {str(_demo_parts(item)[1]) for item in demos}
+    return_pair = re.search(
+        r"return\s+([a-z0-9_-]+)\s+or\s+([a-z0-9_-]+)",
+        lowered,
+    )
+    if return_pair:
+        labels.update(item.upper() for item in return_pair.groups())
+    ordered_labels = sorted(labels)
+    allow_label = next((item for item in ordered_labels if item.casefold().startswith("allow")), None)
+    deny_label = next((item for item in ordered_labels if item.casefold().startswith("deny")), None)
     if allow_label is None or deny_label is None:
         return None
     rules: list[dict[str, Any]] = []
@@ -316,19 +323,17 @@ def build_task_grammar(
         _add(candidates, {"kind": "aggregate", "op": "count"})
 
         hint_compare = atoms.hints.comparison
-        compare_options: list[tuple[str, Any]] = []
         if hint_compare is not None:
-            compare_options.append(hint_compare)
-        for constant in atoms.constants:
-            if _numeric(constant):
-                compare_options.extend((op, constant) for op in ("<", "<=", "==", ">=", ">"))
-        seen_compare: set[tuple[str, str]] = set()
+            compare_options: list[tuple[str, Any]] = [hint_compare]
+        else:
+            compare_options = [
+                (op, constant)
+                for constant in atoms.constants
+                if _numeric(constant)
+                for op in ("<", "<=", "==", ">=", ">")
+            ]
         for filter_field in fields:
             for op, threshold in compare_options:
-                key = (op, repr(threshold))
-                if key in seen_compare and hint_compare is not None:
-                    continue
-                seen_compare.add(key)
                 filter_node = {"kind": "filter", "field": filter_field, "comparison": op, "value": threshold}
                 _add(candidates, {"kind": "compose", "parts": [filter_node, {"kind": "aggregate", "op": "count"}]})
                 for value_field in fields:
