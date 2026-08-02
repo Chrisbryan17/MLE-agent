@@ -53,6 +53,7 @@ _NODE_FIELDS: dict[str, frozenset[str]] = {
     "priority_rules": frozenset({"kind", "rules", "default"}),
     "grid_pattern_count": frozenset({"kind", "board_field", "player_field", "empty", "directions"}),
     "resource_makespan": frozenset({"kind", "jobs_field", "edges_field", "id_field", "duration_field", "resource_field"}),
+    "state_fold": frozenset({"kind", "state_field", "actions_field", "transitions", "unknown"}),
 }
 
 
@@ -91,6 +92,9 @@ def _program_constants(data: Any) -> list[Any]:
             values.extend((data.get("a"), data.get("b")))
         elif kind == "filter":
             values.append(data.get("value"))
+        elif kind == "state_fold":
+            for transition in data.get("transitions", ()):
+                values.extend((transition.get("state"), transition.get("action"), transition.get("next")))
         for key, item in data.items():
             if key not in {"value", "a", "b"}:
                 values.extend(_program_constants(item))
