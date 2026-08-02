@@ -6,6 +6,7 @@ import pytest
 from universal_core.holonomy_v2.grammar_ext import build_task_grammar_extended
 from universal_core.holonomy_v2.loops import LoopKind, build_loops
 from universal_core.holonomy_v2.program import BudgetExceeded, Program
+from universal_core.holonomy_v2.proposer import JsonProposalBackend, ProposalError
 from universal_core.holonomy_v2.search import search_candidates
 from universal_core.holonomy_v2.types import EngineLimits, SearchConfig
 
@@ -107,3 +108,47 @@ def test_stack_rewrite_builds_a_normal_form_loop() -> None:
     normal_forms = [item for item in loops.mandatory if item.kind == LoopKind.REWRITE_NORMAL_FORM]
     assert normal_forms
     assert all(item.expected == [] for item in normal_forms)
+
+
+def test_stack_rewrite_proposal_declares_rule_tokens() -> None:
+    backend = JsonProposalBackend(lambda request: {
+        "program": {
+            "kind": "stack_rewrite",
+            "sequence_field": "symbols",
+            "token_mode": "items",
+            "rules": RULES,
+        },
+        "rationale": "bounded suffix rewriting",
+        "confidence": 0.9,
+        "declared_constants": ["A", "B", "C"],
+    })
+
+    proposals = backend.propose(
+        "Apply the stack rewrite rules.",
+        (Demo({"symbols": ["A", "B"]}, ["C"]),),
+        ("A", "B", "C"),
+    )
+
+    assert len(proposals) == 1
+    assert proposals[0].program.to_data()["kind"] == "stack_rewrite"
+
+
+def test_stack_rewrite_proposal_rejects_undeclared_rule_token() -> None:
+    backend = JsonProposalBackend(lambda request: {
+        "program": {
+            "kind": "stack_rewrite",
+            "sequence_field": "symbols",
+            "token_mode": "items",
+            "rules": RULES,
+        },
+        "rationale": "hidden rewrite token",
+        "confidence": 0.9,
+        "declared_constants": ["A", "B"],
+    })
+
+    with pytest.raises(ProposalError, match="undeclared constant"):
+        backend.propose(
+            "Apply the stack rewrite rules.",
+            (Demo({"symbols": ["A", "B"]}, ["C"]),),
+            ("A", "B", "C"),
+        )
