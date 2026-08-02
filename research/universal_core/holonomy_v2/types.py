@@ -47,6 +47,7 @@ class NodeKind(str, Enum):
     GRID_PATTERN_COUNT = "grid_pattern_count"
     RESOURCE_MAKESPAN = "resource_makespan"
     STATE_FOLD = "state_fold"
+    STACK_REWRITE = "stack_rewrite"
 
 
 class FailureCode(str, Enum):
