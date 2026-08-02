@@ -18,6 +18,7 @@ class LoopKind(str, Enum):
     DEMO_REORDER = "DEMO_REORDER"
     ADAPTER_ROUND_TRIP = "ADAPTER_ROUND_TRIP"
     STATE_CYCLE = "STATE_CYCLE"
+    REWRITE_NORMAL_FORM = "REWRITE_NORMAL_FORM"
     PRIORITY_AGREEMENT = "PRIORITY_AGREEMENT"
 
 
@@ -178,6 +179,22 @@ def build_loops(
                     data,
                     f"state-cycle-{index}",
                 ))
+
+    if data.get("kind") == "stack_rewrite":
+        for index, demo in enumerate(demos[:3]):
+            inp, expected = _demo_parts(demo)
+            if not isinstance(inp, Mapping):
+                continue
+            normal_input = deepcopy(dict(inp))
+            normal_input[data["sequence_field"]] = deepcopy(expected)
+            mandatory.append(ClosedPath(
+                LoopKind.REWRITE_NORMAL_FORM,
+                True,
+                normal_input,
+                deepcopy(expected),
+                data,
+                f"rewrite-normal-form-{index}",
+            ))
 
     if data.get("kind") == "compose":
         for index, demo in enumerate(demos[:3]):

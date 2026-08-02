@@ -168,6 +168,61 @@ def _state_fold(data: Mapping[str, Any], value: Mapping[str, Any], context: Eval
     return state
 
 
+
+def _stack_tokens(value: Any, mode: str) -> tuple[list[Any], str]:
+    if mode == "characters":
+        if not isinstance(value, str):
+            raise TypeError("character stack input must be a string")
+        return list(value), "characters"
+    if mode == "words":
+        if not isinstance(value, str):
+            raise TypeError("word stack input must be a string")
+        return value.split(), "words"
+    if mode == "items":
+        if not isinstance(value, Sequence) or isinstance(value, (str, bytes, bytearray)):
+            raise TypeError("item stack input must be a sequence")
+        return list(value), "tuple" if isinstance(value, tuple) else "items"
+    raise ValueError("invalid stack token mode")
+
+
+def _stack_output(stack: list[Any], output_mode: str) -> Any:
+    if output_mode == "characters":
+        if not all(isinstance(item, str) for item in stack):
+            raise TypeError("character rewrite produced a non-string token")
+        return "".join(stack)
+    if output_mode == "words":
+        if not all(isinstance(item, str) for item in stack):
+            raise TypeError("word rewrite produced a non-string token")
+        return " ".join(stack)
+    if output_mode == "tuple":
+        return tuple(stack)
+    return stack
+
+
+def _stack_rewrite(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> Any:
+    rules = data["rules"]
+    if len(rules) > context.limits.max_state_count:
+        raise BudgetExceeded("rewrite rule count exceeds configured bound")
+    stack: list[Any] = []
+    tokens, output_mode = _stack_tokens(value[data["sequence_field"]], data["token_mode"])
+    for token in tokens:
+        context.tick()
+        stack.append(deepcopy(token))
+        while True:
+            matched = False
+            for rule in rules:
+                left = rule["left"]
+                if len(left) <= len(stack) and stack[-len(left):] == left:
+                    context.tick()
+                    del stack[-len(left):]
+                    stack.extend(deepcopy(rule["right"]))
+                    matched = True
+                    break
+            if not matched:
+                break
+    return _stack_output(stack, output_mode)
+
+
 def _resource_makespan(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> int:
     jobs = list(value[data["jobs_field"]])
     if len(jobs) > context.limits.max_schedule_jobs:
@@ -284,6 +339,36 @@ def _validate(data: Mapping[str, Any]) -> None:
             seen[key] = transition["next"]
         if data.get("unknown", "error") not in {"error", "identity"}:
             raise ValueError("invalid state_fold unknown policy")
+
+
+    if kind == "stack_rewrite":
+        if not isinstance(data.get("sequence_field"), str):
+            raise ValueError("stack_rewrite requires a sequence field")
+        if data.get("token_mode") not in {"items", "characters", "words"}:
+            raise ValueError("invalid stack_rewrite token mode")
+        rules = data.get("rules")
+        if not isinstance(rules, Sequence) or isinstance(rules, (str, bytes, bytearray)) or not rules:
+            raise ValueError("stack_rewrite requires rules")
+        seen_rules: dict[bytes, Any] = {}
+        for rule in rules:
+            if not isinstance(rule, Mapping) or set(rule) != {"left", "right"}:
+                raise ValueError("invalid stack_rewrite rule")
+            left = rule["left"]
+            right = rule["right"]
+            if (
+                not isinstance(left, Sequence)
+                or isinstance(left, (str, bytes, bytearray))
+                or not left
+                or not isinstance(right, Sequence)
+                or isinstance(right, (str, bytes, bytearray))
+            ):
+                raise ValueError("invalid stack_rewrite rule")
+            if list(left) == list(right):
+                raise ValueError("identity rewrite is not allowed")
+            key = _canonical_bytes(list(left))
+            if key in seen_rules and seen_rules[key] != list(right):
+                raise ValueError("conflicting rewrite")
+            seen_rules[key] = list(right)
 
 
 def _cost(data: Mapping[str, Any]) -> int:
@@ -440,4 +525,8 @@ def _run(data: Mapping[str, Any], value: Any, context: EvaluationContext) -> Any
         if not isinstance(value, Mapping):
             raise TypeError("state-fold input must be a mapping")
         return _state_fold(data, value, context)
+    if kind == "stack_rewrite":
+        if not isinstance(value, Mapping):
+            raise TypeError("stack-rewrite input must be a mapping")
+        return _stack_rewrite(data, value, context)
     raise ValueError(f"unsupported node kind: {kind}")

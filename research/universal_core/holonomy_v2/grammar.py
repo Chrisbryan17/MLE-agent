@@ -265,6 +265,85 @@ def _state_fold_candidates(instructions: str, demos: Sequence[Any]) -> tuple[Map
     return tuple(candidates)
 
 
+
+def _stack_rewrite_candidates(instructions: str, demos: Sequence[Any]) -> tuple[Mapping[str, Any], ...]:
+    lowered = instructions.casefold()
+    if "stack" not in lowered or "rewrite" not in lowered:
+        return ()
+    rule_block = re.search(r"\brules?\s*:\s*(.+?)(?:\breturn\b|$)", instructions, re.IGNORECASE | re.DOTALL)
+    if rule_block is None:
+        return ()
+    raw_rules: list[tuple[list[str], list[str]]] = []
+    for clause in rule_block.group(1).split(";"):
+        match = re.fullmatch(r"\s*(.+?)\s*(?:->|→)\s*(.*?)\s*\.?\s*", clause)
+        if match is None:
+            continue
+        left_text, right_text = match.groups()
+        left = left_text.split()
+        if not left:
+            continue
+        right = [] if right_text.casefold() in {"", "empty", "epsilon", "ε"} else right_text.split()
+        raw_rules.append((left, right))
+    if not raw_rules:
+        return ()
+    if any(len(right) >= len(left) for left, right in raw_rules):
+        return ()
+
+    inputs = [_demo_parts(item)[0] for item in demos]
+    outputs = [_demo_parts(item)[1] for item in demos]
+    if not inputs or not all(isinstance(item, Mapping) for item in inputs):
+        return ()
+    fields = _common_fields(inputs)
+    candidates: list[Mapping[str, Any]] = []
+    for field in fields:
+        values = [item[field] for item in inputs]
+        modes: tuple[str, ...]
+        if all(isinstance(value, str) for value in values) and all(isinstance(value, str) for value in outputs):
+            modes = ("characters", "words")
+        elif all(
+            isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray))
+            for value in values
+        ) and all(
+            isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray))
+            for value in outputs
+        ):
+            modes = ("items",)
+        else:
+            continue
+
+        for mode in modes:
+            observed: list[Any] = []
+            if mode == "characters":
+                for value in [*values, *outputs]:
+                    observed.extend(value)
+            elif mode == "words":
+                for value in [*values, *outputs]:
+                    observed.extend(value.split())
+            else:
+                for value in [*values, *outputs]:
+                    observed.extend(value)
+            by_token = {str(item).casefold(): item for item in observed}
+            rules = [
+                {
+                    "left": [by_token.get(token.casefold(), token) for token in left],
+                    "right": [by_token.get(token.casefold(), token) for token in right],
+                }
+                for left, right in raw_rules
+            ]
+            data = {
+                "kind": "stack_rewrite",
+                "sequence_field": field,
+                "token_mode": mode,
+                "rules": rules,
+            }
+            try:
+                program = Program.parse(data)
+            except (TypeError, ValueError):
+                continue
+            if _fits(program, demos):
+                candidates.append(data)
+    return tuple(candidates)
+
 def _grid_data(instructions: str, inputs: Sequence[Any]) -> Mapping[str, Any] | None:
     lowered = instructions.casefold()
     if "orthogon" not in lowered or "jump" not in lowered or "count" not in lowered:
@@ -356,6 +435,9 @@ def build_task_grammar(
 
     for state_fold in _state_fold_candidates(instructions, demos):
         _add_if_fits(candidates, state_fold, demos)
+
+    for stack_rewrite in _stack_rewrite_candidates(instructions, demos):
+        _add_if_fits(candidates, stack_rewrite, demos)
 
     priority = _priority_data(instructions, demos)
     if priority is not None:
