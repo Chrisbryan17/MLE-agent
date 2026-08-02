@@ -207,6 +207,64 @@ def _priority_data(instructions: str, demos: Sequence[Any]) -> Mapping[str, Any]
     return {"kind": "priority_rules", "rules": rules, "default": default}
 
 
+def _state_fold_candidates(instructions: str, demos: Sequence[Any]) -> tuple[Mapping[str, Any], ...]:
+    triples = re.findall(
+        r"([a-z0-9_-]+)\s*\+\s*([a-z0-9_-]+)\s*(?:->|→)\s*([a-z0-9_-]+)",
+        instructions.casefold(),
+    )
+    if not triples:
+        return ()
+    inputs = [_demo_parts(item)[0] for item in demos]
+    outputs = [_demo_parts(item)[1] for item in demos]
+    if not inputs or not all(isinstance(item, Mapping) for item in inputs):
+        return ()
+    fields = _common_fields(inputs)
+    sequence_fields = [
+        field
+        for field in fields
+        if all(
+            isinstance(item[field], Sequence)
+            and not isinstance(item[field], (str, bytes, bytearray))
+            for item in inputs
+        )
+    ]
+    state_fields = [
+        field
+        for field in fields
+        if field not in sequence_fields and all(type(item[field]) is type(outputs[index]) for index, item in enumerate(inputs))
+    ]
+    observed = [*outputs]
+    for item in inputs:
+        observed.extend(item[field] for field in state_fields)
+        for field in sequence_fields:
+            observed.extend(item[field])
+    by_token = {str(item).casefold(): item for item in observed}
+    transitions = [
+        {
+            "state": by_token.get(state, state),
+            "action": by_token.get(action, action),
+            "next": by_token.get(nxt, nxt),
+        }
+        for state, action, nxt in triples
+    ]
+    candidates: list[Mapping[str, Any]] = []
+    for state_field in state_fields:
+        for actions_field in sequence_fields:
+            data = {
+                "kind": "state_fold",
+                "state_field": state_field,
+                "actions_field": actions_field,
+                "transitions": transitions,
+            }
+            try:
+                program = Program.parse(data)
+            except (TypeError, ValueError):
+                continue
+            if _fits(program, demos):
+                candidates.append(data)
+    return tuple(candidates)
+
+
 def _grid_data(instructions: str, inputs: Sequence[Any]) -> Mapping[str, Any] | None:
     lowered = instructions.casefold()
     if "orthogon" not in lowered or "jump" not in lowered or "count" not in lowered:
@@ -295,6 +353,9 @@ def build_task_grammar(
             "terms": terms,
             "modulus": atoms.hints.modulus or len(atoms.hints.cycle),
         }, demos)
+
+    for state_fold in _state_fold_candidates(instructions, demos):
+        _add_if_fits(candidates, state_fold, demos)
 
     priority = _priority_data(instructions, demos)
     if priority is not None:
