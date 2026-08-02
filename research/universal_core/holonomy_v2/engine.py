@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Iterable, Mapping
 
+from .atoms import derive_atoms
+from .grammar_ext import build_task_grammar_extended
 from .program import Program
+from .proposer import ProposalBackend
 from .residuals import ResidualReport
 from .search import SearchResult, search_candidates
 from .types import Abstention, SearchConfig
@@ -133,6 +136,38 @@ class HolonomyEngine:
         search = search_candidates(instructions, demonstrations, self.config)
         evidence = EngineEvidence.build(
             tier=self.config.tier,
+            config=self.config,
+            induction_digest=induction_digest,
+            program=search.program,
+            report=search.report,
+            search=search,
+        )
+        return InductionResult(search.program, search.report, search.abstention, evidence)
+
+    def induce_with_proposer(
+        self,
+        instructions: str,
+        demonstrations: tuple[Any, ...],
+        backend: ProposalBackend,
+    ) -> InductionResult:
+        atoms = derive_atoms(instructions, demonstrations)
+        allowed = tuple(atoms.constants) + tuple(atoms.labels) + tuple(atoms.symbols)
+        proposals = backend.propose(instructions, demonstrations, allowed)
+        grammar = build_task_grammar_extended(instructions, demonstrations, self.config)
+        programs = {item.digest: item for item in grammar.programs}
+        for item in proposals:
+            programs[item.program.digest] = item.program
+        grammar = replace(grammar, programs=tuple(sorted(programs.values(), key=lambda item: (item.cost, item.digest))))
+        demo_data = [_demo_data(item) for item in demonstrations]
+        induction_digest = _digest({
+            "instructions": instructions,
+            "demonstrations": demo_data,
+            "config": self.config.to_data(),
+            "proposal_digests": [item.program.digest for item in proposals],
+        })
+        search = search_candidates(instructions, demonstrations, self.config, grammar=grammar)
+        evidence = EngineEvidence.build(
+            tier="H",
             config=self.config,
             induction_digest=induction_digest,
             program=search.program,
