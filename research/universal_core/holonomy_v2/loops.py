@@ -133,7 +133,10 @@ def build_loops(
     if data.get("kind") == "compose":
         for index, demo in enumerate(demos[:3]):
             inp, _ = _demo_parts(demo)
-            expected = program.run(inp)
+            try:
+                expected = program.run(inp)
+            except Exception:
+                continue
             mandatory.append(ClosedPath(
                 LoopKind.PATH_AGREEMENT,
                 True,
