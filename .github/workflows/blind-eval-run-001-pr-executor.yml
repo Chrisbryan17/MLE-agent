@@ -1,0 +1,73 @@
+name: Blind Evaluation Run 001 PR Executor
+
+on:
+  pull_request:
+    branches: [universal-core-blind-eval-v1-design]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: blind-eval-run-001-first-attempt
+  cancel-in-progress: false
+
+jobs:
+  submit:
+    if: github.event.pull_request.head.ref == 'blind-eval-run-001-public'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned runtime
+        run: python -m pip install --disable-pip-version-check --quiet pytest==9.0.2 z3-solver==4.15.3.0
+
+      - name: Reconstruct and verify public challenge
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/run001-public
+          cat blind_eval_runs/run-001/public-challenge/part-* | base64 -d > /tmp/run001-public/PUBLIC_CHALLENGE.json.gz
+          echo '10da90c09f51bf12c10bfc029834c75bad64dc04cfe029bcc9c0bc2d9e850a9d  /tmp/run001-public/PUBLIC_CHALLENGE.json.gz' | sha256sum -c -
+          gzip -dc /tmp/run001-public/PUBLIC_CHALLENGE.json.gz > /tmp/run001-public/PUBLIC_CHALLENGE.json
+          echo '802dde3b57343f376af8e79cc30acab926c207f4df08cd659fa95d9dc2b4fa8c  /tmp/run001-public/PUBLIC_CHALLENGE.json' | sha256sum -c -
+
+      - name: Verify frozen source bytes
+        run: |
+          set -euo pipefail
+          frozen=89a54d44d0ef3a4f1078cdad9a15564b3b31ecd9
+          while IFS= read -r path; do
+            git show "$frozen:$path" > /tmp/frozen-source.py
+            cmp /tmp/frozen-source.py "$path"
+          done < <(git ls-tree -r --name-only "$frozen" -- research/universal_core | grep '^research/universal_core/[^/]*\.py$' | sort)
+
+      - name: Execute immutable first attempt without network
+        run: |
+          set -euo pipefail
+          sudo git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          sudo unshare --net -- bash -lc "cd '$GITHUB_WORKSPACE' && PYTHONPATH=research python -m universal_core.blind_eval.cli submit --commitment blind_eval_runs/run-001/COMMITMENT.json --challenge /tmp/run001-public/PUBLIC_CHALLENGE.json --core-commit 89a54d44d0ef3a4f1078cdad9a15564b3b31ecd9 --repo-root . --output /tmp/run001-submission --created-at 2026-08-02T14:55:00Z" | tee /tmp/run001-submit-summary.json
+
+      - name: Seal hosted evidence
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/run001-artifact
+          cp blind_eval_runs/run-001/COMMITMENT.json /tmp/run001-artifact/COMMITMENT.json
+          cp /tmp/run001-public/PUBLIC_CHALLENGE.json /tmp/run001-artifact/PUBLIC_CHALLENGE.json
+          cp /tmp/run001-submit-summary.json /tmp/run001-artifact/SUBMIT_SUMMARY.json
+          cp -a /tmp/run001-submission /tmp/run001-artifact/submission
+          git rev-parse HEAD > /tmp/run001-artifact/PUBLIC_BRANCH_HEAD.txt
+          (cd /tmp/run001-artifact && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blind-eval-run-001-first-attempt
+          path: /tmp/run001-artifact
+          retention-days: 90
+          if-no-files-found: error
