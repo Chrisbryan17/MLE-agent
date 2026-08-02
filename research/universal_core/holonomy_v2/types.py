@@ -46,6 +46,7 @@ class NodeKind(str, Enum):
     PRIORITY_RULES = "priority_rules"
     GRID_PATTERN_COUNT = "grid_pattern_count"
     RESOURCE_MAKESPAN = "resource_makespan"
+    STATE_FOLD = "state_fold"
 
 
 class FailureCode(str, Enum):
