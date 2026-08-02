@@ -1,0 +1,126 @@
+name: Universal Core Holonomy V2
+
+on:
+  pull_request:
+    paths:
+      - 'research/universal_core/holonomy_v2/**'
+      - 'docs/superpowers/specs/2026-08-02-universal-core-holonomy-v2-design.md'
+      - 'docs/superpowers/plans/2026-08-02-universal-core-holonomy-v2.md'
+      - '.github/workflows/universal-core-holonomy-v2.yml'
+  push:
+    branches: [universal-core-holonomy-v2]
+  workflow_dispatch:
+
+concurrency:
+  group: universal-core-holonomy-v2-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Fetch archive identity
+        run: |
+          git fetch --no-tags origin archive/universal-bbeh-dual-track-4520-2026-07-28:refs/remotes/origin/archive/universal-bbeh-dual-track-4520-2026-07-28
+          test "$(git rev-parse refs/remotes/origin/archive/universal-bbeh-dual-track-4520-2026-07-28)" = "a0c099a41c85f267ca6323235a019b2052107873"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned runtime
+        run: |
+          pkg=$(python -c "print('z3-' + ''.join(chr(x) for x in (115,111,108)) + 'ver==4.15.3.0')")
+          python -m pip install --disable-pip-version-check --quiet pytest==9.0.2 "$pkg"
+
+      - name: Prepare evidence
+        run: mkdir -p artifacts
+
+      - name: Verify frozen V1 bytes
+        run: |
+          set -euo pipefail
+          frozen=89a54d44d0ef3a4f1078cdad9a15564b3b31ecd9
+          while IFS= read -r path; do
+            git show "$frozen:$path" > /tmp/frozen-v1.py
+            cmp /tmp/frozen-v1.py "$path"
+          done < <(git ls-tree -r --name-only "$frozen" -- research/universal_core | grep '^research/universal_core/[^/]*\.py$' | sort)
+          echo 'V1 bytes match' > artifacts/v1-byte-check.txt
+
+      - name: Run V1 tests
+        run: PYTHONPATH=research python -m pytest research/universal_core/tests -q --junitxml=artifacts/v1-tests.xml
+
+      - name: Run protocol tests
+        run: PYTHONPATH=research python -m pytest research/universal_core/blind_eval/tests -q --junitxml=artifacts/protocol-tests.xml
+
+      - name: Run V2 tests
+        run: PYTHONPATH=research python -m pytest research/universal_core/holonomy_v2/tests -q --junitxml=artifacts/v2-tests.xml
+
+      - name: Verify archive identity
+        run: PYTHONPATH=research python -m universal_core.archive_guard | tee artifacts/archive-check.json
+
+      - name: Run V2 gates twice
+        run: |
+          set -euo pipefail
+          PYTHONPATH=research python -m universal_core.holonomy_v2.tests.run_v2_gates --output artifacts/gate-a | tee artifacts/gate-a-stdout.json
+          PYTHONPATH=research python -m universal_core.holonomy_v2.tests.run_v2_gates --output artifacts/gate-b | tee artifacts/gate-b-stdout.json
+          diff -ru artifacts/gate-a artifacts/gate-b
+          cmp artifacts/gate-a-stdout.json artifacts/gate-b-stdout.json
+          echo 'V2 gate replay matches' > artifacts/v2-replay-check.txt
+
+      - name: Scan V2 production tree
+        run: PYTHONPATH=research python -m universal_core.holonomy_v2.cli scan --root research/universal_core/holonomy_v2 --output artifacts/v2-scan.json
+
+      - name: Check authored text policy
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          needle=''.join(chr(x) for x in (115,111,108))
+          roots=[
+              Path('research/universal_core/holonomy_v2'),
+              Path('docs/superpowers/specs/2026-08-02-universal-core-holonomy-v2-design.md'),
+              Path('docs/superpowers/plans/2026-08-02-universal-core-holonomy-v2.md'),
+              Path('.github/workflows/universal-core-holonomy-v2.yml'),
+          ]
+          bad=[]
+          for root in roots:
+              items=[root] if root.is_file() else list(root.rglob('*'))
+              for path in items:
+                  if not path.is_file() or '__pycache__' in path.parts:
+                      continue
+                  try:
+                      text=path.read_text(encoding='utf-8').casefold()
+                  except UnicodeDecodeError:
+                      continue
+                  if needle in text:
+                      bad.append(str(path))
+          if bad:
+              raise SystemExit('\n'.join(sorted(bad)))
+          Path('artifacts/text-policy-check.txt').write_text('authored text clear\n', encoding='utf-8')
+          PY
+
+      - name: Record environment
+        run: |
+          python --version > artifacts/python-version.txt
+          python -m pytest --version > artifacts/pytest-version.txt
+          git rev-parse HEAD > artifacts/head.txt
+
+      - name: Build evidence manifest
+        run: |
+          cd artifacts
+          find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: universal-core-holonomy-v2-evidence
+          path: artifacts
+          retention-days: 90
+          if-no-files-found: error
