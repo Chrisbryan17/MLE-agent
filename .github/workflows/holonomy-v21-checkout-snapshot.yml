@@ -36,6 +36,7 @@ jobs:
           mkdir -p artifacts
           git archive --format=tar.gz --prefix=mle-agent/ -o artifacts/mle-agent-holonomy-v21-source.tar.gz HEAD \
             .github/workflows \
+            .transport/holonomy-v21 \
             docs/superpowers \
             research/universal_core
           git rev-parse HEAD > artifacts/head.txt
