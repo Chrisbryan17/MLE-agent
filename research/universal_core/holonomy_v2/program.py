@@ -144,6 +144,30 @@ def _grid_count(data: Mapping[str, Any], value: Mapping[str, Any]) -> int:
     return total
 
 
+def _state_fold(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> Any:
+    transitions = data["transitions"]
+    if len(transitions) > context.limits.max_state_count:
+        raise BudgetExceeded("transition count exceeds configured bound")
+    table = {
+        _canonical_bytes([item["state"], item["action"]]): item["next"]
+        for item in transitions
+    }
+    state = value[data["state_field"]]
+    actions = value[data["actions_field"]]
+    if not isinstance(actions, Sequence) or isinstance(actions, (str, bytes, bytearray)):
+        raise TypeError("state-fold actions must be a sequence")
+    for action in actions:
+        context.tick()
+        key = _canonical_bytes([state, action])
+        if key in table:
+            state = deepcopy(table[key])
+        elif data.get("unknown") == "identity":
+            continue
+        else:
+            raise KeyError((state, action))
+    return state
+
+
 def _resource_makespan(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> int:
     jobs = list(value[data["jobs_field"]])
     if len(jobs) > context.limits.max_schedule_jobs:
@@ -244,6 +268,22 @@ def _validate(data: Mapping[str, Any]) -> None:
         raise ValueError("invalid comparison")
     if kind == "aggregate" and data.get("op") not in {"sum", "count", "min", "max"}:
         raise ValueError("invalid aggregate operation")
+    if kind == "state_fold":
+        if not isinstance(data.get("state_field"), str) or not isinstance(data.get("actions_field"), str):
+            raise ValueError("state_fold requires state and actions fields")
+        transitions = data.get("transitions")
+        if not isinstance(transitions, Sequence) or isinstance(transitions, (str, bytes, bytearray)) or not transitions:
+            raise ValueError("state_fold requires transitions")
+        seen: dict[bytes, Any] = {}
+        for transition in transitions:
+            if not isinstance(transition, Mapping) or set(transition) != {"state", "action", "next"}:
+                raise ValueError("invalid state_fold transition")
+            key = _canonical_bytes([transition["state"], transition["action"]])
+            if key in seen and seen[key] != transition["next"]:
+                raise ValueError("conflicting transition")
+            seen[key] = transition["next"]
+        if data.get("unknown", "error") not in {"error", "identity"}:
+            raise ValueError("invalid state_fold unknown policy")
 
 
 def _cost(data: Mapping[str, Any]) -> int:
@@ -396,4 +436,8 @@ def _run(data: Mapping[str, Any], value: Any, context: EvaluationContext) -> Any
         if not isinstance(value, Mapping):
             raise TypeError("resource input must be a mapping")
         return _resource_makespan(data, value, context)
+    if kind == "state_fold":
+        if not isinstance(value, Mapping):
+            raise TypeError("state-fold input must be a mapping")
+        return _state_fold(data, value, context)
     raise ValueError(f"unsupported node kind: {kind}")
