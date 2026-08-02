@@ -49,6 +49,24 @@ def test_stack_rewrite_preserves_character_strings() -> None:
     assert program.run({"text": "abab"}) == ""
 
 
+def test_stack_rewrite_preserves_tuple_and_word_strings() -> None:
+    tuple_program = Program.parse({
+        "kind": "stack_rewrite",
+        "sequence_field": "symbols",
+        "token_mode": "items",
+        "rules": RULES,
+    })
+    word_program = Program.parse({
+        "kind": "stack_rewrite",
+        "sequence_field": "text",
+        "token_mode": "words",
+        "rules": RULES,
+    })
+
+    assert tuple_program.run({"symbols": ("A", "B", "A")}) == ("C", "A")
+    assert word_program.run({"text": "A B A B"}) == ""
+
+
 def test_stack_rewrite_rejects_conflicting_rules() -> None:
     with pytest.raises(ValueError, match="conflicting rewrite"):
         Program.parse({
@@ -152,3 +170,14 @@ def test_stack_rewrite_proposal_rejects_undeclared_rule_token() -> None:
             (Demo({"symbols": ["A", "B"]}, ["C"]),),
             ("A", "B", "C"),
         )
+
+
+def test_induction_skips_noncontracting_stack_rules() -> None:
+    result = search_candidates(
+        "Use a stack and rewrite repeatedly. Rules: A -> A A. Return the final stack.",
+        (Demo({"symbols": ["A"]}, ["A", "A"]),),
+        SearchConfig(limits=EngineLimits(max_steps=12)),
+    )
+
+    assert result.program is None
+    assert result.abstention is not None
