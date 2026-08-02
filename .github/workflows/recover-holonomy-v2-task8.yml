@@ -25,8 +25,10 @@ jobs:
         run: |
           set -u
           mkdir -p recovery/raw recovery/output recovery/extracted
+          git fetch --no-tags origin 78ff58687d1e2b4668b767eb9585223cfc74f0dd
+          git fetch --no-tags origin 45989fca3e7d073c83123504fc6b0eb988db5fb0
+          git show FETCH_HEAD:.transport/holonomy-v2-task8/part-01 > recovery/raw/part-01
           git show 78ff58687d1e2b4668b767eb9585223cfc74f0dd:.transport/holonomy-v2-task8/part-00 > recovery/raw/part-00
-          git show 45989fca3e7d073c83123504fc6b0eb988db5fb0:.transport/holonomy-v2-task8/part-01 > recovery/raw/part-01
           wc -c recovery/raw/part-* > recovery/output/PART_SIZES.txt
           cat recovery/raw/part-* | base64 -d > recovery/output/task8.tar.gz
           sha256sum recovery/output/task8.tar.gz > recovery/output/ACTUAL_SHA256.txt
@@ -60,6 +62,7 @@ jobs:
           fi
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: holonomy-v2-task8-recovery
           path: recovery
