@@ -5,9 +5,9 @@ import pytest
 
 from universal_core.holonomy_v2.loops import LoopKind, build_loops
 from universal_core.holonomy_v2.grammar_ext import build_task_grammar_extended
-from universal_core.holonomy_v2.program import Program
+from universal_core.holonomy_v2.program import BudgetExceeded, Program
 from universal_core.holonomy_v2.search import search_candidates
-from universal_core.holonomy_v2.types import SearchConfig
+from universal_core.holonomy_v2.types import EngineLimits, SearchConfig
 
 
 @dataclass(frozen=True)
@@ -33,6 +33,21 @@ def test_state_fold_executes_a_bounded_transition_system() -> None:
     })
 
     assert program.run({"mode": "idle", "commands": ["arm", "launch", "reset"]}) == "idle"
+
+
+def test_state_fold_respects_transition_table_bound() -> None:
+    program = Program.parse({
+        "kind": "state_fold",
+        "state_field": "mode",
+        "actions_field": "commands",
+        "transitions": TRANSITIONS,
+    })
+
+    with pytest.raises(BudgetExceeded, match="transition count"):
+        program.run(
+            {"mode": "idle", "commands": ["arm"]},
+            EngineLimits(max_state_count=3),
+        )
 
 
 def test_state_fold_rejects_conflicting_transitions() -> None:
