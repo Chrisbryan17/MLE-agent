@@ -40,6 +40,8 @@ class NodeKind(str, Enum):
     GRAPH_REACHABLE = "graph_reachable"
     SHORTEST_PATH = "shortest_path"
     FORMAT = "format"
+    AFFINE = "affine"
+    TOKEN_MAP = "token_map"
     MODULAR_SYMBOL = "modular_symbol"
     PRIORITY_RULES = "priority_rules"
     GRID_PATTERN_COUNT = "grid_pattern_count"
