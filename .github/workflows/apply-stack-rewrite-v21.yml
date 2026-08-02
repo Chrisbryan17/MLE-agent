@@ -1,0 +1,327 @@
+name: Apply Stack Rewrite V2.1
+
+on:
+  push:
+    branches: [universal-core-holonomy-v2-1]
+    paths:
+      - '.github/workflows/apply-stack-rewrite-v21.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-holonomy-v2-1
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Apply deterministic production patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          root = Path('research/universal_core/holonomy_v2')
+
+          program = root / 'program.py'
+          text = program.read_text()
+          helper_marker = '\ndef _resource_makespan(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> int:\n'
+          helper = '''
+          def _stack_tokens(value: Any, mode: str) -> tuple[list[Any], str]:
+              if mode == "characters":
+                  if not isinstance(value, str):
+                      raise TypeError("character stack input must be a string")
+                  return list(value), "characters"
+              if mode == "words":
+                  if not isinstance(value, str):
+                      raise TypeError("word stack input must be a string")
+                  return value.split(), "words"
+              if mode == "items":
+                  if not isinstance(value, Sequence) or isinstance(value, (str, bytes, bytearray)):
+                      raise TypeError("item stack input must be a sequence")
+                  return list(value), "tuple" if isinstance(value, tuple) else "items"
+              raise ValueError("invalid stack token mode")
+
+
+          def _stack_output(stack: list[Any], output_mode: str) -> Any:
+              if output_mode == "characters":
+                  if not all(isinstance(item, str) for item in stack):
+                      raise TypeError("character rewrite produced a non-string token")
+                  return "".join(stack)
+              if output_mode == "words":
+                  if not all(isinstance(item, str) for item in stack):
+                      raise TypeError("word rewrite produced a non-string token")
+                  return " ".join(stack)
+              if output_mode == "tuple":
+                  return tuple(stack)
+              return stack
+
+
+          def _stack_rewrite(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> Any:
+              rules = data["rules"]
+              if len(rules) > context.limits.max_state_count:
+                  raise BudgetExceeded("rewrite rule count exceeds configured bound")
+              stack: list[Any] = []
+              tokens, output_mode = _stack_tokens(value[data["sequence_field"]], data["token_mode"])
+              for token in tokens:
+                  context.tick()
+                  stack.append(deepcopy(token))
+                  while True:
+                      matched = False
+                      for rule in rules:
+                          left = rule["left"]
+                          if len(left) <= len(stack) and stack[-len(left):] == left:
+                              context.tick()
+                              del stack[-len(left):]
+                              stack.extend(deepcopy(rule["right"]))
+                              matched = True
+                              break
+                      if not matched:
+                          break
+              return _stack_output(stack, output_mode)
+
+          '''
+          if 'def _stack_rewrite(' not in text:
+              if helper_marker not in text:
+                  raise SystemExit('program helper marker missing')
+              text = text.replace(helper_marker, '\n' + helper + helper_marker, 1)
+
+          validation = '''
+              if kind == "stack_rewrite":
+                  if not isinstance(data.get("sequence_field"), str):
+                      raise ValueError("stack_rewrite requires a sequence field")
+                  if data.get("token_mode") not in {"items", "characters", "words"}:
+                      raise ValueError("invalid stack_rewrite token mode")
+                  rules = data.get("rules")
+                  if not isinstance(rules, Sequence) or isinstance(rules, (str, bytes, bytearray)) or not rules:
+                      raise ValueError("stack_rewrite requires rules")
+                  seen_rules: dict[bytes, Any] = {}
+                  for rule in rules:
+                      if not isinstance(rule, Mapping) or set(rule) != {"left", "right"}:
+                          raise ValueError("invalid stack_rewrite rule")
+                      left = rule["left"]
+                      right = rule["right"]
+                      if (
+                          not isinstance(left, Sequence)
+                          or isinstance(left, (str, bytes, bytearray))
+                          or not left
+                          or not isinstance(right, Sequence)
+                          or isinstance(right, (str, bytes, bytearray))
+                      ):
+                          raise ValueError("invalid stack_rewrite rule")
+                      if list(left) == list(right):
+                          raise ValueError("identity rewrite is not allowed")
+                      key = _canonical_bytes(list(left))
+                      if key in seen_rules and seen_rules[key] != list(right):
+                          raise ValueError("conflicting rewrite")
+                      seen_rules[key] = list(right)
+          '''
+          if 'if kind == "stack_rewrite":' not in text:
+              cost_marker = '\n\ndef _cost(data: Mapping[str, Any]) -> int:\n'
+              if cost_marker not in text:
+                  raise SystemExit('program validation marker missing')
+              text = text.replace(cost_marker, '\n' + validation + cost_marker, 1)
+
+          dispatch_old = '''    if kind == "state_fold":
+              if not isinstance(value, Mapping):
+                  raise TypeError("state-fold input must be a mapping")
+              return _state_fold(data, value, context)
+              raise ValueError(f"unsupported node kind: {kind}")
+          '''
+          dispatch_new = '''    if kind == "state_fold":
+              if not isinstance(value, Mapping):
+                  raise TypeError("state-fold input must be a mapping")
+              return _state_fold(data, value, context)
+              if kind == "stack_rewrite":
+                  if not isinstance(value, Mapping):
+                      raise TypeError("stack-rewrite input must be a mapping")
+                  return _stack_rewrite(data, value, context)
+              raise ValueError(f"unsupported node kind: {kind}")
+          '''
+          if 'raise TypeError("stack-rewrite input must be a mapping")' not in text:
+              if dispatch_old not in text:
+                  raise SystemExit('program dispatch marker missing')
+              text = text.replace(dispatch_old, dispatch_new, 1)
+          program.write_text(text)
+
+          grammar = root / 'grammar.py'
+          text = grammar.read_text()
+          grammar_marker = '\ndef _grid_data(instructions: str, inputs: Sequence[Any]) -> Mapping[str, Any] | None:\n'
+          grammar_helper = r'''
+          def _stack_rewrite_candidates(instructions: str, demos: Sequence[Any]) -> tuple[Mapping[str, Any], ...]:
+              lowered = instructions.casefold()
+              if "stack" not in lowered or "rewrite" not in lowered:
+                  return ()
+              rule_block = re.search(r"\brules?\s*:\s*(.+?)(?:\breturn\b|$)", instructions, re.IGNORECASE | re.DOTALL)
+              if rule_block is None:
+                  return ()
+              raw_rules: list[tuple[list[str], list[str]]] = []
+              for clause in rule_block.group(1).split(";"):
+                  match = re.fullmatch(r"\s*(.+?)\s*(?:->|→)\s*(.*?)\s*\.?\s*", clause)
+                  if match is None:
+                      continue
+                  left_text, right_text = match.groups()
+                  left = left_text.split()
+                  if not left:
+                      continue
+                  right = [] if right_text.casefold() in {"", "empty", "epsilon", "ε"} else right_text.split()
+                  raw_rules.append((left, right))
+              if not raw_rules:
+                  return ()
+              if any(len(right) >= len(left) for left, right in raw_rules):
+                  return ()
+
+              inputs = [_demo_parts(item)[0] for item in demos]
+              outputs = [_demo_parts(item)[1] for item in demos]
+              if not inputs or not all(isinstance(item, Mapping) for item in inputs):
+                  return ()
+              fields = _common_fields(inputs)
+              candidates: list[Mapping[str, Any]] = []
+              for field in fields:
+                  values = [item[field] for item in inputs]
+                  modes: tuple[str, ...]
+                  if all(isinstance(value, str) for value in values) and all(isinstance(value, str) for value in outputs):
+                      modes = ("characters", "words")
+                  elif all(
+                      isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray))
+                      for value in values
+                  ) and all(
+                      isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray))
+                      for value in outputs
+                  ):
+                      modes = ("items",)
+                  else:
+                      continue
+
+                  for mode in modes:
+                      observed: list[Any] = []
+                      if mode == "characters":
+                          for value in [*values, *outputs]:
+                              observed.extend(value)
+                      elif mode == "words":
+                          for value in [*values, *outputs]:
+                              observed.extend(value.split())
+                      else:
+                          for value in [*values, *outputs]:
+                              observed.extend(value)
+                      by_token = {str(item).casefold(): item for item in observed}
+                      rules = [
+                          {
+                              "left": [by_token.get(token.casefold(), token) for token in left],
+                              "right": [by_token.get(token.casefold(), token) for token in right],
+                          }
+                          for left, right in raw_rules
+                      ]
+                      data = {
+                          "kind": "stack_rewrite",
+                          "sequence_field": field,
+                          "token_mode": mode,
+                          "rules": rules,
+                      }
+                      try:
+                          program = Program.parse(data)
+                      except (TypeError, ValueError):
+                          continue
+                      if _fits(program, demos):
+                          candidates.append(data)
+              return tuple(candidates)
+          '''
+          if '_stack_rewrite_candidates' not in text:
+              if grammar_marker not in text:
+                  raise SystemExit('grammar helper marker missing')
+              text = text.replace(grammar_marker, '\n' + grammar_helper + grammar_marker, 1)
+          candidate_old = '''    for state_fold in _state_fold_candidates(instructions, demos):
+              _add_if_fits(candidates, state_fold, demos)
+
+          '''
+          candidate_new = candidate_old + '''    for stack_rewrite in _stack_rewrite_candidates(instructions, demos):
+              _add_if_fits(candidates, stack_rewrite, demos)
+
+          '''
+          if 'for stack_rewrite in _stack_rewrite_candidates' not in text:
+              if candidate_old not in text:
+                  raise SystemExit('grammar candidate marker missing')
+              text = text.replace(candidate_old, candidate_new, 1)
+          grammar.write_text(text)
+
+          loops = root / 'loops.py'
+          text = loops.read_text()
+          if 'REWRITE_NORMAL_FORM = "REWRITE_NORMAL_FORM"' not in text:
+              text = text.replace(
+                  '    STATE_CYCLE = "STATE_CYCLE"\n    PRIORITY_AGREEMENT = "PRIORITY_AGREEMENT"\n',
+                  '    STATE_CYCLE = "STATE_CYCLE"\n    REWRITE_NORMAL_FORM = "REWRITE_NORMAL_FORM"\n    PRIORITY_AGREEMENT = "PRIORITY_AGREEMENT"\n',
+                  1,
+              )
+          loop_marker = '    if data.get("kind") == "compose":\n'
+          loop_block = '''    if data.get("kind") == "stack_rewrite":
+              for index, demo in enumerate(demos[:3]):
+                  inp, expected = _demo_parts(demo)
+                  if not isinstance(inp, Mapping):
+                      continue
+                  normal_input = deepcopy(dict(inp))
+                  normal_input[data["sequence_field"]] = deepcopy(expected)
+                  mandatory.append(ClosedPath(
+                      LoopKind.REWRITE_NORMAL_FORM,
+                      True,
+                      normal_input,
+                      deepcopy(expected),
+                      data,
+                      f"rewrite-normal-form-{index}",
+                  ))
+
+          '''
+          if 'LoopKind.REWRITE_NORMAL_FORM' not in text:
+              if loop_marker not in text:
+                  raise SystemExit('loop marker missing')
+              text = text.replace(loop_marker, loop_block + loop_marker, 1)
+          loops.write_text(text)
+
+          proposer = root / 'proposer.py'
+          text = proposer.read_text()
+          if '"stack_rewrite": frozenset' not in text:
+              text = text.replace(
+                  '    "state_fold": frozenset({"kind", "state_field", "actions_field", "transitions", "unknown"}),\n',
+                  '    "state_fold": frozenset({"kind", "state_field", "actions_field", "transitions", "unknown"}),\n'
+                  '    "stack_rewrite": frozenset({"kind", "sequence_field", "token_mode", "rules"}),\n',
+                  1,
+              )
+          constants_old = '''        elif kind == "state_fold":
+              for transition in data.get("transitions", ()):
+                  values.extend((transition.get("state"), transition.get("action"), transition.get("next")))
+          '''
+          constants_new = constants_old + '''        elif kind == "stack_rewrite":
+              for rule in data.get("rules", ()):
+                  values.extend(rule.get("left", ()))
+                  values.extend(rule.get("right", ()))
+          '''
+          if 'elif kind == "stack_rewrite":' not in text:
+              if constants_old not in text:
+                  raise SystemExit('proposer constants marker missing')
+              text = text.replace(constants_old, constants_new, 1)
+          proposer.write_text(text)
+          PY
+
+      - name: Verify focused behavior
+        run: |
+          PYTHONPATH=research python -m pytest research/universal_core/holonomy_v2/tests/test_stack_rewrite.py -q
+          python -m py_compile research/universal_core/holonomy_v2/types.py research/universal_core/holonomy_v2/program.py research/universal_core/holonomy_v2/grammar.py research/universal_core/holonomy_v2/loops.py research/universal_core/holonomy_v2/proposer.py
+
+      - name: Commit production patch
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add research/universal_core/holonomy_v2/types.py research/universal_core/holonomy_v2/program.py research/universal_core/holonomy_v2/grammar.py research/universal_core/holonomy_v2/loops.py research/universal_core/holonomy_v2/proposer.py
+          git diff --cached --check
+          git commit -m 'feat: add bounded generic stack rewriting'
+          git push origin HEAD:universal-core-holonomy-v2-1
