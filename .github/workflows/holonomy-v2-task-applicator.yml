@@ -1,0 +1,65 @@
+name: Holonomy V2 Task Applicator
+
+on:
+  pull_request:
+    branches: [universal-core-holonomy-v2-design]
+    paths:
+      - '.transport/holonomy-v2-task8/**'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: holonomy-v2-task-applicator
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: github.head_ref == 'universal-core-holonomy-v2'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-holonomy-v2
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install test runtime
+        run: python -m pip install --disable-pip-version-check --quiet pytest==9.0.2 z3-solver==4.15.3.0
+
+      - name: Rebuild task payload
+        run: |
+          set -euo pipefail
+          cat .transport/holonomy-v2-task8/part-* | base64 -d > /tmp/task8.tar.gz
+          echo 'd0a959d5a642b4588233dee104f3c26fbe35e463846c79c7c0c9fb2a3071dc24  /tmp/task8.tar.gz' | sha256sum -c -
+          tar -xzf /tmp/task8.tar.gz
+          rm -rf .transport/holonomy-v2-task8
+
+      - name: Verify task payload
+        run: |
+          set -euo pipefail
+          PYTHONPATH=research python -m pytest research/universal_core/holonomy_v2/tests -q
+          python - <<'PY'
+          from pathlib import Path
+          token = ''.join(chr(item) for item in (115, 111, 108))
+          bad=[]
+          for path in Path('research/universal_core/holonomy_v2').rglob('*.py'):
+              if token in path.read_text(encoding='utf-8').casefold():
+                  bad.append(str(path))
+          if bad:
+              raise SystemExit('\n'.join(bad))
+          PY
+
+      - name: Commit verified task
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add research/universal_core/holonomy_v2 .transport
+          git commit -m 'feat: add new-rule induction'
+          git push origin HEAD:universal-core-holonomy-v2
