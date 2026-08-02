@@ -1,0 +1,44 @@
+name: Holonomy V2.1 Checkout Snapshot
+
+on:
+  push:
+    branches: [universal-core-holonomy-v2-1]
+    paths:
+      - '.github/workflows/holonomy-v21-checkout-snapshot.yml'
+      - 'research/universal_core/**'
+      - 'docs/superpowers/**'
+      - '.transport/holonomy-v21/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Build deterministic source snapshot
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          git archive --format=tar.gz --prefix=mle-agent/ -o artifacts/mle-agent-holonomy-v21-source.tar.gz HEAD \
+            .github/workflows \
+            docs/superpowers \
+            research/universal_core \
+            pyproject.toml \
+            poetry.lock
+          git rev-parse HEAD > artifacts/head.txt
+          (cd artifacts && sha256sum mle-agent-holonomy-v21-source.tar.gz head.txt > SHA256SUMS)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: holonomy-v21-checkout-snapshot
+          path: artifacts
+          retention-days: 7
+          if-no-files-found: error
