@@ -41,12 +41,13 @@ jobs:
 
           start = block.index("dispatch_old = '''")
           end = block.index("program.write_text(text)", start)
-          replacement = '''dispatch_marker = '    raise ValueError(f"unsupported node kind: {kind}")\\n'
-          dispatch_block = """    if kind == "stack_rewrite":
-              if not isinstance(value, Mapping):
-                  raise TypeError("stack-rewrite input must be a mapping")
-              return _stack_rewrite(data, value, context)
-          """
+          replacement = r'''dispatch_marker = '    raise ValueError(f"unsupported node kind: {kind}")\n'
+          dispatch_block = (
+              '    if kind == "stack_rewrite":\n'
+              '        if not isinstance(value, Mapping):\n'
+              '            raise TypeError("stack-rewrite input must be a mapping")\n'
+              '        return _stack_rewrite(data, value, context)\n'
+          )
           if 'raise TypeError("stack-rewrite input must be a mapping")' not in text:
               if dispatch_marker not in text:
                   raise SystemExit('program dispatch marker missing')
@@ -56,11 +57,12 @@ jobs:
 
           start = block.index("candidate_old = '''")
           end = block.index("grammar.write_text(text)", start)
-          replacement = '''candidate_marker = '    priority = _priority_data(instructions, demos)\\n'
-          candidate_block = """    for stack_rewrite in _stack_rewrite_candidates(instructions, demos):
-              _add_if_fits(candidates, stack_rewrite, demos)
-
-          """
+          replacement = r'''candidate_marker = '    priority = _priority_data(instructions, demos)\n'
+          candidate_block = (
+              '    for stack_rewrite in _stack_rewrite_candidates(instructions, demos):\n'
+              '        _add_if_fits(candidates, stack_rewrite, demos)\n'
+              '\n'
+          )
           if 'for stack_rewrite in _stack_rewrite_candidates' not in text:
               if candidate_marker not in text:
                   raise SystemExit('grammar candidate marker missing')
@@ -68,14 +70,43 @@ jobs:
           '''
           block = block[:start] + dedent(replacement) + block[end:]
 
+          start = block.index("loop_marker = '    if data.get")
+          end = block.index("loops.write_text(text)", start)
+          replacement = r'''loop_marker = '    if data.get("kind") == "compose":\n'
+          loop_block = (
+              '    if data.get("kind") == "stack_rewrite":\n'
+              '        for index, demo in enumerate(demos[:3]):\n'
+              '            inp, expected = _demo_parts(demo)\n'
+              '            if not isinstance(inp, Mapping):\n'
+              '                continue\n'
+              '            normal_input = deepcopy(dict(inp))\n'
+              '            normal_input[data["sequence_field"]] = deepcopy(expected)\n'
+              '            mandatory.append(ClosedPath(\n'
+              '                LoopKind.REWRITE_NORMAL_FORM,\n'
+              '                True,\n'
+              '                normal_input,\n'
+              '                deepcopy(expected),\n'
+              '                data,\n'
+              '                f"rewrite-normal-form-{index}",\n'
+              '            ))\n'
+              '\n'
+          )
+          if 'LoopKind.REWRITE_NORMAL_FORM' not in text:
+              if loop_marker not in text:
+                  raise SystemExit('loop marker missing')
+              text = text.replace(loop_marker, loop_block + loop_marker, 1)
+          '''
+          block = block[:start] + dedent(replacement) + block[end:]
+
           start = block.index("constants_old = '''")
           end = block.index("proposer.write_text(text)", start)
-          replacement = '''constants_marker = '        for key, item in data.items():\\n'
-          constants_block = """        elif kind == "stack_rewrite":
-              for rule in data.get("rules", ()):
-                  values.extend(rule.get("left", ()))
-                  values.extend(rule.get("right", ()))
-          """
+          replacement = r'''constants_marker = '        for key, item in data.items():\n'
+          constants_block = (
+              '        elif kind == "stack_rewrite":\n'
+              '            for rule in data.get("rules", ()):\n'
+              '                values.extend(rule.get("left", ()))\n'
+              '                values.extend(rule.get("right", ()))\n'
+          )
           if 'elif kind == "stack_rewrite":' not in text:
               if constants_marker not in text:
                   raise SystemExit('proposer constants marker missing')
