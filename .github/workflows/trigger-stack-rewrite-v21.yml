@@ -1,0 +1,53 @@
+name: Trigger Stack Rewrite V2.1
+
+on:
+  pull_request:
+    branches: [universal-core-holonomy-v2]
+    paths:
+      - '.github/workflows/trigger-stack-rewrite-v21.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-holonomy-v2-1
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Extract and apply deterministic patch
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          from textwrap import dedent
+
+          source = Path('.github/workflows/apply-stack-rewrite-v21.yml').read_text()
+          block = source.split("          python - <<'PY'\n", 1)[1].split("\n          PY\n", 1)[0]
+          Path('/tmp/apply_stack_rewrite.py').write_text(dedent(block))
+          PY
+          python /tmp/apply_stack_rewrite.py
+
+      - name: Verify focused behavior
+        run: |
+          PYTHONPATH=research python -m pytest research/universal_core/holonomy_v2/tests/test_stack_rewrite.py -q
+          python -m py_compile research/universal_core/holonomy_v2/types.py research/universal_core/holonomy_v2/program.py research/universal_core/holonomy_v2/grammar.py research/universal_core/holonomy_v2/loops.py research/universal_core/holonomy_v2/proposer.py
+
+      - name: Commit production patch
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add research/universal_core/holonomy_v2/types.py research/universal_core/holonomy_v2/program.py research/universal_core/holonomy_v2/grammar.py research/universal_core/holonomy_v2/loops.py research/universal_core/holonomy_v2/proposer.py
+          git diff --cached --check
+          git commit -m 'feat: add bounded generic stack rewriting'
+          git push origin HEAD:universal-core-holonomy-v2-1
