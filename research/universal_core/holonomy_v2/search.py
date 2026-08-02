@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Iterable
 
-from .grammar import TaskGrammar, build_task_grammar
+from .grammar import TaskGrammar
+from .grammar_ext import build_task_grammar_extended
 from .loops import build_loops
 from .program import Program
 from .residuals import ResidualReport, check_residuals
@@ -62,7 +63,7 @@ def search_candidates(
     grammar: TaskGrammar | None = None,
 ) -> SearchResult:
     demos = tuple(demonstrations)
-    active_grammar = grammar or build_task_grammar(instructions, demos, config)
+    active_grammar = grammar or build_task_grammar_extended(instructions, demos, config)
     stats = SearchStats()
     accepted: list[CandidateRecord] = []
     seen: set[str] = set()
