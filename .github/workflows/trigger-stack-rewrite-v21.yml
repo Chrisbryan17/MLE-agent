@@ -33,6 +33,7 @@ jobs:
 
           source = Path('.github/workflows/apply-stack-rewrite-v21.yml').read_text()
           block = dedent(source.split("          python - <<'PY'\n", 1)[1].split("\n          PY\n", 1)[0])
+
           start = block.index("dispatch_old = '''")
           end = block.index("program.write_text(text)", start)
           replacement = '''dispatch_marker = '    raise ValueError(f"unsupported node kind: {kind}")\\n'
@@ -47,6 +48,36 @@ jobs:
               text = text.replace(dispatch_marker, dispatch_block + dispatch_marker, 1)
           '''
           block = block[:start] + dedent(replacement) + block[end:]
+
+          start = block.index("candidate_old = '''")
+          end = block.index("grammar.write_text(text)", start)
+          replacement = '''candidate_marker = '    priority = _priority_data(instructions, demos)\\n'
+          candidate_block = """    for stack_rewrite in _stack_rewrite_candidates(instructions, demos):
+              _add_if_fits(candidates, stack_rewrite, demos)
+
+          """
+          if 'for stack_rewrite in _stack_rewrite_candidates' not in text:
+              if candidate_marker not in text:
+                  raise SystemExit('grammar candidate marker missing')
+              text = text.replace(candidate_marker, candidate_block + candidate_marker, 1)
+          '''
+          block = block[:start] + dedent(replacement) + block[end:]
+
+          start = block.index("constants_old = '''")
+          end = block.index("proposer.write_text(text)", start)
+          replacement = '''constants_marker = '        for key, item in data.items():\\n'
+          constants_block = """        elif kind == "stack_rewrite":
+              for rule in data.get("rules", ()):
+                  values.extend(rule.get("left", ()))
+                  values.extend(rule.get("right", ()))
+          """
+          if 'elif kind == "stack_rewrite":' not in text:
+              if constants_marker not in text:
+                  raise SystemExit('proposer constants marker missing')
+              text = text.replace(constants_marker, constants_block + constants_marker, 1)
+          '''
+          block = block[:start] + dedent(replacement) + block[end:]
+
           Path('/tmp/apply_stack_rewrite.py').write_text(block)
           PY
           python /tmp/apply_stack_rewrite.py
