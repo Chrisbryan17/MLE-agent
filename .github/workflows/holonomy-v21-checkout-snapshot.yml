@@ -1,6 +1,13 @@
 name: Holonomy V2.1 Checkout Snapshot
 
 on:
+  pull_request:
+    branches: [universal-core-holonomy-v2]
+    paths:
+      - '.github/workflows/holonomy-v21-checkout-snapshot.yml'
+      - 'research/universal_core/**'
+      - 'docs/superpowers/**'
+      - '.transport/holonomy-v21/**'
   push:
     branches: [universal-core-holonomy-v2-1]
     paths:
@@ -20,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
       - name: Build deterministic source snapshot
