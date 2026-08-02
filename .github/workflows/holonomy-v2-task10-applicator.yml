@@ -35,7 +35,7 @@ jobs:
       - name: Rebuild task payload
         run: |
           set -euo pipefail
-          cat .transport/holonomy-v2-task10/part-* | base64 -d > /tmp/task10.tar.gz
+          cat .transport/holonomy-v2-task10/part-00 .transport/holonomy-v2-task10/part-01 .transport/holonomy-v2-task10/good-* | base64 -d > /tmp/task10.tar.gz
           echo '83ed2d10502084f05074e2ac379581a647fb9d11be69cbb65411e26dad881d39  /tmp/task10.tar.gz' | sha256sum -c -
           tar -xzf /tmp/task10.tar.gz
           rm -rf .transport/holonomy-v2-task10
