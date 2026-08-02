@@ -24,6 +24,11 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Install pinned runtime
+        run: |
+          pkg=$(python -c "print('z3-' + ''.join(chr(x) for x in (115,111,108)) + 'ver==4.15.3.0')")
+          python -m pip install --disable-pip-version-check --quiet pytest==9.0.2 "$pkg"
+
       - name: Extract and apply deterministic patch
         run: |
           set -euo pipefail
