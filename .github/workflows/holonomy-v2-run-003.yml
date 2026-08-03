@@ -36,7 +36,9 @@ jobs:
           set -euo pipefail
           test ! -e runs/run-003/COMMITMENT.json
           test "$(git merge-base HEAD "$FROZEN_SHA")" = "$FROZEN_SHA"
-          test "$(git rev-parse "$FROZEN_REF")" = "$FROZEN_SHA"
+          git fetch --no-tags origin "$FROZEN_REF:refs/remotes/origin/$FROZEN_REF"
+          resolved=$(git rev-parse "refs/remotes/origin/$FROZEN_REF")
+          test "$resolved" = "$FROZEN_SHA"
           echo '1a1ee7b058dfcfab6d983ec955eb284ff60757393869822465beee6d4641925b  tools/run003_evaluator.py' | sha256sum -c -
           python -m py_compile tools/run003_evaluator.py
       - name: Generate post-freeze challenge and commitment
@@ -140,7 +142,9 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git -C frozen rev-parse HEAD)" = "$FROZEN_SHA"
-          test "$(git -C records rev-parse "$FROZEN_REF")" = "$FROZEN_SHA"
+          git -C records fetch --no-tags origin "$FROZEN_REF:refs/remotes/origin/$FROZEN_REF"
+          resolved=$(git -C records rev-parse "refs/remotes/origin/$FROZEN_REF")
+          test "$resolved" = "$FROZEN_SHA"
           test -e inputs/public/COMMITMENT.json
           test -e inputs/public/PUBLIC_CHALLENGE.json
           test ! -e inputs/public/PRIVATE_REVEAL.json
