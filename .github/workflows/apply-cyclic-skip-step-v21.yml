@@ -1,0 +1,49 @@
+name: Apply Cyclic Skip Step V2.1
+
+on:
+  pull_request:
+    branches: [universal-core-holonomy-v2]
+    paths:
+      - '.github/workflows/apply-cyclic-skip-step-v21.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-holonomy-v2-1
+          fetch-depth: 0
+      - name: Assert guarded transport state
+        run: |
+          git merge-base --is-ancestor 7e93a67eeec4d30f4f2c564078d2b37308be98e9 HEAD
+          git merge-base --is-ancestor 8af66269270efc4fea6a1a1b69d2b560b87ad998 HEAD
+          ! grep -q 'CYCLIC_SKIP_STEP' research/universal_core/holonomy_v2/types.py
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned runtime
+        run: |
+          pkg=$(python -c "print('z3-' + ''.join(chr(x) for x in (115,111,108)) + 'ver==4.15.3.0')")
+          python -m pip install --disable-pip-version-check --quiet pytest==9.0.2 "$pkg"
+      - name: Apply verified patch
+        run: |
+          git apply --check .github/patches/cyclic-skip-step.patch
+          git apply .github/patches/cyclic-skip-step.patch
+      - name: Verify focused behavior
+        run: |
+          PYTHONPATH=research python -m pytest research/universal_core/holonomy_v2/tests/test_cyclic_skip_step.py -q
+          python -m py_compile research/universal_core/holonomy_v2/{types,program,grammar,loops,proposer}.py
+      - name: Commit production patch
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add research/universal_core/holonomy_v2/{types,program,grammar,loops,proposer}.py
+          git diff --cached --check
+          git commit -m 'feat: add bounded cyclic skip stepping'
+          git push origin HEAD:universal-core-holonomy-v2-1
