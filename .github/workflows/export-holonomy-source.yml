@@ -1,0 +1,27 @@
+name: Export Holonomy Source
+
+on:
+  pull_request:
+    branches: [universal-core-holonomy-v2]
+    paths:
+      - '.github/workflows/export-holonomy-source.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-holonomy-v2-1
+      - name: Record source identity
+        run: git rev-parse HEAD > research/universal_core/holonomy_v2/EXPORTED_HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: holonomy-source-export
+          path: research/universal_core/holonomy_v2
+          if-no-files-found: error
