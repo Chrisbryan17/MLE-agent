@@ -1,0 +1,279 @@
+name: Holonomy V2 Run 003
+
+on:
+  push:
+    branches: [holonomy-v2-run-003-public]
+    paths:
+      - '.github/workflows/holonomy-v2-run-003.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: holonomy-v2-run-003
+  cancel-in-progress: false
+
+env:
+  RUN_BRANCH: holonomy-v2-run-003-public
+  FROZEN_REF: archive/universal-core-holonomy-v2-1-freeze-2026-08-03
+  FROZEN_SHA: 1d7c489bcdbff755d638b35ad47ce62bd4fe829d
+
+jobs:
+  commit-suite:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RUN_BRANCH }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Assert one-shot precommit state
+        run: |
+          set -euo pipefail
+          test ! -e runs/run-003/COMMITMENT.json
+          test "$(git merge-base HEAD "$FROZEN_SHA")" = "$FROZEN_SHA"
+          test "$(git rev-parse "$FROZEN_REF")" = "$FROZEN_SHA"
+          echo '1a1ee7b058dfcfab6d983ec955eb284ff60757393869822465beee6d4641925b  tools/run003_evaluator.py' | sha256sum -c -
+          python -m py_compile tools/run003_evaluator.py
+      - name: Generate post-freeze challenge and commitment
+        run: |
+          set -euo pipefail
+          mkdir -p work/build
+          python - <<'PY'
+          from pathlib import Path
+          import secrets
+          Path('/tmp/run003-seed').write_text(secrets.token_hex(32))
+          Path('/tmp/run003-nonce').write_text(secrets.token_hex(32))
+          PY
+          created_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          python tools/run003_evaluator.py build \
+            --output work/build \
+            --frozen-head "$FROZEN_SHA" \
+            --created-at "$created_at" \
+            --seed-hex "$(cat /tmp/run003-seed)" \
+            --nonce "$(cat /tmp/run003-nonce)"
+          rm -f /tmp/run003-seed /tmp/run003-nonce
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          commitment = json.loads(Path('work/build/COMMITMENT.json').read_text())
+          public = json.loads(Path('work/build/PUBLIC_CHALLENGE.json').read_text())
+          index = json.loads(Path('work/build/PUBLIC_INDEX.json').read_text())
+          assert commitment['frozen_head'] == '1d7c489bcdbff755d638b35ad47ce62bd4fe829d'
+          assert public['frozen_head'] == commitment['frozen_head']
+          assert index['tasks'] == 16 and index['hidden_rows'] == 800
+          assert index['new_system_families'] == 8
+          assert commitment['evaluator_source_sha256'] == '1a1ee7b058dfcfab6d983ec955eb284ff60757393869822465beee6d4641925b'
+          PY
+      - name: Publish commitment before prediction
+        run: |
+          set -euo pipefail
+          mkdir -p runs/run-003
+          cp work/build/COMMITMENT.json runs/run-003/COMMITMENT.json
+          cp work/build/PUBLIC_INDEX.json runs/run-003/PUBLIC_INDEX.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          commitment = json.loads(Path('work/build/COMMITMENT.json').read_text())
+          value = {
+              'suite_id': 'holonomy-v2-run-003',
+              'freeze_ref': 'archive/universal-core-holonomy-v2-1-freeze-2026-08-03',
+              'frozen_head': '1d7c489bcdbff755d638b35ad47ce62bd4fe829d',
+              'pre_freeze_validation_run': 30833734399,
+              'pre_freeze_evidence_artifact': 8863985409,
+              'pre_freeze_evidence_digest': 'sha256:f0509f4862f6e2d245be15424b7f5800864b651d6f83c999298c91ee8a7606a8',
+              'commitment_digest': commitment['commitment_digest'],
+          }
+          Path('runs/run-003/FREEZE_INDEX.json').write_text(json.dumps(value, sort_keys=True, separators=(',', ':')) + '\n')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add runs/run-003/COMMITMENT.json runs/run-003/PUBLIC_INDEX.json runs/run-003/FREEZE_INDEX.json
+          git diff --cached --check
+          git commit -m 'run003: publish commitment before first attempt'
+          git push origin HEAD:"$RUN_BRANCH"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: run003-public-challenge
+          path: |
+            work/build/COMMITMENT.json
+            work/build/PUBLIC_CHALLENGE.json
+            work/build/PUBLIC_INDEX.json
+          if-no-files-found: error
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        with:
+          name: run003-private-reveal
+          path: work/build/PRIVATE_REVEAL.json
+          if-no-files-found: error
+          retention-days: 90
+
+  first-attempt:
+    needs: commit-suite
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RUN_BRANCH }}
+          path: records
+          fetch-depth: 0
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FROZEN_REF }}
+          path: frozen
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install frozen runtime
+        run: python -m pip install --disable-pip-version-check --quiet z3-solver==4.15.3.0
+      - uses: actions/download-artifact@v4
+        with:
+          name: run003-public-challenge
+          path: inputs/public
+      - name: Assert separation and frozen identity
+        run: |
+          set -euo pipefail
+          test "$(git -C frozen rev-parse HEAD)" = "$FROZEN_SHA"
+          test "$(git -C records rev-parse "$FROZEN_REF")" = "$FROZEN_SHA"
+          test -e inputs/public/COMMITMENT.json
+          test -e inputs/public/PUBLIC_CHALLENGE.json
+          test ! -e inputs/public/PRIVATE_REVEAL.json
+          test ! -e records/runs/run-003/SUBMISSION_DIGEST.json
+      - name: Produce immutable first attempt from frozen code
+        run: |
+          set -euo pipefail
+          created_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          PYTHONPATH=frozen/research python records/tools/run003_evaluator.py submit \
+            --public inputs/public/PUBLIC_CHALLENGE.json \
+            --commitment inputs/public/COMMITMENT.json \
+            --output work/submission \
+            --frozen-head "$FROZEN_SHA" \
+            --created-at "$created_at"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          value = json.loads(Path('work/submission/SUBMISSION_DIGEST.json').read_text())
+          assert value['attempt'] == 'attempt-0001'
+          assert value['tier'] == 'D'
+          assert value['frozen_head'] == '1d7c489bcdbff755d638b35ad47ce62bd4fe829d'
+          assert value['tasks'] == 16 and value['predictions'] == 800
+          PY
+      - name: Seal submission digest before reveal
+        working-directory: records
+        run: |
+          set -euo pipefail
+          git pull --ff-only origin "$RUN_BRANCH"
+          test ! -e runs/run-003/SUBMISSION_DIGEST.json
+          cp ../work/submission/SUBMISSION_DIGEST.json runs/run-003/SUBMISSION_DIGEST.json
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add runs/run-003/SUBMISSION_DIGEST.json
+          git diff --cached --check
+          git commit -m 'run003: seal immutable attempt-0001 digest'
+          git push origin HEAD:"$RUN_BRANCH"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: run003-attempt-0001
+          path: |
+            work/submission/SUBMISSION.json
+            work/submission/SUBMISSION_DIGEST.json
+          if-no-files-found: error
+          retention-days: 90
+
+  reveal-and-score:
+    needs: [commit-suite, first-attempt]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RUN_BRANCH }}
+          path: records
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: run003-public-challenge
+          path: inputs/public
+      - uses: actions/download-artifact@v4
+        with:
+          name: run003-private-reveal
+          path: inputs/private
+      - uses: actions/download-artifact@v4
+        with:
+          name: run003-attempt-0001
+          path: inputs/submission
+      - name: Verify commitment, reveal, and score first attempt
+        run: |
+          set -euo pipefail
+          created_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          python records/tools/run003_evaluator.py score \
+            --public inputs/public/PUBLIC_CHALLENGE.json \
+            --private inputs/private/PRIVATE_REVEAL.json \
+            --commitment inputs/public/COMMITMENT.json \
+            --submission inputs/submission/SUBMISSION.json \
+            --output work/scored \
+            --created-at "$created_at"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('work/scored/SCORE_REPORT.json').read_text())
+          assert all(report['checks'].values())
+          assert report['frozen_head'] == '1d7c489bcdbff755d638b35ad47ce62bd4fe829d'
+          assert report['overall']['rows'] == 800
+          assert report['headline']['rows'] == 400
+          PY
+      - name: Publish reveal index and score report
+        working-directory: records
+        run: |
+          set -euo pipefail
+          git pull --ff-only origin "$RUN_BRANCH"
+          test ! -e runs/run-003/SCORE_REPORT.json
+          cp ../work/scored/REVEAL_INDEX.json runs/run-003/REVEAL_INDEX.json
+          cp ../work/scored/SCORE_REPORT.json runs/run-003/SCORE_REPORT.json
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add runs/run-003/REVEAL_INDEX.json runs/run-003/SCORE_REPORT.json
+          git diff --cached --check
+          git commit -m 'run003: reveal and publish immutable first-attempt score'
+          git push origin HEAD:"$RUN_BRANCH"
+      - name: Build complete evidence bundle
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/run-003
+          cp inputs/public/COMMITMENT.json evidence/run-003/
+          cp inputs/public/PUBLIC_CHALLENGE.json evidence/run-003/
+          cp inputs/public/PUBLIC_INDEX.json evidence/run-003/
+          cp inputs/private/PRIVATE_REVEAL.json evidence/run-003/
+          cp inputs/submission/SUBMISSION.json evidence/run-003/
+          cp inputs/submission/SUBMISSION_DIGEST.json evidence/run-003/
+          cp work/scored/REVEAL_INDEX.json evidence/run-003/
+          cp work/scored/SCORE_REPORT.json evidence/run-003/
+          cp records/runs/run-003/FREEZE_INDEX.json evidence/run-003/
+          cp records/tools/run003_evaluator.py evidence/run-003/
+          (cd evidence/run-003 && sha256sum * > SHA256SUMS)
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('evidence/run-003/SCORE_REPORT.json').read_text())
+          value = {
+              'suite_id': 'holonomy-v2-run-003',
+              'protocol': 'commit-predict-reveal-v2',
+              'frozen_head': '1d7c489bcdbff755d638b35ad47ce62bd4fe829d',
+              'attempt': 'attempt-0001',
+              'report_digest': report['report_digest'],
+              'files': sorted(path.name for path in Path('evidence/run-003').iterdir()),
+          }
+          Path('evidence/run-003/MANIFEST.json').write_text(json.dumps(value, sort_keys=True, separators=(',', ':')) + '\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: universal-core-holonomy-v2-run-003-evidence
+          path: evidence/run-003
+          if-no-files-found: error
+          retention-days: 90
