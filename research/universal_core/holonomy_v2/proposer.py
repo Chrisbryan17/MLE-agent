@@ -53,6 +53,14 @@ _NODE_FIELDS: dict[str, frozenset[str]] = {
     "priority_rules": frozenset({"kind", "rules", "default"}),
     "grid_pattern_count": frozenset({"kind", "board_field", "player_field", "empty", "directions"}),
     "resource_makespan": frozenset({"kind", "jobs_field", "edges_field", "id_field", "duration_field", "resource_field"}),
+    "state_fold": frozenset({"kind", "state_field", "actions_field", "transitions", "unknown"}),
+    "stack_rewrite": frozenset({"kind", "sequence_field", "token_mode", "rules"}),
+    "weighted_vote_veto": frozenset({"kind", "ballots_field", "choice_field", "weight_field", "support_field", "veto_field", "threshold", "tie_policy", "default"}),
+    "ray_first_hit": frozenset({"kind", "origin_field", "direction_field", "objects_field", "id_field", "min_field", "max_field", "tie_policy", "default"}),
+    "distinct_slot_match": frozenset({"kind", "items_field", "id_field", "slots_field", "success", "failure"}),
+    "integer_span_cover": frozenset({"kind", "span_start_field", "span_end_field", "intervals_field", "interval_start_field", "interval_end_field", "mode", "success", "failure"}),
+    "circular_bit_step": frozenset({"kind", "sequence_field", "steps_field", "token_mode", "rule"}),
+    "cyclic_skip_step": frozenset({"kind", "cycle_field", "start_field", "steps_field", "blocked_field"}),
 }
 
 
@@ -91,6 +99,27 @@ def _program_constants(data: Any) -> list[Any]:
             values.extend((data.get("a"), data.get("b")))
         elif kind == "filter":
             values.append(data.get("value"))
+        elif kind == "state_fold":
+            for transition in data.get("transitions", ()):
+                values.extend((transition.get("state"), transition.get("action"), transition.get("next")))
+        elif kind == "stack_rewrite":
+            for rule in data.get("rules", ()):
+                values.extend(rule.get("left", ()))
+                values.extend(rule.get("right", ()))
+        elif kind == "weighted_vote_veto":
+            values.append(data.get("threshold"))
+            values.append(data.get("default"))
+        elif kind == "ray_first_hit":
+            values.append(data.get("default"))
+        elif kind == "distinct_slot_match":
+            values.append(data.get("success"))
+            values.append(data.get("failure"))
+        elif kind == "integer_span_cover":
+            if "success" in data:
+                values.append(data.get("success"))
+            values.append(data.get("failure"))
+        elif kind == "circular_bit_step":
+            values.append(data.get("rule"))
         for key, item in data.items():
             if key not in {"value", "a", "b"}:
                 values.extend(_program_constants(item))

@@ -138,9 +138,16 @@ def _add_if_fits(candidates: dict[str, Program], data: Mapping[str, Any], demos:
 
 def _priority_data(instructions: str, demos: Sequence[Any]) -> Mapping[str, Any] | None:
     lowered = instructions.casefold()
-    labels = sorted({str(_demo_parts(item)[1]) for item in demos})
-    allow_label = next((item for item in labels if item.casefold().startswith("allow")), None)
-    deny_label = next((item for item in labels if item.casefold().startswith("deny")), None)
+    labels = {str(_demo_parts(item)[1]) for item in demos}
+    return_pair = re.search(
+        r"return\s+([a-z0-9_-]+)\s+or\s+([a-z0-9_-]+)",
+        lowered,
+    )
+    if return_pair:
+        labels.update(item.upper() for item in return_pair.groups())
+    ordered_labels = sorted(labels)
+    allow_label = next((item for item in ordered_labels if item.casefold().startswith("allow")), None)
+    deny_label = next((item for item in ordered_labels if item.casefold().startswith("deny")), None)
     if allow_label is None or deny_label is None:
         return None
     rules: list[dict[str, Any]] = []
@@ -199,6 +206,533 @@ def _priority_data(instructions: str, demos: Sequence[Any]) -> Mapping[str, Any]
     default = deny_label if "remaining cases deny" in lowered else allow_label
     return {"kind": "priority_rules", "rules": rules, "default": default}
 
+
+def _state_fold_candidates(instructions: str, demos: Sequence[Any]) -> tuple[Mapping[str, Any], ...]:
+    triples = re.findall(
+        r"([a-z0-9_-]+)\s*\+\s*([a-z0-9_-]+)\s*(?:->|→)\s*([a-z0-9_-]+)",
+        instructions.casefold(),
+    )
+    if not triples:
+        return ()
+    inputs = [_demo_parts(item)[0] for item in demos]
+    outputs = [_demo_parts(item)[1] for item in demos]
+    if not inputs or not all(isinstance(item, Mapping) for item in inputs):
+        return ()
+    fields = _common_fields(inputs)
+    sequence_fields = [
+        field
+        for field in fields
+        if all(
+            isinstance(item[field], Sequence)
+            and not isinstance(item[field], (str, bytes, bytearray))
+            for item in inputs
+        )
+    ]
+    state_fields = [
+        field
+        for field in fields
+        if field not in sequence_fields and all(type(item[field]) is type(outputs[index]) for index, item in enumerate(inputs))
+    ]
+    observed = [*outputs]
+    for item in inputs:
+        observed.extend(item[field] for field in state_fields)
+        for field in sequence_fields:
+            observed.extend(item[field])
+    by_token = {str(item).casefold(): item for item in observed}
+    transitions = [
+        {
+            "state": by_token.get(state, state),
+            "action": by_token.get(action, action),
+            "next": by_token.get(nxt, nxt),
+        }
+        for state, action, nxt in triples
+    ]
+    candidates: list[Mapping[str, Any]] = []
+    for state_field in state_fields:
+        for actions_field in sequence_fields:
+            data = {
+                "kind": "state_fold",
+                "state_field": state_field,
+                "actions_field": actions_field,
+                "transitions": transitions,
+            }
+            try:
+                program = Program.parse(data)
+            except (TypeError, ValueError):
+                continue
+            if _fits(program, demos):
+                candidates.append(data)
+    return tuple(candidates)
+
+
+
+def _stack_rewrite_candidates(instructions: str, demos: Sequence[Any]) -> tuple[Mapping[str, Any], ...]:
+    lowered = instructions.casefold()
+    if "stack" not in lowered or "rewrite" not in lowered:
+        return ()
+    rule_block = re.search(r"\brules?\s*:\s*(.+?)(?:\breturn\b|$)", instructions, re.IGNORECASE | re.DOTALL)
+    if rule_block is None:
+        return ()
+    raw_rules: list[tuple[list[str], list[str]]] = []
+    for clause in rule_block.group(1).split(";"):
+        match = re.fullmatch(r"\s*(.+?)\s*(?:->|→)\s*(.*?)\s*\.?\s*", clause)
+        if match is None:
+            continue
+        left_text, right_text = match.groups()
+        left = left_text.split()
+        if not left:
+            continue
+        right = [] if right_text.casefold() in {"", "empty", "epsilon", "ε"} else right_text.split()
+        raw_rules.append((left, right))
+    if not raw_rules:
+        return ()
+    if any(len(right) >= len(left) for left, right in raw_rules):
+        return ()
+
+    inputs = [_demo_parts(item)[0] for item in demos]
+    outputs = [_demo_parts(item)[1] for item in demos]
+    if not inputs or not all(isinstance(item, Mapping) for item in inputs):
+        return ()
+    fields = _common_fields(inputs)
+    candidates: list[Mapping[str, Any]] = []
+    for field in fields:
+        values = [item[field] for item in inputs]
+        modes: tuple[str, ...]
+        if all(isinstance(value, str) for value in values) and all(isinstance(value, str) for value in outputs):
+            modes = ("characters", "words")
+        elif all(
+            isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray))
+            for value in values
+        ) and all(
+            isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray))
+            for value in outputs
+        ):
+            modes = ("items",)
+        else:
+            continue
+
+        for mode in modes:
+            observed: list[Any] = []
+            if mode == "characters":
+                for value in [*values, *outputs]:
+                    observed.extend(value)
+            elif mode == "words":
+                for value in [*values, *outputs]:
+                    observed.extend(value.split())
+            else:
+                for value in [*values, *outputs]:
+                    observed.extend(value)
+            by_token = {str(item).casefold(): item for item in observed}
+            rules = [
+                {
+                    "left": [by_token.get(token.casefold(), token) for token in left],
+                    "right": [by_token.get(token.casefold(), token) for token in right],
+                }
+                for left, right in raw_rules
+            ]
+            data = {
+                "kind": "stack_rewrite",
+                "sequence_field": field,
+                "token_mode": mode,
+                "rules": rules,
+            }
+            try:
+                program = Program.parse(data)
+            except (TypeError, ValueError):
+                continue
+            if _fits(program, demos):
+                candidates.append(data)
+    return tuple(candidates)
+
+
+def _weighted_vote_veto_candidates(instructions: str, demos: Sequence[Any]) -> tuple[Mapping[str, Any], ...]:
+    lowered = instructions.casefold()
+    if "weighted vote" not in lowered or "veto" not in lowered:
+        return ()
+    inputs = [_demo_parts(item)[0] for item in demos]
+    if not inputs or not all(isinstance(item, Mapping) for item in inputs):
+        return ()
+
+    threshold_match = re.search(r"minimum score\s+(-?\d+(?:\.\d+)?)", instructions, re.IGNORECASE)
+    threshold = _number_data(Fraction(threshold_match.group(1))) if threshold_match else 0
+    default_match = re.search(r"otherwise return\s+([a-z0-9_-]+)", instructions, re.IGNORECASE)
+    if default_match is None:
+        return ()
+    default = default_match.group(1)
+    if "lexicograph" in lowered:
+        tie_policy = "lexicographic"
+    elif "tie" in lowered and "first" in lowered:
+        tie_policy = "first"
+    elif "tie" in lowered and "error" in lowered:
+        tie_policy = "error"
+    else:
+        tie_policy = "lexicographic"
+
+    def named(fields: tuple[str, ...], names: tuple[str, ...]) -> str | None:
+        exact = next((field for field in fields if field.casefold() in names), None)
+        if exact is not None:
+            return exact
+        return next((field for field in fields if any(name in field.casefold() for name in names)), None)
+
+    candidates: list[Mapping[str, Any]] = []
+    sequence_fields = [
+        field
+        for field in _common_fields(inputs)
+        if all(
+            isinstance(item[field], Sequence)
+            and not isinstance(item[field], (str, bytes, bytearray))
+            for item in inputs
+        )
+    ]
+    for ballots_field in sequence_fields:
+        rows = [row for item in inputs for row in item[ballots_field]]
+        fields = _common_fields(rows)
+        if not fields:
+            continue
+        choice_field = named(fields, ("option", "choice", "candidate", "proposal"))
+        weight_field = named(fields, ("weight", "power", "points", "strength"))
+        support_field = named(fields, ("support", "approve", "approval", "vote", "position"))
+        veto_field = named(fields, ("veto", "block", "blocked"))
+        if None in {choice_field, weight_field, support_field, veto_field}:
+            continue
+        data = {
+            "kind": "weighted_vote_veto",
+            "ballots_field": ballots_field,
+            "choice_field": choice_field,
+            "weight_field": weight_field,
+            "support_field": support_field,
+            "veto_field": veto_field,
+            "threshold": threshold,
+            "tie_policy": tie_policy,
+            "default": default,
+        }
+        try:
+            program = Program.parse(data)
+        except (TypeError, ValueError):
+            continue
+        if _fits(program, demos):
+            candidates.append(data)
+    return tuple(candidates)
+
+
+def _ray_first_hit_candidates(instructions: str, demos: Sequence[Any]) -> tuple[Mapping[str, Any], ...]:
+    lowered = instructions.casefold()
+    if "ray" not in lowered or "origin" not in lowered or "direction" not in lowered:
+        return ()
+    if "box" not in lowered and "axis-aligned" not in lowered:
+        return ()
+    inputs = [_demo_parts(item)[0] for item in demos]
+    if not inputs or not all(isinstance(item, Mapping) for item in inputs):
+        return ()
+
+    default_match = re.search(r"otherwise return\s+([a-z0-9_-]+)", instructions, re.IGNORECASE)
+    if default_match is None:
+        return ()
+    default = default_match.group(1)
+    if "lexicograph" in lowered:
+        tie_policy = "lexicographic"
+    elif "tie" in lowered and "first" in lowered:
+        tie_policy = "first"
+    elif "tie" in lowered and "error" in lowered:
+        tie_policy = "error"
+    else:
+        tie_policy = "lexicographic"
+
+    def named(fields: Sequence[str], names: tuple[str, ...]) -> str | None:
+        exact = next((field for field in fields if field.casefold() in names), None)
+        if exact is not None:
+            return exact
+        return next((field for field in fields if any(name in field.casefold() for name in names)), None)
+
+    fields = _common_fields(inputs)
+    origin_field = named(fields, ("origin", "source", "start"))
+    direction_field = named(fields, ("direction", "dir", "vector"))
+    if origin_field is None or direction_field is None or origin_field == direction_field:
+        return ()
+
+    object_fields = [
+        field
+        for field in fields
+        if all(
+            isinstance(item[field], Sequence)
+            and not isinstance(item[field], (str, bytes, bytearray))
+            and item[field]
+            and all(isinstance(row, Mapping) for row in item[field])
+            for item in inputs
+        )
+    ]
+    candidates: list[Mapping[str, Any]] = []
+    for objects_field in object_fields:
+        rows = [row for item in inputs for row in item[objects_field]]
+        nested = _common_fields(rows)
+        id_field = named(nested, ("id", "name", "object", "label"))
+        min_field = named(nested, ("min", "minimum", "lower", "low"))
+        max_field = named(nested, ("max", "maximum", "upper", "high"))
+        if None in {id_field, min_field, max_field}:
+            continue
+        data = {
+            "kind": "ray_first_hit",
+            "origin_field": origin_field,
+            "direction_field": direction_field,
+            "objects_field": objects_field,
+            "id_field": id_field,
+            "min_field": min_field,
+            "max_field": max_field,
+            "tie_policy": tie_policy,
+            "default": default,
+        }
+        try:
+            program = Program.parse(data)
+        except (TypeError, ValueError):
+            continue
+        if _fits(program, demos):
+            candidates.append(data)
+    return tuple(candidates)
+
+
+
+def _distinct_slot_match_candidates(instructions: str, demos: Sequence[Any]) -> tuple[Mapping[str, Any], ...]:
+    lowered = instructions.casefold()
+    if "distinct" not in lowered or "slot" not in lowered:
+        return ()
+    if "assign" not in lowered and "matching" not in lowered:
+        return ()
+    inputs = [_demo_parts(item)[0] for item in demos]
+    outputs = [_demo_parts(item)[1] for item in demos]
+    if not inputs or not all(isinstance(item, Mapping) for item in inputs):
+        return ()
+
+    success_match = re.search(r"return\s+([a-z0-9_-]+)\s+if", instructions, re.IGNORECASE)
+    failure_match = re.search(r"otherwise\s+return\s+([a-z0-9_-]+)", instructions, re.IGNORECASE)
+    if success_match is None or failure_match is None:
+        return ()
+    by_label = {str(item).casefold(): item for item in outputs}
+    success = by_label.get(success_match.group(1).casefold(), success_match.group(1))
+    failure = by_label.get(failure_match.group(1).casefold(), failure_match.group(1))
+
+    def named(fields: Sequence[str], names: tuple[str, ...]) -> str | None:
+        exact = next((field for field in fields if field.casefold() in names), None)
+        if exact is not None:
+            return exact
+        return next((field for field in fields if any(name in field.casefold() for name in names)), None)
+
+    candidates: list[Mapping[str, Any]] = []
+    for items_field in _common_fields(inputs):
+        if not all(
+            isinstance(item[items_field], Sequence)
+            and not isinstance(item[items_field], (str, bytes, bytearray))
+            and item[items_field]
+            and all(isinstance(row, Mapping) for row in item[items_field])
+            for item in inputs
+        ):
+            continue
+        rows = [row for item in inputs for row in item[items_field]]
+        fields = _common_fields(rows)
+        id_field = named(fields, ("id", "item", "name", "label"))
+        slots_field = named(fields, ("slots", "slot", "allowed", "options", "choices"))
+        if id_field is None or slots_field is None or id_field == slots_field:
+            continue
+        data = {
+            "kind": "distinct_slot_match",
+            "items_field": items_field,
+            "id_field": id_field,
+            "slots_field": slots_field,
+            "success": success,
+            "failure": failure,
+        }
+        try:
+            program = Program.parse(data)
+        except (TypeError, ValueError):
+            continue
+        if _fits(program, demos):
+            candidates.append(data)
+    return tuple(candidates)
+
+
+
+def _integer_span_cover_candidates(instructions: str, demos: Sequence[Any]) -> tuple[Mapping[str, Any], ...]:
+    lowered = instructions.casefold()
+    if "cover" not in lowered or "integer" not in lowered or "interval" not in lowered:
+        return ()
+    inputs = [_demo_parts(item)[0] for item in demos]
+    outputs = [_demo_parts(item)[1] for item in demos]
+    if not inputs or not all(isinstance(item, Mapping) for item in inputs):
+        return ()
+
+    if "minimum" in lowered and "number" in lowered:
+        mode = "minimum_count"
+        failure_match = re.search(r"return\s+(-?\d+)\s+if", instructions, re.IGNORECASE)
+        if failure_match is None:
+            return ()
+        failure = int(failure_match.group(1))
+        success = None
+    else:
+        mode = "feasible"
+        success_match = re.search(r"return\s+([a-z0-9_-]+)\s+(?:if|when)", instructions, re.IGNORECASE)
+        failure_match = re.search(r"otherwise\s+return\s+([a-z0-9_-]+)", instructions, re.IGNORECASE)
+        if success_match is None or failure_match is None:
+            return ()
+        by_label = {str(item).casefold(): item for item in outputs}
+        success = by_label.get(success_match.group(1).casefold(), success_match.group(1))
+        failure = by_label.get(failure_match.group(1).casefold(), failure_match.group(1))
+
+    def named(fields: Sequence[str], names: tuple[str, ...]) -> str | None:
+        exact = next((field for field in fields if field.casefold() in names), None)
+        if exact is not None:
+            return exact
+        return next((field for field in fields if any(name in field.casefold() for name in names)), None)
+
+    fields = _common_fields(inputs)
+    span_start_field = named(fields, ("start", "begin", "left", "first"))
+    span_end_field = named(fields, ("end", "finish", "right", "last"))
+    if span_start_field is None or span_end_field is None or span_start_field == span_end_field:
+        return ()
+
+    candidates: list[Mapping[str, Any]] = []
+    for intervals_field in fields:
+        if intervals_field in {span_start_field, span_end_field}:
+            continue
+        if not all(
+            isinstance(item[intervals_field], Sequence)
+            and not isinstance(item[intervals_field], (str, bytes, bytearray))
+            and item[intervals_field]
+            and all(isinstance(row, Mapping) for row in item[intervals_field])
+            for item in inputs
+        ):
+            continue
+        rows = [row for item in inputs for row in item[intervals_field]]
+        nested = _common_fields(rows)
+        interval_start_field = named(nested, ("start", "begin", "left", "first"))
+        interval_end_field = named(nested, ("end", "finish", "right", "last"))
+        if interval_start_field is None or interval_end_field is None or interval_start_field == interval_end_field:
+            continue
+        data = {
+            "kind": "integer_span_cover",
+            "span_start_field": span_start_field,
+            "span_end_field": span_end_field,
+            "intervals_field": intervals_field,
+            "interval_start_field": interval_start_field,
+            "interval_end_field": interval_end_field,
+            "mode": mode,
+            "failure": failure,
+        }
+        if mode == "feasible":
+            data["success"] = success
+        try:
+            program = Program.parse(data)
+        except (TypeError, ValueError):
+            continue
+        if _fits(program, demos):
+            candidates.append(data)
+    return tuple(candidates)
+
+
+
+def _circular_bit_step_candidates(instructions: str, demos: Sequence[Any]) -> tuple[Mapping[str, Any], ...]:
+    lowered = instructions.casefold()
+    if "circular" not in lowered or "bit" not in lowered or "rule" not in lowered:
+        return ()
+    rule_match = re.search(r"\brule\s+(\d+)\b", instructions, re.IGNORECASE)
+    if rule_match is None:
+        return ()
+    rule = int(rule_match.group(1))
+    if not 0 <= rule <= 255:
+        return ()
+
+    inputs = [_demo_parts(item)[0] for item in demos]
+    if not inputs or not all(isinstance(item, Mapping) for item in inputs):
+        return ()
+    fields = _common_fields(inputs)
+    step_fields = [
+        field
+        for field in fields
+        if all(isinstance(item[field], int) and not isinstance(item[field], bool) and item[field] >= 0 for item in inputs)
+    ]
+    sequence_modes: list[tuple[str, str]] = []
+    for field in fields:
+        values = [item[field] for item in inputs]
+        if all(isinstance(value, str) and value and set(value) <= {"0", "1"} for value in values):
+            sequence_modes.append((field, "characters"))
+        elif all(
+            isinstance(value, Sequence)
+            and not isinstance(value, (str, bytes, bytearray))
+            and value
+            and all(isinstance(bit, int) and not isinstance(bit, bool) and bit in {0, 1} for bit in value)
+            for value in values
+        ):
+            sequence_modes.append((field, "integers"))
+
+    candidates: list[Mapping[str, Any]] = []
+    for sequence_field, token_mode in sequence_modes:
+        for steps_field in step_fields:
+            if sequence_field == steps_field:
+                continue
+            data = {
+                "kind": "circular_bit_step",
+                "sequence_field": sequence_field,
+                "steps_field": steps_field,
+                "token_mode": token_mode,
+                "rule": rule,
+            }
+            try:
+                program = Program.parse(data)
+            except (TypeError, ValueError):
+                continue
+            if _fits(program, demos):
+                candidates.append(data)
+    return tuple(candidates)
+
+
+
+def _cyclic_skip_step_candidates(instructions: str, demos: Sequence[Any]) -> tuple[Mapping[str, Any], ...]:
+    lowered = instructions.casefold()
+    if "cycle" not in lowered or "blocked" not in lowered or "skip" not in lowered:
+        return ()
+    if "forward" not in lowered and "move" not in lowered:
+        return ()
+    inputs = [_demo_parts(item)[0] for item in demos]
+    if not inputs or not all(isinstance(item, Mapping) for item in inputs):
+        return ()
+    fields = _common_fields(inputs)
+
+    def named(names: tuple[str, ...]) -> str | None:
+        exact = next((field for field in fields if field.casefold() in names), None)
+        if exact is not None:
+            return exact
+        return next((field for field in fields if any(name in field.casefold() for name in names)), None)
+
+    cycle_field = named(("cycle", "order", "days", "positions"))
+    blocked_field = named(("blocked", "closed", "skipped", "excluded"))
+    start_field = named(("start", "current", "day", "position"))
+    steps_field = named(("steps", "count", "advance", "moves"))
+    if None in {cycle_field, blocked_field, start_field, steps_field}:
+        return ()
+    if len({cycle_field, blocked_field, start_field, steps_field}) != 4:
+        return ()
+    if not all(
+        isinstance(item[cycle_field], Sequence)
+        and not isinstance(item[cycle_field], (str, bytes, bytearray))
+        and item[cycle_field]
+        and isinstance(item[blocked_field], Sequence)
+        and not isinstance(item[blocked_field], (str, bytes, bytearray))
+        and isinstance(item[steps_field], int)
+        and not isinstance(item[steps_field], bool)
+        and item[steps_field] >= 0
+        for item in inputs
+    ):
+        return ()
+    data = {
+        "kind": "cyclic_skip_step",
+        "cycle_field": cycle_field,
+        "start_field": start_field,
+        "steps_field": steps_field,
+        "blocked_field": blocked_field,
+    }
+    try:
+        program = Program.parse(data)
+    except (TypeError, ValueError):
+        return ()
+    return (data,) if _fits(program, demos) else ()
 
 def _grid_data(instructions: str, inputs: Sequence[Any]) -> Mapping[str, Any] | None:
     lowered = instructions.casefold()
@@ -289,6 +823,30 @@ def build_task_grammar(
             "modulus": atoms.hints.modulus or len(atoms.hints.cycle),
         }, demos)
 
+    for state_fold in _state_fold_candidates(instructions, demos):
+        _add_if_fits(candidates, state_fold, demos)
+
+    for stack_rewrite in _stack_rewrite_candidates(instructions, demos):
+        _add_if_fits(candidates, stack_rewrite, demos)
+
+    for weighted_vote in _weighted_vote_veto_candidates(instructions, demos):
+        _add_if_fits(candidates, weighted_vote, demos)
+
+    for ray_first_hit in _ray_first_hit_candidates(instructions, demos):
+        _add_if_fits(candidates, ray_first_hit, demos)
+
+    for matching in _distinct_slot_match_candidates(instructions, demos):
+        _add_if_fits(candidates, matching, demos)
+
+    for span_cover in _integer_span_cover_candidates(instructions, demos):
+        _add_if_fits(candidates, span_cover, demos)
+
+    for circular_bits in _circular_bit_step_candidates(instructions, demos):
+        _add_if_fits(candidates, circular_bits, demos)
+
+    for cyclic_skip in _cyclic_skip_step_candidates(instructions, demos):
+        _add_if_fits(candidates, cyclic_skip, demos)
+
     priority = _priority_data(instructions, demos)
     if priority is not None:
         _add_if_fits(candidates, priority, demos)
@@ -316,19 +874,17 @@ def build_task_grammar(
         _add(candidates, {"kind": "aggregate", "op": "count"})
 
         hint_compare = atoms.hints.comparison
-        compare_options: list[tuple[str, Any]] = []
         if hint_compare is not None:
-            compare_options.append(hint_compare)
-        for constant in atoms.constants:
-            if _numeric(constant):
-                compare_options.extend((op, constant) for op in ("<", "<=", "==", ">=", ">"))
-        seen_compare: set[tuple[str, str]] = set()
+            compare_options: list[tuple[str, Any]] = [hint_compare]
+        else:
+            compare_options = [
+                (op, constant)
+                for constant in atoms.constants
+                if _numeric(constant)
+                for op in ("<", "<=", "==", ">=", ">")
+            ]
         for filter_field in fields:
             for op, threshold in compare_options:
-                key = (op, repr(threshold))
-                if key in seen_compare and hint_compare is not None:
-                    continue
-                seen_compare.add(key)
                 filter_node = {"kind": "filter", "field": filter_field, "comparison": op, "value": threshold}
                 _add(candidates, {"kind": "compose", "parts": [filter_node, {"kind": "aggregate", "op": "count"}]})
                 for value_field in fields:

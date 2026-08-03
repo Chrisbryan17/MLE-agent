@@ -46,6 +46,14 @@ class NodeKind(str, Enum):
     PRIORITY_RULES = "priority_rules"
     GRID_PATTERN_COUNT = "grid_pattern_count"
     RESOURCE_MAKESPAN = "resource_makespan"
+    STATE_FOLD = "state_fold"
+    STACK_REWRITE = "stack_rewrite"
+    WEIGHTED_VOTE_VETO = "weighted_vote_veto"
+    RAY_FIRST_HIT = "ray_first_hit"
+    DISTINCT_SLOT_MATCH = "distinct_slot_match"
+    INTEGER_SPAN_COVER = "integer_span_cover"
+    CIRCULAR_BIT_STEP = "circular_bit_step"
+    CYCLIC_SKIP_STEP = "cyclic_skip_step"
 
 
 class FailureCode(str, Enum):
