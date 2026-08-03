@@ -58,6 +58,7 @@ _NODE_FIELDS: dict[str, frozenset[str]] = {
     "weighted_vote_veto": frozenset({"kind", "ballots_field", "choice_field", "weight_field", "support_field", "veto_field", "threshold", "tie_policy", "default"}),
     "ray_first_hit": frozenset({"kind", "origin_field", "direction_field", "objects_field", "id_field", "min_field", "max_field", "tie_policy", "default"}),
     "distinct_slot_match": frozenset({"kind", "items_field", "id_field", "slots_field", "success", "failure"}),
+    "integer_span_cover": frozenset({"kind", "span_start_field", "span_end_field", "intervals_field", "interval_start_field", "interval_end_field", "mode", "success", "failure"}),
 }
 
 
@@ -110,6 +111,10 @@ def _program_constants(data: Any) -> list[Any]:
             values.append(data.get("default"))
         elif kind == "distinct_slot_match":
             values.append(data.get("success"))
+            values.append(data.get("failure"))
+        elif kind == "integer_span_cover":
+            if "success" in data:
+                values.append(data.get("success"))
             values.append(data.get("failure"))
         for key, item in data.items():
             if key not in {"value", "a", "b"}:

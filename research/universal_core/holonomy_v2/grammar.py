@@ -548,6 +548,84 @@ def _distinct_slot_match_candidates(instructions: str, demos: Sequence[Any]) -> 
             candidates.append(data)
     return tuple(candidates)
 
+
+
+def _integer_span_cover_candidates(instructions: str, demos: Sequence[Any]) -> tuple[Mapping[str, Any], ...]:
+    lowered = instructions.casefold()
+    if "cover" not in lowered or "integer" not in lowered or "interval" not in lowered:
+        return ()
+    inputs = [_demo_parts(item)[0] for item in demos]
+    outputs = [_demo_parts(item)[1] for item in demos]
+    if not inputs or not all(isinstance(item, Mapping) for item in inputs):
+        return ()
+
+    if "minimum" in lowered and "number" in lowered:
+        mode = "minimum_count"
+        failure_match = re.search(r"return\s+(-?\d+)\s+if", instructions, re.IGNORECASE)
+        if failure_match is None:
+            return ()
+        failure = int(failure_match.group(1))
+        success = None
+    else:
+        mode = "feasible"
+        success_match = re.search(r"return\s+([a-z0-9_-]+)\s+(?:if|when)", instructions, re.IGNORECASE)
+        failure_match = re.search(r"otherwise\s+return\s+([a-z0-9_-]+)", instructions, re.IGNORECASE)
+        if success_match is None or failure_match is None:
+            return ()
+        by_label = {str(item).casefold(): item for item in outputs}
+        success = by_label.get(success_match.group(1).casefold(), success_match.group(1))
+        failure = by_label.get(failure_match.group(1).casefold(), failure_match.group(1))
+
+    def named(fields: Sequence[str], names: tuple[str, ...]) -> str | None:
+        exact = next((field for field in fields if field.casefold() in names), None)
+        if exact is not None:
+            return exact
+        return next((field for field in fields if any(name in field.casefold() for name in names)), None)
+
+    fields = _common_fields(inputs)
+    span_start_field = named(fields, ("start", "begin", "left", "first"))
+    span_end_field = named(fields, ("end", "finish", "right", "last"))
+    if span_start_field is None or span_end_field is None or span_start_field == span_end_field:
+        return ()
+
+    candidates: list[Mapping[str, Any]] = []
+    for intervals_field in fields:
+        if intervals_field in {span_start_field, span_end_field}:
+            continue
+        if not all(
+            isinstance(item[intervals_field], Sequence)
+            and not isinstance(item[intervals_field], (str, bytes, bytearray))
+            and item[intervals_field]
+            and all(isinstance(row, Mapping) for row in item[intervals_field])
+            for item in inputs
+        ):
+            continue
+        rows = [row for item in inputs for row in item[intervals_field]]
+        nested = _common_fields(rows)
+        interval_start_field = named(nested, ("start", "begin", "left", "first"))
+        interval_end_field = named(nested, ("end", "finish", "right", "last"))
+        if interval_start_field is None or interval_end_field is None or interval_start_field == interval_end_field:
+            continue
+        data = {
+            "kind": "integer_span_cover",
+            "span_start_field": span_start_field,
+            "span_end_field": span_end_field,
+            "intervals_field": intervals_field,
+            "interval_start_field": interval_start_field,
+            "interval_end_field": interval_end_field,
+            "mode": mode,
+            "failure": failure,
+        }
+        if mode == "feasible":
+            data["success"] = success
+        try:
+            program = Program.parse(data)
+        except (TypeError, ValueError):
+            continue
+        if _fits(program, demos):
+            candidates.append(data)
+    return tuple(candidates)
+
 def _grid_data(instructions: str, inputs: Sequence[Any]) -> Mapping[str, Any] | None:
     lowered = instructions.casefold()
     if "orthogon" not in lowered or "jump" not in lowered or "count" not in lowered:
@@ -651,6 +729,9 @@ def build_task_grammar(
 
     for matching in _distinct_slot_match_candidates(instructions, demos):
         _add_if_fits(candidates, matching, demos)
+
+    for span_cover in _integer_span_cover_candidates(instructions, demos):
+        _add_if_fits(candidates, span_cover, demos)
 
     priority = _priority_data(instructions, demos)
     if priority is not None:

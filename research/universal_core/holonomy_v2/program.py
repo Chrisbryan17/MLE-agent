@@ -416,6 +416,59 @@ def _distinct_slot_match(data: Mapping[str, Any], value: Mapping[str, Any], cont
             return deepcopy(data["failure"])
     return deepcopy(data["success"])
 
+
+
+def _integer_endpoint(value: Any, name: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise TypeError(f"{name} must be integers")
+    return value
+
+
+def _integer_span_cover(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> Any:
+    span_start = _integer_endpoint(value[data["span_start_field"]], "span endpoints")
+    span_end = _integer_endpoint(value[data["span_end_field"]], "span endpoints")
+    if span_start > span_end:
+        raise ValueError("span start must not exceed span end")
+
+    intervals = value[data["intervals_field"]]
+    if not isinstance(intervals, Sequence) or isinstance(intervals, (str, bytes, bytearray)):
+        raise TypeError("intervals must be a sequence")
+    if len(intervals) > context.limits.max_state_count:
+        raise BudgetExceeded("interval count exceeds configured bound")
+
+    ordered: list[tuple[int, int]] = []
+    for interval in intervals:
+        context.tick()
+        if not isinstance(interval, Mapping):
+            raise TypeError("interval must be a mapping")
+        start = _integer_endpoint(interval[data["interval_start_field"]], "interval endpoints")
+        end = _integer_endpoint(interval[data["interval_end_field"]], "interval endpoints")
+        if start > end:
+            raise ValueError("interval start must not exceed interval end")
+        ordered.append((start, end))
+    ordered.sort(key=lambda item: (item[0], -item[1]))
+
+    position = span_start
+    index = 0
+    count = 0
+    covered = True
+    while position <= span_end:
+        context.tick()
+        farthest = position - 1
+        while index < len(ordered) and ordered[index][0] <= position:
+            context.tick()
+            farthest = max(farthest, ordered[index][1])
+            index += 1
+        if farthest < position:
+            covered = False
+            break
+        count += 1
+        position = farthest + 1
+
+    if data["mode"] == "minimum_count":
+        return count if covered else deepcopy(data["failure"])
+    return deepcopy(data["success"] if covered else data["failure"])
+
 def _resource_makespan(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> int:
     jobs = list(value[data["jobs_field"]])
     if len(jobs) > context.limits.max_schedule_jobs:
@@ -606,6 +659,26 @@ def _validate(data: Mapping[str, Any]) -> None:
         if type(data["success"]) is type(data["failure"]) and data["success"] == data["failure"]:
             raise ValueError("distinct_slot_match labels must differ")
 
+    if kind == "integer_span_cover":
+        required_fields = (
+            "span_start_field",
+            "span_end_field",
+            "intervals_field",
+            "interval_start_field",
+            "interval_end_field",
+        )
+        if any(not isinstance(data.get(name), str) for name in required_fields):
+            raise ValueError("integer_span_cover requires field names")
+        if data.get("mode") not in {"minimum_count", "feasible"}:
+            raise ValueError("invalid integer span cover mode")
+        if "failure" not in data:
+            raise ValueError("integer_span_cover requires a failure value")
+        if data["mode"] == "feasible":
+            if "success" not in data:
+                raise ValueError("feasible span cover requires a success value")
+            if type(data["success"]) is type(data["failure"]) and data["success"] == data["failure"]:
+                raise ValueError("span cover labels must differ")
+
 def _cost(data: Mapping[str, Any]) -> int:
     base = 1
     if data["kind"] == "compose":
@@ -776,4 +849,8 @@ def _run(data: Mapping[str, Any], value: Any, context: EvaluationContext) -> Any
         if not isinstance(value, Mapping):
             raise TypeError("matching input must be a mapping")
         return _distinct_slot_match(data, value, context)
+    if kind == "integer_span_cover":
+        if not isinstance(value, Mapping):
+            raise TypeError("span-cover input must be a mapping")
+        return _integer_span_cover(data, value, context)
     raise ValueError(f"unsupported node kind: {kind}")

@@ -22,6 +22,7 @@ class LoopKind(str, Enum):
     VOTE_PERMUTATION = "VOTE_PERMUTATION"
     RAY_DIRECTION_SCALE = "RAY_DIRECTION_SCALE"
     MATCHING_PERMUTATION = "MATCHING_PERMUTATION"
+    SPAN_TRANSLATION = "SPAN_TRANSLATION"
     PRIORITY_AGREEMENT = "PRIORITY_AGREEMENT"
 
 
@@ -274,6 +275,58 @@ def build_loops(
                 deepcopy(expected),
                 data,
                 f"matching-permutation-{index}",
+            ))
+
+    if data.get("kind") == "integer_span_cover":
+        for index, demo in enumerate(demos[:3]):
+            inp, expected = _demo_parts(demo)
+            if not isinstance(inp, Mapping):
+                continue
+            span_start = inp.get(data["span_start_field"])
+            span_end = inp.get(data["span_end_field"])
+            intervals = inp.get(data["intervals_field"])
+            if (
+                not isinstance(span_start, int)
+                or isinstance(span_start, bool)
+                or not isinstance(span_end, int)
+                or isinstance(span_end, bool)
+                or not isinstance(intervals, Sequence)
+                or isinstance(intervals, (str, bytes, bytearray))
+            ):
+                continue
+            shifted_intervals = []
+            valid = True
+            for interval in deepcopy(intervals):
+                if not isinstance(interval, Mapping):
+                    valid = False
+                    break
+                start = interval.get(data["interval_start_field"])
+                end = interval.get(data["interval_end_field"])
+                if (
+                    not isinstance(start, int)
+                    or isinstance(start, bool)
+                    or not isinstance(end, int)
+                    or isinstance(end, bool)
+                ):
+                    valid = False
+                    break
+                shifted = deepcopy(dict(interval))
+                shifted[data["interval_start_field"]] = start + 7
+                shifted[data["interval_end_field"]] = end + 7
+                shifted_intervals.append(shifted)
+            if not valid:
+                continue
+            shifted_input = deepcopy(dict(inp))
+            shifted_input[data["span_start_field"]] = span_start + 7
+            shifted_input[data["span_end_field"]] = span_end + 7
+            shifted_input[data["intervals_field"]] = shifted_intervals
+            mandatory.append(ClosedPath(
+                LoopKind.SPAN_TRANSLATION,
+                True,
+                shifted_input,
+                deepcopy(expected),
+                data,
+                f"span-translation-{index}",
             ))
 
     if data.get("kind") == "compose":
