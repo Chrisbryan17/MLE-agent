@@ -1,0 +1,42 @@
+name: Apply Run003 Ref Fix
+
+on:
+  push:
+    branches: [holonomy-v2-run-003-public]
+    paths:
+      - '.github/workflows/apply-run003-ref-fix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: holonomy-v2-run-003-public
+          fetch-depth: 0
+      - name: Assert untouched protocol state
+        run: |
+          set -euo pipefail
+          test ! -e runs/run-003/COMMITMENT.json
+          test ! -e runs/run-003/SUBMISSION_DIGEST.json
+          test ! -e runs/run-003/SCORE_REPORT.json
+      - name: Apply exact ref fix
+        run: |
+          set -euo pipefail
+          git apply --check .github/patches/run003-remote-ref-fix.patch
+          git apply .github/patches/run003-remote-ref-fix.patch
+          grep -q 'refs/remotes/origin/$FROZEN_REF' .github/workflows/holonomy-v2-run-003.yml
+      - name: Commit workflow fix only
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add .github/workflows/holonomy-v2-run-003.yml
+          git diff --cached --check
+          git commit -m 'run003: fix archive ref verification before commitment'
+          git push origin HEAD:holonomy-v2-run-003-public
