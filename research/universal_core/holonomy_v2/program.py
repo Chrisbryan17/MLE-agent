@@ -281,6 +281,94 @@ def _weighted_vote_veto(data: Mapping[str, Any], value: Mapping[str, Any], conte
         winner = min(tied)
     return deepcopy(choices[winner])
 
+
+def _numeric_vector(value: Any, name: str) -> list[Fraction]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes, bytearray)) or not value:
+        raise ValueError(f"{name} must be a nonempty numeric sequence")
+    result: list[Fraction] = []
+    for item in value:
+        if not isinstance(item, Real) or isinstance(item, bool):
+            raise TypeError(f"{name} must contain only numbers")
+        result.append(Fraction(str(item)))
+    return result
+
+
+def _ray_box_distance(
+    origin: Sequence[Fraction],
+    direction: Sequence[Fraction],
+    lower: Sequence[Fraction],
+    upper: Sequence[Fraction],
+    context: EvaluationContext,
+) -> Fraction | None:
+    entered = Fraction(0)
+    exited: Fraction | None = None
+    for position, delta, low, high in zip(origin, direction, lower, upper):
+        context.tick()
+        if low > high:
+            raise ValueError("box minimum exceeds maximum")
+        if delta == 0:
+            if position < low or position > high:
+                return None
+            continue
+        first = (low - position) / delta
+        second = (high - position) / delta
+        near = min(first, second)
+        far = max(first, second)
+        entered = max(entered, near)
+        exited = far if exited is None else min(exited, far)
+        if exited < entered:
+            return None
+    if exited is None or exited < 0:
+        return None
+    return max(entered, Fraction(0))
+
+
+def _ray_first_hit(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> Any:
+    origin = _numeric_vector(value[data["origin_field"]], "ray origin")
+    direction = _numeric_vector(value[data["direction_field"]], "ray direction")
+    if len(origin) != len(direction):
+        raise ValueError("ray origin and direction dimensions differ")
+    if all(item == 0 for item in direction):
+        raise ValueError("ray direction must be nonzero")
+
+    objects = value[data["objects_field"]]
+    if not isinstance(objects, Sequence) or isinstance(objects, (str, bytes, bytearray)):
+        raise TypeError("ray objects must be a sequence")
+    if len(objects) > context.limits.max_state_count:
+        raise BudgetExceeded("object count exceeds configured bound")
+
+    best_distance: Fraction | None = None
+    tied: list[tuple[int, bytes, Any]] = []
+    for index, item in enumerate(objects):
+        context.tick()
+        if not isinstance(item, Mapping):
+            raise TypeError("ray object must be a mapping")
+        lower = _numeric_vector(item[data["min_field"]], "box minimum")
+        upper = _numeric_vector(item[data["max_field"]], "box maximum")
+        if len(lower) != len(origin) or len(upper) != len(origin):
+            raise ValueError("box and ray dimensions differ")
+        distance = _ray_box_distance(origin, direction, lower, upper, context)
+        if distance is None:
+            continue
+        identifier = item[data["id_field"]]
+        entry = (index, _canonical_bytes(identifier), deepcopy(identifier))
+        if best_distance is None or distance < best_distance:
+            best_distance = distance
+            tied = [entry]
+        elif distance == best_distance:
+            tied.append(entry)
+
+    if not tied:
+        return deepcopy(data["default"])
+    policy = data["tie_policy"]
+    if len(tied) > 1 and policy == "error":
+        raise ValueError("ray first-hit tie")
+    if policy == "first":
+        winner = min(tied, key=lambda item: item[0])
+    else:
+        winner = min(tied, key=lambda item: item[1])
+    return deepcopy(winner[2])
+
 def _resource_makespan(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> int:
     jobs = list(value[data["jobs_field"]])
     if len(jobs) > context.limits.max_schedule_jobs:
@@ -446,6 +534,22 @@ def _validate(data: Mapping[str, Any]) -> None:
         if "default" not in data:
             raise ValueError("weighted_vote_veto requires a default")
 
+    if kind == "ray_first_hit":
+        required_fields = (
+            "origin_field",
+            "direction_field",
+            "objects_field",
+            "id_field",
+            "min_field",
+            "max_field",
+        )
+        if any(not isinstance(data.get(name), str) for name in required_fields):
+            raise ValueError("ray_first_hit requires field names")
+        if data.get("tie_policy") not in {"lexicographic", "first", "error"}:
+            raise ValueError("invalid ray first-hit tie policy")
+        if "default" not in data:
+            raise ValueError("ray_first_hit requires a default")
+
 def _cost(data: Mapping[str, Any]) -> int:
     base = 1
     if data["kind"] == "compose":
@@ -608,4 +712,8 @@ def _run(data: Mapping[str, Any], value: Any, context: EvaluationContext) -> Any
         if not isinstance(value, Mapping):
             raise TypeError("weighted-vote input must be a mapping")
         return _weighted_vote_veto(data, value, context)
+    if kind == "ray_first_hit":
+        if not isinstance(value, Mapping):
+            raise TypeError("ray input must be a mapping")
+        return _ray_first_hit(data, value, context)
     raise ValueError(f"unsupported node kind: {kind}")

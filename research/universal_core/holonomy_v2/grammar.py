@@ -414,6 +414,81 @@ def _weighted_vote_veto_candidates(instructions: str, demos: Sequence[Any]) -> t
             candidates.append(data)
     return tuple(candidates)
 
+
+def _ray_first_hit_candidates(instructions: str, demos: Sequence[Any]) -> tuple[Mapping[str, Any], ...]:
+    lowered = instructions.casefold()
+    if "ray" not in lowered or "origin" not in lowered or "direction" not in lowered:
+        return ()
+    if "box" not in lowered and "axis-aligned" not in lowered:
+        return ()
+    inputs = [_demo_parts(item)[0] for item in demos]
+    if not inputs or not all(isinstance(item, Mapping) for item in inputs):
+        return ()
+
+    default_match = re.search(r"otherwise return\s+([a-z0-9_-]+)", instructions, re.IGNORECASE)
+    if default_match is None:
+        return ()
+    default = default_match.group(1)
+    if "lexicograph" in lowered:
+        tie_policy = "lexicographic"
+    elif "tie" in lowered and "first" in lowered:
+        tie_policy = "first"
+    elif "tie" in lowered and "error" in lowered:
+        tie_policy = "error"
+    else:
+        tie_policy = "lexicographic"
+
+    def named(fields: Sequence[str], names: tuple[str, ...]) -> str | None:
+        exact = next((field for field in fields if field.casefold() in names), None)
+        if exact is not None:
+            return exact
+        return next((field for field in fields if any(name in field.casefold() for name in names)), None)
+
+    fields = _common_fields(inputs)
+    origin_field = named(fields, ("origin", "source", "start"))
+    direction_field = named(fields, ("direction", "dir", "vector"))
+    if origin_field is None or direction_field is None or origin_field == direction_field:
+        return ()
+
+    object_fields = [
+        field
+        for field in fields
+        if all(
+            isinstance(item[field], Sequence)
+            and not isinstance(item[field], (str, bytes, bytearray))
+            and item[field]
+            and all(isinstance(row, Mapping) for row in item[field])
+            for item in inputs
+        )
+    ]
+    candidates: list[Mapping[str, Any]] = []
+    for objects_field in object_fields:
+        rows = [row for item in inputs for row in item[objects_field]]
+        nested = _common_fields(rows)
+        id_field = named(nested, ("id", "name", "object", "label"))
+        min_field = named(nested, ("min", "minimum", "lower", "low"))
+        max_field = named(nested, ("max", "maximum", "upper", "high"))
+        if None in {id_field, min_field, max_field}:
+            continue
+        data = {
+            "kind": "ray_first_hit",
+            "origin_field": origin_field,
+            "direction_field": direction_field,
+            "objects_field": objects_field,
+            "id_field": id_field,
+            "min_field": min_field,
+            "max_field": max_field,
+            "tie_policy": tie_policy,
+            "default": default,
+        }
+        try:
+            program = Program.parse(data)
+        except (TypeError, ValueError):
+            continue
+        if _fits(program, demos):
+            candidates.append(data)
+    return tuple(candidates)
+
 def _grid_data(instructions: str, inputs: Sequence[Any]) -> Mapping[str, Any] | None:
     lowered = instructions.casefold()
     if "orthogon" not in lowered or "jump" not in lowered or "count" not in lowered:
@@ -511,6 +586,9 @@ def build_task_grammar(
 
     for weighted_vote in _weighted_vote_veto_candidates(instructions, demos):
         _add_if_fits(candidates, weighted_vote, demos)
+
+    for ray_first_hit in _ray_first_hit_candidates(instructions, demos):
+        _add_if_fits(candidates, ray_first_hit, demos)
 
     priority = _priority_data(instructions, demos)
     if priority is not None:

@@ -20,6 +20,7 @@ class LoopKind(str, Enum):
     STATE_CYCLE = "STATE_CYCLE"
     REWRITE_NORMAL_FORM = "REWRITE_NORMAL_FORM"
     VOTE_PERMUTATION = "VOTE_PERMUTATION"
+    RAY_DIRECTION_SCALE = "RAY_DIRECTION_SCALE"
     PRIORITY_AGREEMENT = "PRIORITY_AGREEMENT"
 
 
@@ -214,6 +215,30 @@ def build_loops(
                 deepcopy(expected),
                 data,
                 f"vote-permutation-{index}",
+            ))
+
+    if data.get("kind") == "ray_first_hit":
+        for index, demo in enumerate(demos[:3]):
+            inp, expected = _demo_parts(demo)
+            if not isinstance(inp, Mapping):
+                continue
+            direction = inp.get(data["direction_field"])
+            if (
+                not isinstance(direction, Sequence)
+                or isinstance(direction, (str, bytes, bytearray))
+                or not direction
+                or not all(isinstance(item, (int, float)) and not isinstance(item, bool) for item in direction)
+            ):
+                continue
+            scaled_input = deepcopy(dict(inp))
+            scaled_input[data["direction_field"]] = [item * 2 for item in direction]
+            mandatory.append(ClosedPath(
+                LoopKind.RAY_DIRECTION_SCALE,
+                True,
+                scaled_input,
+                deepcopy(expected),
+                data,
+                f"ray-direction-scale-{index}",
             ))
 
     if data.get("kind") == "compose":
