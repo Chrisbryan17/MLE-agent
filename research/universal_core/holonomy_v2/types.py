@@ -50,6 +50,7 @@ class NodeKind(str, Enum):
     STACK_REWRITE = "stack_rewrite"
     WEIGHTED_VOTE_VETO = "weighted_vote_veto"
     RAY_FIRST_HIT = "ray_first_hit"
+    DISTINCT_SLOT_MATCH = "distinct_slot_match"
 
 
 class FailureCode(str, Enum):

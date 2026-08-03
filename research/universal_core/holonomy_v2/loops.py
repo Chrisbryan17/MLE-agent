@@ -21,6 +21,7 @@ class LoopKind(str, Enum):
     REWRITE_NORMAL_FORM = "REWRITE_NORMAL_FORM"
     VOTE_PERMUTATION = "VOTE_PERMUTATION"
     RAY_DIRECTION_SCALE = "RAY_DIRECTION_SCALE"
+    MATCHING_PERMUTATION = "MATCHING_PERMUTATION"
     PRIORITY_AGREEMENT = "PRIORITY_AGREEMENT"
 
 
@@ -239,6 +240,40 @@ def build_loops(
                 deepcopy(expected),
                 data,
                 f"ray-direction-scale-{index}",
+            ))
+
+    if data.get("kind") == "distinct_slot_match":
+        for index, demo in enumerate(demos[:3]):
+            inp, expected = _demo_parts(demo)
+            if not isinstance(inp, Mapping):
+                continue
+            items = inp.get(data["items_field"])
+            if not isinstance(items, Sequence) or isinstance(items, (str, bytes, bytearray)):
+                continue
+            changed_items = []
+            valid = True
+            for item in reversed(deepcopy(items)):
+                if not isinstance(item, Mapping):
+                    valid = False
+                    break
+                changed_item = deepcopy(dict(item))
+                slots = changed_item.get(data["slots_field"])
+                if not isinstance(slots, Sequence) or isinstance(slots, (str, bytes, bytearray)):
+                    valid = False
+                    break
+                changed_item[data["slots_field"]] = list(reversed(deepcopy(slots)))
+                changed_items.append(changed_item)
+            if not valid:
+                continue
+            changed_input = deepcopy(dict(inp))
+            changed_input[data["items_field"]] = changed_items
+            mandatory.append(ClosedPath(
+                LoopKind.MATCHING_PERMUTATION,
+                True,
+                changed_input,
+                deepcopy(expected),
+                data,
+                f"matching-permutation-{index}",
             ))
 
     if data.get("kind") == "compose":

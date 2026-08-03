@@ -489,6 +489,65 @@ def _ray_first_hit_candidates(instructions: str, demos: Sequence[Any]) -> tuple[
             candidates.append(data)
     return tuple(candidates)
 
+
+
+def _distinct_slot_match_candidates(instructions: str, demos: Sequence[Any]) -> tuple[Mapping[str, Any], ...]:
+    lowered = instructions.casefold()
+    if "distinct" not in lowered or "slot" not in lowered:
+        return ()
+    if "assign" not in lowered and "matching" not in lowered:
+        return ()
+    inputs = [_demo_parts(item)[0] for item in demos]
+    outputs = [_demo_parts(item)[1] for item in demos]
+    if not inputs or not all(isinstance(item, Mapping) for item in inputs):
+        return ()
+
+    success_match = re.search(r"return\s+([a-z0-9_-]+)\s+if", instructions, re.IGNORECASE)
+    failure_match = re.search(r"otherwise\s+return\s+([a-z0-9_-]+)", instructions, re.IGNORECASE)
+    if success_match is None or failure_match is None:
+        return ()
+    by_label = {str(item).casefold(): item for item in outputs}
+    success = by_label.get(success_match.group(1).casefold(), success_match.group(1))
+    failure = by_label.get(failure_match.group(1).casefold(), failure_match.group(1))
+
+    def named(fields: Sequence[str], names: tuple[str, ...]) -> str | None:
+        exact = next((field for field in fields if field.casefold() in names), None)
+        if exact is not None:
+            return exact
+        return next((field for field in fields if any(name in field.casefold() for name in names)), None)
+
+    candidates: list[Mapping[str, Any]] = []
+    for items_field in _common_fields(inputs):
+        if not all(
+            isinstance(item[items_field], Sequence)
+            and not isinstance(item[items_field], (str, bytes, bytearray))
+            and item[items_field]
+            and all(isinstance(row, Mapping) for row in item[items_field])
+            for item in inputs
+        ):
+            continue
+        rows = [row for item in inputs for row in item[items_field]]
+        fields = _common_fields(rows)
+        id_field = named(fields, ("id", "item", "name", "label"))
+        slots_field = named(fields, ("slots", "slot", "allowed", "options", "choices"))
+        if id_field is None or slots_field is None or id_field == slots_field:
+            continue
+        data = {
+            "kind": "distinct_slot_match",
+            "items_field": items_field,
+            "id_field": id_field,
+            "slots_field": slots_field,
+            "success": success,
+            "failure": failure,
+        }
+        try:
+            program = Program.parse(data)
+        except (TypeError, ValueError):
+            continue
+        if _fits(program, demos):
+            candidates.append(data)
+    return tuple(candidates)
+
 def _grid_data(instructions: str, inputs: Sequence[Any]) -> Mapping[str, Any] | None:
     lowered = instructions.casefold()
     if "orthogon" not in lowered or "jump" not in lowered or "count" not in lowered:
@@ -589,6 +648,9 @@ def build_task_grammar(
 
     for ray_first_hit in _ray_first_hit_candidates(instructions, demos):
         _add_if_fits(candidates, ray_first_hit, demos)
+
+    for matching in _distinct_slot_match_candidates(instructions, demos):
+        _add_if_fits(candidates, matching, demos)
 
     priority = _priority_data(instructions, demos)
     if priority is not None:

@@ -369,6 +369,53 @@ def _ray_first_hit(data: Mapping[str, Any], value: Mapping[str, Any], context: E
         winner = min(tied, key=lambda item: item[1])
     return deepcopy(winner[2])
 
+
+
+def _distinct_slot_match(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> Any:
+    items = value[data["items_field"]]
+    if not isinstance(items, Sequence) or isinstance(items, (str, bytes, bytearray)):
+        raise TypeError("items must be a sequence")
+    if len(items) > context.limits.max_state_count:
+        raise BudgetExceeded("item count exceeds configured bound")
+
+    adjacency: dict[bytes, tuple[bytes, ...]] = {}
+    all_slots: set[bytes] = set()
+    for item in items:
+        context.tick()
+        if not isinstance(item, Mapping):
+            raise TypeError("item must be a mapping")
+        item_key = _canonical_bytes(item[data["id_field"]])
+        if item_key in adjacency:
+            raise ValueError("duplicate item id")
+        slots = item[data["slots_field"]]
+        if not isinstance(slots, Sequence) or isinstance(slots, (str, bytes, bytearray)):
+            raise TypeError("slots must be a sequence")
+        slot_keys = tuple(sorted({_canonical_bytes(slot) for slot in slots}))
+        adjacency[item_key] = slot_keys
+        all_slots.update(slot_keys)
+
+    if len(all_slots) > context.limits.max_state_count:
+        raise BudgetExceeded("slot count exceeds configured bound")
+
+    owner: dict[bytes, bytes] = {}
+
+    def place(item_key: bytes, seen: set[bytes]) -> bool:
+        for slot_key in adjacency[item_key]:
+            context.tick()
+            if slot_key in seen:
+                continue
+            seen.add(slot_key)
+            prior = owner.get(slot_key)
+            if prior is None or place(prior, seen):
+                owner[slot_key] = item_key
+                return True
+        return False
+
+    for item_key in sorted(adjacency):
+        if not place(item_key, set()):
+            return deepcopy(data["failure"])
+    return deepcopy(data["success"])
+
 def _resource_makespan(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> int:
     jobs = list(value[data["jobs_field"]])
     if len(jobs) > context.limits.max_schedule_jobs:
@@ -550,6 +597,15 @@ def _validate(data: Mapping[str, Any]) -> None:
         if "default" not in data:
             raise ValueError("ray_first_hit requires a default")
 
+    if kind == "distinct_slot_match":
+        required_fields = ("items_field", "id_field", "slots_field")
+        if any(not isinstance(data.get(name), str) for name in required_fields):
+            raise ValueError("distinct_slot_match requires field names")
+        if "success" not in data or "failure" not in data:
+            raise ValueError("distinct_slot_match requires output labels")
+        if type(data["success"]) is type(data["failure"]) and data["success"] == data["failure"]:
+            raise ValueError("distinct_slot_match labels must differ")
+
 def _cost(data: Mapping[str, Any]) -> int:
     base = 1
     if data["kind"] == "compose":
@@ -716,4 +772,8 @@ def _run(data: Mapping[str, Any], value: Any, context: EvaluationContext) -> Any
         if not isinstance(value, Mapping):
             raise TypeError("ray input must be a mapping")
         return _ray_first_hit(data, value, context)
+    if kind == "distinct_slot_match":
+        if not isinstance(value, Mapping):
+            raise TypeError("matching input must be a mapping")
+        return _distinct_slot_match(data, value, context)
     raise ValueError(f"unsupported node kind: {kind}")
