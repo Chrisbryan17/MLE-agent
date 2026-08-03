@@ -1,0 +1,240 @@
+--- a/research/universal_core/holonomy_v2/types.py
++++ b/research/universal_core/holonomy_v2/types.py
+@@ -50,6 +50,7 @@
+     STACK_REWRITE = "stack_rewrite"
+     WEIGHTED_VOTE_VETO = "weighted_vote_veto"
+     RAY_FIRST_HIT = "ray_first_hit"
++    DISTINCT_SLOT_MATCH = "distinct_slot_match"
+ 
+ 
+ class FailureCode(str, Enum):
+--- a/research/universal_core/holonomy_v2/program.py
++++ b/research/universal_core/holonomy_v2/program.py
+@@ -369,6 +369,53 @@
+         winner = min(tied, key=lambda item: item[1])
+     return deepcopy(winner[2])
+ 
++
++
++def _distinct_slot_match(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> Any:
++    items = value[data["items_field"]]
++    if not isinstance(items, Sequence) or isinstance(items, (str, bytes, bytearray)):
++        raise TypeError("items must be a sequence")
++    if len(items) > context.limits.max_state_count:
++        raise BudgetExceeded("item count exceeds configured bound")
++
++    adjacency: dict[bytes, tuple[bytes, ...]] = {}
++    all_slots: set[bytes] = set()
++    for item in items:
++        context.tick()
++        if not isinstance(item, Mapping):
++            raise TypeError("item must be a mapping")
++        item_key = _canonical_bytes(item[data["id_field"]])
++        if item_key in adjacency:
++            raise ValueError("duplicate item id")
++        slots = item[data["slots_field"]]
++        if not isinstance(slots, Sequence) or isinstance(slots, (str, bytes, bytearray)):
++            raise TypeError("slots must be a sequence")
++        slot_keys = tuple(sorted({_canonical_bytes(slot) for slot in slots}))
++        adjacency[item_key] = slot_keys
++        all_slots.update(slot_keys)
++
++    if len(all_slots) > context.limits.max_state_count:
++        raise BudgetExceeded("slot count exceeds configured bound")
++
++    owner: dict[bytes, bytes] = {}
++
++    def place(item_key: bytes, seen: set[bytes]) -> bool:
++        for slot_key in adjacency[item_key]:
++            context.tick()
++            if slot_key in seen:
++                continue
++            seen.add(slot_key)
++            prior = owner.get(slot_key)
++            if prior is None or place(prior, seen):
++                owner[slot_key] = item_key
++                return True
++        return False
++
++    for item_key in sorted(adjacency):
++        if not place(item_key, set()):
++            return deepcopy(data["failure"])
++    return deepcopy(data["success"])
++
+ def _resource_makespan(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> int:
+     jobs = list(value[data["jobs_field"]])
+     if len(jobs) > context.limits.max_schedule_jobs:
+@@ -550,6 +597,15 @@
+         if "default" not in data:
+             raise ValueError("ray_first_hit requires a default")
+ 
++    if kind == "distinct_slot_match":
++        required_fields = ("items_field", "id_field", "slots_field")
++        if any(not isinstance(data.get(name), str) for name in required_fields):
++            raise ValueError("distinct_slot_match requires field names")
++        if "success" not in data or "failure" not in data:
++            raise ValueError("distinct_slot_match requires output labels")
++        if type(data["success"]) is type(data["failure"]) and data["success"] == data["failure"]:
++            raise ValueError("distinct_slot_match labels must differ")
++
+ def _cost(data: Mapping[str, Any]) -> int:
+     base = 1
+     if data["kind"] == "compose":
+@@ -716,4 +772,8 @@
+         if not isinstance(value, Mapping):
+             raise TypeError("ray input must be a mapping")
+         return _ray_first_hit(data, value, context)
++    if kind == "distinct_slot_match":
++        if not isinstance(value, Mapping):
++            raise TypeError("matching input must be a mapping")
++        return _distinct_slot_match(data, value, context)
+     raise ValueError(f"unsupported node kind: {kind}")
+--- a/research/universal_core/holonomy_v2/grammar.py
++++ b/research/universal_core/holonomy_v2/grammar.py
+@@ -489,6 +489,65 @@
+             candidates.append(data)
+     return tuple(candidates)
+ 
++
++
++def _distinct_slot_match_candidates(instructions: str, demos: Sequence[Any]) -> tuple[Mapping[str, Any], ...]:
++    lowered = instructions.casefold()
++    if "distinct" not in lowered or "slot" not in lowered:
++        return ()
++    if "assign" not in lowered and "matching" not in lowered:
++        return ()
++    inputs = [_demo_parts(item)[0] for item in demos]
++    outputs = [_demo_parts(item)[1] for item in demos]
++    if not inputs or not all(isinstance(item, Mapping) for item in inputs):
++        return ()
++
++    success_match = re.search(r"return\s+([a-z0-9_-]+)\s+if", instructions, re.IGNORECASE)
++    failure_match = re.search(r"otherwise\s+return\s+([a-z0-9_-]+)", instructions, re.IGNORECASE)
++    if success_match is None or failure_match is None:
++        return ()
++    by_label = {str(item).casefold(): item for item in outputs}
++    success = by_label.get(success_match.group(1).casefold(), success_match.group(1))
++    failure = by_label.get(failure_match.group(1).casefold(), failure_match.group(1))
++
++    def named(fields: Sequence[str], names: tuple[str, ...]) -> str | None:
++        exact = next((field for field in fields if field.casefold() in names), None)
++        if exact is not None:
++            return exact
++        return next((field for field in fields if any(name in field.casefold() for name in names)), None)
++
++    candidates: list[Mapping[str, Any]] = []
++    for items_field in _common_fields(inputs):
++        if not all(
++            isinstance(item[items_field], Sequence)
++            and not isinstance(item[items_field], (str, bytes, bytearray))
++            and item[items_field]
++            and all(isinstance(row, Mapping) for row in item[items_field])
++            for item in inputs
++        ):
++            continue
++        rows = [row for item in inputs for row in item[items_field]]
++        fields = _common_fields(rows)
++        id_field = named(fields, ("id", "item", "name", "label"))
++        slots_field = named(fields, ("slots", "slot", "allowed", "options", "choices"))
++        if id_field is None or slots_field is None or id_field == slots_field:
++            continue
++        data = {
++            "kind": "distinct_slot_match",
++            "items_field": items_field,
++            "id_field": id_field,
++            "slots_field": slots_field,
++            "success": success,
++            "failure": failure,
++        }
++        try:
++            program = Program.parse(data)
++        except (TypeError, ValueError):
++            continue
++        if _fits(program, demos):
++            candidates.append(data)
++    return tuple(candidates)
++
+ def _grid_data(instructions: str, inputs: Sequence[Any]) -> Mapping[str, Any] | None:
+     lowered = instructions.casefold()
+     if "orthogon" not in lowered or "jump" not in lowered or "count" not in lowered:
+@@ -590,6 +649,9 @@
+     for ray_first_hit in _ray_first_hit_candidates(instructions, demos):
+         _add_if_fits(candidates, ray_first_hit, demos)
+ 
++    for matching in _distinct_slot_match_candidates(instructions, demos):
++        _add_if_fits(candidates, matching, demos)
++
+     priority = _priority_data(instructions, demos)
+     if priority is not None:
+         _add_if_fits(candidates, priority, demos)
+--- a/research/universal_core/holonomy_v2/loops.py
++++ b/research/universal_core/holonomy_v2/loops.py
+@@ -21,6 +21,7 @@
+     REWRITE_NORMAL_FORM = "REWRITE_NORMAL_FORM"
+     VOTE_PERMUTATION = "VOTE_PERMUTATION"
+     RAY_DIRECTION_SCALE = "RAY_DIRECTION_SCALE"
++    MATCHING_PERMUTATION = "MATCHING_PERMUTATION"
+     PRIORITY_AGREEMENT = "PRIORITY_AGREEMENT"
+ 
+ 
+@@ -241,6 +242,40 @@
+                 f"ray-direction-scale-{index}",
+             ))
+ 
++    if data.get("kind") == "distinct_slot_match":
++        for index, demo in enumerate(demos[:3]):
++            inp, expected = _demo_parts(demo)
++            if not isinstance(inp, Mapping):
++                continue
++            items = inp.get(data["items_field"])
++            if not isinstance(items, Sequence) or isinstance(items, (str, bytes, bytearray)):
++                continue
++            changed_items = []
++            valid = True
++            for item in reversed(deepcopy(items)):
++                if not isinstance(item, Mapping):
++                    valid = False
++                    break
++                changed_item = deepcopy(dict(item))
++                slots = changed_item.get(data["slots_field"])
++                if not isinstance(slots, Sequence) or isinstance(slots, (str, bytes, bytearray)):
++                    valid = False
++                    break
++                changed_item[data["slots_field"]] = list(reversed(deepcopy(slots)))
++                changed_items.append(changed_item)
++            if not valid:
++                continue
++            changed_input = deepcopy(dict(inp))
++            changed_input[data["items_field"]] = changed_items
++            mandatory.append(ClosedPath(
++                LoopKind.MATCHING_PERMUTATION,
++                True,
++                changed_input,
++                deepcopy(expected),
++                data,
++                f"matching-permutation-{index}",
++            ))
++
+     if data.get("kind") == "compose":
+         for index, demo in enumerate(demos[:3]):
+             inp, _ = _demo_parts(demo)
+--- a/research/universal_core/holonomy_v2/proposer.py
++++ b/research/universal_core/holonomy_v2/proposer.py
+@@ -57,6 +57,7 @@
+     "stack_rewrite": frozenset({"kind", "sequence_field", "token_mode", "rules"}),
+     "weighted_vote_veto": frozenset({"kind", "ballots_field", "choice_field", "weight_field", "support_field", "veto_field", "threshold", "tie_policy", "default"}),
+     "ray_first_hit": frozenset({"kind", "origin_field", "direction_field", "objects_field", "id_field", "min_field", "max_field", "tie_policy", "default"}),
++    "distinct_slot_match": frozenset({"kind", "items_field", "id_field", "slots_field", "success", "failure"}),
+ }
+ 
+ 
+@@ -107,6 +108,9 @@
+             values.append(data.get("default"))
+         elif kind == "ray_first_hit":
+             values.append(data.get("default"))
++        elif kind == "distinct_slot_match":
++            values.append(data.get("success"))
++            values.append(data.get("failure"))
+         for key, item in data.items():
+             if key not in {"value", "a", "b"}:
+                 values.extend(_program_constants(item))
