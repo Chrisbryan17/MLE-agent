@@ -1,0 +1,295 @@
+--- a/research/universal_core/holonomy_v2/types.py
++++ b/research/universal_core/holonomy_v2/types.py
+@@ -51,6 +51,7 @@
+     WEIGHTED_VOTE_VETO = "weighted_vote_veto"
+     RAY_FIRST_HIT = "ray_first_hit"
+     DISTINCT_SLOT_MATCH = "distinct_slot_match"
++    INTEGER_SPAN_COVER = "integer_span_cover"
+ 
+ 
+ class FailureCode(str, Enum):
+--- a/research/universal_core/holonomy_v2/program.py
++++ b/research/universal_core/holonomy_v2/program.py
+@@ -416,6 +416,59 @@
+             return deepcopy(data["failure"])
+     return deepcopy(data["success"])
+ 
++
++
++def _integer_endpoint(value: Any, name: str) -> int:
++    if not isinstance(value, int) or isinstance(value, bool):
++        raise TypeError(f"{name} must be integers")
++    return value
++
++
++def _integer_span_cover(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> Any:
++    span_start = _integer_endpoint(value[data["span_start_field"]], "span endpoints")
++    span_end = _integer_endpoint(value[data["span_end_field"]], "span endpoints")
++    if span_start > span_end:
++        raise ValueError("span start must not exceed span end")
++
++    intervals = value[data["intervals_field"]]
++    if not isinstance(intervals, Sequence) or isinstance(intervals, (str, bytes, bytearray)):
++        raise TypeError("intervals must be a sequence")
++    if len(intervals) > context.limits.max_state_count:
++        raise BudgetExceeded("interval count exceeds configured bound")
++
++    ordered: list[tuple[int, int]] = []
++    for interval in intervals:
++        context.tick()
++        if not isinstance(interval, Mapping):
++            raise TypeError("interval must be a mapping")
++        start = _integer_endpoint(interval[data["interval_start_field"]], "interval endpoints")
++        end = _integer_endpoint(interval[data["interval_end_field"]], "interval endpoints")
++        if start > end:
++            raise ValueError("interval start must not exceed interval end")
++        ordered.append((start, end))
++    ordered.sort(key=lambda item: (item[0], -item[1]))
++
++    position = span_start
++    index = 0
++    count = 0
++    covered = True
++    while position <= span_end:
++        context.tick()
++        farthest = position - 1
++        while index < len(ordered) and ordered[index][0] <= position:
++            context.tick()
++            farthest = max(farthest, ordered[index][1])
++            index += 1
++        if farthest < position:
++            covered = False
++            break
++        count += 1
++        position = farthest + 1
++
++    if data["mode"] == "minimum_count":
++        return count if covered else deepcopy(data["failure"])
++    return deepcopy(data["success"] if covered else data["failure"])
++
+ def _resource_makespan(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> int:
+     jobs = list(value[data["jobs_field"]])
+     if len(jobs) > context.limits.max_schedule_jobs:
+@@ -606,6 +659,26 @@
+         if type(data["success"]) is type(data["failure"]) and data["success"] == data["failure"]:
+             raise ValueError("distinct_slot_match labels must differ")
+ 
++    if kind == "integer_span_cover":
++        required_fields = (
++            "span_start_field",
++            "span_end_field",
++            "intervals_field",
++            "interval_start_field",
++            "interval_end_field",
++        )
++        if any(not isinstance(data.get(name), str) for name in required_fields):
++            raise ValueError("integer_span_cover requires field names")
++        if data.get("mode") not in {"minimum_count", "feasible"}:
++            raise ValueError("invalid integer span cover mode")
++        if "failure" not in data:
++            raise ValueError("integer_span_cover requires a failure value")
++        if data["mode"] == "feasible":
++            if "success" not in data:
++                raise ValueError("feasible span cover requires a success value")
++            if type(data["success"]) is type(data["failure"]) and data["success"] == data["failure"]:
++                raise ValueError("span cover labels must differ")
++
+ def _cost(data: Mapping[str, Any]) -> int:
+     base = 1
+     if data["kind"] == "compose":
+@@ -776,4 +849,8 @@
+         if not isinstance(value, Mapping):
+             raise TypeError("matching input must be a mapping")
+         return _distinct_slot_match(data, value, context)
++    if kind == "integer_span_cover":
++        if not isinstance(value, Mapping):
++            raise TypeError("span-cover input must be a mapping")
++        return _integer_span_cover(data, value, context)
+     raise ValueError(f"unsupported node kind: {kind}")
+--- a/research/universal_core/holonomy_v2/grammar.py
++++ b/research/universal_core/holonomy_v2/grammar.py
+@@ -548,6 +548,84 @@
+             candidates.append(data)
+     return tuple(candidates)
+ 
++
++
++def _integer_span_cover_candidates(instructions: str, demos: Sequence[Any]) -> tuple[Mapping[str, Any], ...]:
++    lowered = instructions.casefold()
++    if "cover" not in lowered or "integer" not in lowered or "interval" not in lowered:
++        return ()
++    inputs = [_demo_parts(item)[0] for item in demos]
++    outputs = [_demo_parts(item)[1] for item in demos]
++    if not inputs or not all(isinstance(item, Mapping) for item in inputs):
++        return ()
++
++    if "minimum" in lowered and "number" in lowered:
++        mode = "minimum_count"
++        failure_match = re.search(r"return\s+(-?\d+)\s+if", instructions, re.IGNORECASE)
++        if failure_match is None:
++            return ()
++        failure = int(failure_match.group(1))
++        success = None
++    else:
++        mode = "feasible"
++        success_match = re.search(r"return\s+([a-z0-9_-]+)\s+(?:if|when)", instructions, re.IGNORECASE)
++        failure_match = re.search(r"otherwise\s+return\s+([a-z0-9_-]+)", instructions, re.IGNORECASE)
++        if success_match is None or failure_match is None:
++            return ()
++        by_label = {str(item).casefold(): item for item in outputs}
++        success = by_label.get(success_match.group(1).casefold(), success_match.group(1))
++        failure = by_label.get(failure_match.group(1).casefold(), failure_match.group(1))
++
++    def named(fields: Sequence[str], names: tuple[str, ...]) -> str | None:
++        exact = next((field for field in fields if field.casefold() in names), None)
++        if exact is not None:
++            return exact
++        return next((field for field in fields if any(name in field.casefold() for name in names)), None)
++
++    fields = _common_fields(inputs)
++    span_start_field = named(fields, ("start", "begin", "left", "first"))
++    span_end_field = named(fields, ("end", "finish", "right", "last"))
++    if span_start_field is None or span_end_field is None or span_start_field == span_end_field:
++        return ()
++
++    candidates: list[Mapping[str, Any]] = []
++    for intervals_field in fields:
++        if intervals_field in {span_start_field, span_end_field}:
++            continue
++        if not all(
++            isinstance(item[intervals_field], Sequence)
++            and not isinstance(item[intervals_field], (str, bytes, bytearray))
++            and item[intervals_field]
++            and all(isinstance(row, Mapping) for row in item[intervals_field])
++            for item in inputs
++        ):
++            continue
++        rows = [row for item in inputs for row in item[intervals_field]]
++        nested = _common_fields(rows)
++        interval_start_field = named(nested, ("start", "begin", "left", "first"))
++        interval_end_field = named(nested, ("end", "finish", "right", "last"))
++        if interval_start_field is None or interval_end_field is None or interval_start_field == interval_end_field:
++            continue
++        data = {
++            "kind": "integer_span_cover",
++            "span_start_field": span_start_field,
++            "span_end_field": span_end_field,
++            "intervals_field": intervals_field,
++            "interval_start_field": interval_start_field,
++            "interval_end_field": interval_end_field,
++            "mode": mode,
++            "failure": failure,
++        }
++        if mode == "feasible":
++            data["success"] = success
++        try:
++            program = Program.parse(data)
++        except (TypeError, ValueError):
++            continue
++        if _fits(program, demos):
++            candidates.append(data)
++    return tuple(candidates)
++
+ def _grid_data(instructions: str, inputs: Sequence[Any]) -> Mapping[str, Any] | None:
+     lowered = instructions.casefold()
+     if "orthogon" not in lowered or "jump" not in lowered or "count" not in lowered:
+@@ -652,6 +730,9 @@
+     for matching in _distinct_slot_match_candidates(instructions, demos):
+         _add_if_fits(candidates, matching, demos)
+ 
++    for span_cover in _integer_span_cover_candidates(instructions, demos):
++        _add_if_fits(candidates, span_cover, demos)
++
+     priority = _priority_data(instructions, demos)
+     if priority is not None:
+         _add_if_fits(candidates, priority, demos)
+--- a/research/universal_core/holonomy_v2/loops.py
++++ b/research/universal_core/holonomy_v2/loops.py
+@@ -22,6 +22,7 @@
+     VOTE_PERMUTATION = "VOTE_PERMUTATION"
+     RAY_DIRECTION_SCALE = "RAY_DIRECTION_SCALE"
+     MATCHING_PERMUTATION = "MATCHING_PERMUTATION"
++    SPAN_TRANSLATION = "SPAN_TRANSLATION"
+     PRIORITY_AGREEMENT = "PRIORITY_AGREEMENT"
+ 
+ 
+@@ -276,6 +277,58 @@
+                 f"matching-permutation-{index}",
+             ))
+ 
++    if data.get("kind") == "integer_span_cover":
++        for index, demo in enumerate(demos[:3]):
++            inp, expected = _demo_parts(demo)
++            if not isinstance(inp, Mapping):
++                continue
++            span_start = inp.get(data["span_start_field"])
++            span_end = inp.get(data["span_end_field"])
++            intervals = inp.get(data["intervals_field"])
++            if (
++                not isinstance(span_start, int)
++                or isinstance(span_start, bool)
++                or not isinstance(span_end, int)
++                or isinstance(span_end, bool)
++                or not isinstance(intervals, Sequence)
++                or isinstance(intervals, (str, bytes, bytearray))
++            ):
++                continue
++            shifted_intervals = []
++            valid = True
++            for interval in deepcopy(intervals):
++                if not isinstance(interval, Mapping):
++                    valid = False
++                    break
++                start = interval.get(data["interval_start_field"])
++                end = interval.get(data["interval_end_field"])
++                if (
++                    not isinstance(start, int)
++                    or isinstance(start, bool)
++                    or not isinstance(end, int)
++                    or isinstance(end, bool)
++                ):
++                    valid = False
++                    break
++                shifted = deepcopy(dict(interval))
++                shifted[data["interval_start_field"]] = start + 7
++                shifted[data["interval_end_field"]] = end + 7
++                shifted_intervals.append(shifted)
++            if not valid:
++                continue
++            shifted_input = deepcopy(dict(inp))
++            shifted_input[data["span_start_field"]] = span_start + 7
++            shifted_input[data["span_end_field"]] = span_end + 7
++            shifted_input[data["intervals_field"]] = shifted_intervals
++            mandatory.append(ClosedPath(
++                LoopKind.SPAN_TRANSLATION,
++                True,
++                shifted_input,
++                deepcopy(expected),
++                data,
++                f"span-translation-{index}",
++            ))
++
+     if data.get("kind") == "compose":
+         for index, demo in enumerate(demos[:3]):
+             inp, _ = _demo_parts(demo)
+--- a/research/universal_core/holonomy_v2/proposer.py
++++ b/research/universal_core/holonomy_v2/proposer.py
+@@ -58,6 +58,7 @@
+     "weighted_vote_veto": frozenset({"kind", "ballots_field", "choice_field", "weight_field", "support_field", "veto_field", "threshold", "tie_policy", "default"}),
+     "ray_first_hit": frozenset({"kind", "origin_field", "direction_field", "objects_field", "id_field", "min_field", "max_field", "tie_policy", "default"}),
+     "distinct_slot_match": frozenset({"kind", "items_field", "id_field", "slots_field", "success", "failure"}),
++    "integer_span_cover": frozenset({"kind", "span_start_field", "span_end_field", "intervals_field", "interval_start_field", "interval_end_field", "mode", "success", "failure"}),
+ }
+ 
+ 
+@@ -111,6 +112,10 @@
+         elif kind == "distinct_slot_match":
+             values.append(data.get("success"))
+             values.append(data.get("failure"))
++        elif kind == "integer_span_cover":
++            if "success" in data:
++                values.append(data.get("success"))
++            values.append(data.get("failure"))
+         for key, item in data.items():
+             if key not in {"value", "a", "b"}:
+                 values.extend(_program_constants(item))
