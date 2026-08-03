@@ -1,0 +1,237 @@
+--- a/research/universal_core/holonomy_v2/types.py
++++ b/research/universal_core/holonomy_v2/types.py
+@@ -52,6 +52,7 @@
+     RAY_FIRST_HIT = "ray_first_hit"
+     DISTINCT_SLOT_MATCH = "distinct_slot_match"
+     INTEGER_SPAN_COVER = "integer_span_cover"
++    CIRCULAR_BIT_STEP = "circular_bit_step"
+ 
+ 
+ class FailureCode(str, Enum):
+--- a/research/universal_core/holonomy_v2/program.py
++++ b/research/universal_core/holonomy_v2/program.py
+@@ -469,6 +469,57 @@
+         return count if covered else deepcopy(data["failure"])
+     return deepcopy(data["success"] if covered else data["failure"])
+ 
++
++
++def _circular_bit_step(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> Any:
++    raw = value[data["sequence_field"]]
++    mode = data["token_mode"]
++    if mode == "characters":
++        if not isinstance(raw, str) or not raw:
++            raise ValueError("bits must be a nonempty binary string")
++        if any(item not in {"0", "1"} for item in raw):
++            raise ValueError("bits must be binary")
++        bits = [int(item) for item in raw]
++        output_mode = "string"
++    else:
++        if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes, bytearray)) or not raw:
++            raise ValueError("bits must be a nonempty binary sequence")
++        if any(not isinstance(item, int) or isinstance(item, bool) or item not in {0, 1} for item in raw):
++            raise ValueError("bits must be binary integers")
++        bits = list(raw)
++        output_mode = "tuple" if isinstance(raw, tuple) else "list"
++    if len(bits) > context.limits.max_state_count:
++        raise BudgetExceeded("bit count exceeds configured bound")
++
++    steps = value[data["steps_field"]]
++    if not isinstance(steps, int) or isinstance(steps, bool):
++        raise TypeError("step count must be an integer")
++    if steps < 0:
++        raise ValueError("step count must be nonnegative")
++    if steps > context.limits.max_steps:
++        raise BudgetExceeded("step count exceeds configured bound")
++
++    rule = data["rule"]
++    current = bits
++    for _ in range(steps):
++        context.tick()
++        changed: list[int] = []
++        for index in range(len(current)):
++            context.tick()
++            neighborhood = (
++                (current[index - 1] << 2)
++                | (current[index] << 1)
++                | current[(index + 1) % len(current)]
++            )
++            changed.append((rule >> neighborhood) & 1)
++        current = changed
++
++    if output_mode == "string":
++        return "".join(str(item) for item in current)
++    if output_mode == "tuple":
++        return tuple(current)
++    return current
++
+ def _resource_makespan(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> int:
+     jobs = list(value[data["jobs_field"]])
+     if len(jobs) > context.limits.max_schedule_jobs:
+@@ -679,6 +730,15 @@
+             if type(data["success"]) is type(data["failure"]) and data["success"] == data["failure"]:
+                 raise ValueError("span cover labels must differ")
+ 
++    if kind == "circular_bit_step":
++        if not isinstance(data.get("sequence_field"), str) or not isinstance(data.get("steps_field"), str):
++            raise ValueError("circular_bit_step requires field names")
++        if data.get("token_mode") not in {"characters", "integers"}:
++            raise ValueError("invalid circular bit token mode")
++        rule = data.get("rule")
++        if not isinstance(rule, int) or isinstance(rule, bool) or not 0 <= rule <= 255:
++            raise ValueError("circular bit rule must be an integer from zero through 255")
++
+ def _cost(data: Mapping[str, Any]) -> int:
+     base = 1
+     if data["kind"] == "compose":
+@@ -853,4 +913,8 @@
+         if not isinstance(value, Mapping):
+             raise TypeError("span-cover input must be a mapping")
+         return _integer_span_cover(data, value, context)
++    if kind == "circular_bit_step":
++        if not isinstance(value, Mapping):
++            raise TypeError("circular-bit input must be a mapping")
++        return _circular_bit_step(data, value, context)
+     raise ValueError(f"unsupported node kind: {kind}")
+--- a/research/universal_core/holonomy_v2/grammar.py
++++ b/research/universal_core/holonomy_v2/grammar.py
+@@ -626,6 +626,62 @@
+             candidates.append(data)
+     return tuple(candidates)
+ 
++
++
++def _circular_bit_step_candidates(instructions: str, demos: Sequence[Any]) -> tuple[Mapping[str, Any], ...]:
++    lowered = instructions.casefold()
++    if "circular" not in lowered or "bit" not in lowered or "rule" not in lowered:
++        return ()
++    rule_match = re.search(r"\brule\s+(\d+)\b", instructions, re.IGNORECASE)
++    if rule_match is None:
++        return ()
++    rule = int(rule_match.group(1))
++    if not 0 <= rule <= 255:
++        return ()
++
++    inputs = [_demo_parts(item)[0] for item in demos]
++    if not inputs or not all(isinstance(item, Mapping) for item in inputs):
++        return ()
++    fields = _common_fields(inputs)
++    step_fields = [
++        field
++        for field in fields
++        if all(isinstance(item[field], int) and not isinstance(item[field], bool) and item[field] >= 0 for item in inputs)
++    ]
++    sequence_modes: list[tuple[str, str]] = []
++    for field in fields:
++        values = [item[field] for item in inputs]
++        if all(isinstance(value, str) and value and set(value) <= {"0", "1"} for value in values):
++            sequence_modes.append((field, "characters"))
++        elif all(
++            isinstance(value, Sequence)
++            and not isinstance(value, (str, bytes, bytearray))
++            and value
++            and all(isinstance(bit, int) and not isinstance(bit, bool) and bit in {0, 1} for bit in value)
++            for value in values
++        ):
++            sequence_modes.append((field, "integers"))
++
++    candidates: list[Mapping[str, Any]] = []
++    for sequence_field, token_mode in sequence_modes:
++        for steps_field in step_fields:
++            if sequence_field == steps_field:
++                continue
++            data = {
++                "kind": "circular_bit_step",
++                "sequence_field": sequence_field,
++                "steps_field": steps_field,
++                "token_mode": token_mode,
++                "rule": rule,
++            }
++            try:
++                program = Program.parse(data)
++            except (TypeError, ValueError):
++                continue
++            if _fits(program, demos):
++                candidates.append(data)
++    return tuple(candidates)
++
+ def _grid_data(instructions: str, inputs: Sequence[Any]) -> Mapping[str, Any] | None:
+     lowered = instructions.casefold()
+     if "orthogon" not in lowered or "jump" not in lowered or "count" not in lowered:
+@@ -733,6 +789,9 @@
+     for span_cover in _integer_span_cover_candidates(instructions, demos):
+         _add_if_fits(candidates, span_cover, demos)
+ 
++    for circular_bits in _circular_bit_step_candidates(instructions, demos):
++        _add_if_fits(candidates, circular_bits, demos)
++
+     priority = _priority_data(instructions, demos)
+     if priority is not None:
+         _add_if_fits(candidates, priority, demos)
+--- a/research/universal_core/holonomy_v2/loops.py
++++ b/research/universal_core/holonomy_v2/loops.py
+@@ -23,6 +23,7 @@
+     RAY_DIRECTION_SCALE = "RAY_DIRECTION_SCALE"
+     MATCHING_PERMUTATION = "MATCHING_PERMUTATION"
+     SPAN_TRANSLATION = "SPAN_TRANSLATION"
++    BIT_ROTATION_EQUIVARIANCE = "BIT_ROTATION_EQUIVARIANCE"
+     PRIORITY_AGREEMENT = "PRIORITY_AGREEMENT"
+ 
+ 
+@@ -329,6 +330,37 @@
+                 f"span-translation-{index}",
+             ))
+ 
++    if data.get("kind") == "circular_bit_step":
++        for index, demo in enumerate(demos[:3]):
++            inp, expected = _demo_parts(demo)
++            if not isinstance(inp, Mapping):
++                continue
++            sequence = inp.get(data["sequence_field"])
++            if isinstance(sequence, str):
++                if not sequence or not isinstance(expected, str) or not expected:
++                    continue
++                rotated_sequence = sequence[1:] + sequence[:1]
++                rotated_expected = expected[1:] + expected[:1]
++            elif isinstance(sequence, Sequence) and not isinstance(sequence, (str, bytes, bytearray)):
++                if not sequence or not isinstance(expected, Sequence) or isinstance(expected, (str, bytes, bytearray)) or not expected:
++                    continue
++                changed_sequence = list(sequence[1:]) + [sequence[0]]
++                changed_expected = list(expected[1:]) + [expected[0]]
++                rotated_sequence = tuple(changed_sequence) if isinstance(sequence, tuple) else changed_sequence
++                rotated_expected = tuple(changed_expected) if isinstance(expected, tuple) else changed_expected
++            else:
++                continue
++            rotated_input = deepcopy(dict(inp))
++            rotated_input[data["sequence_field"]] = rotated_sequence
++            mandatory.append(ClosedPath(
++                LoopKind.BIT_ROTATION_EQUIVARIANCE,
++                True,
++                rotated_input,
++                deepcopy(rotated_expected),
++                data,
++                f"bit-rotation-{index}",
++            ))
++
+     if data.get("kind") == "compose":
+         for index, demo in enumerate(demos[:3]):
+             inp, _ = _demo_parts(demo)
+--- a/research/universal_core/holonomy_v2/proposer.py
++++ b/research/universal_core/holonomy_v2/proposer.py
+@@ -59,6 +59,7 @@
+     "ray_first_hit": frozenset({"kind", "origin_field", "direction_field", "objects_field", "id_field", "min_field", "max_field", "tie_policy", "default"}),
+     "distinct_slot_match": frozenset({"kind", "items_field", "id_field", "slots_field", "success", "failure"}),
+     "integer_span_cover": frozenset({"kind", "span_start_field", "span_end_field", "intervals_field", "interval_start_field", "interval_end_field", "mode", "success", "failure"}),
++    "circular_bit_step": frozenset({"kind", "sequence_field", "steps_field", "token_mode", "rule"}),
+ }
+ 
+ 
+@@ -116,6 +117,8 @@
+             if "success" in data:
+                 values.append(data.get("success"))
+             values.append(data.get("failure"))
++        elif kind == "circular_bit_step":
++            values.append(data.get("rule"))
+         for key, item in data.items():
+             if key not in {"value", "a", "b"}:
+                 values.extend(_program_constants(item))
