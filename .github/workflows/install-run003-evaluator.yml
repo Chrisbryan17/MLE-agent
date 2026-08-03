@@ -1,0 +1,38 @@
+name: Install Run003 Evaluator
+
+on:
+  push:
+    branches: [holonomy-v2-run-003-public]
+    paths:
+      - '.github/workflows/install-run003-evaluator.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  install:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: holonomy-v2-run-003-public
+          fetch-depth: 0
+      - name: Reconstruct exact evaluator
+        run: |
+          set -euo pipefail
+          mkdir -p tools
+          cat tools/.run003/evaluator.gz.b64.* | base64 -d | gzip -d > tools/run003_evaluator.py
+          test "$(wc -c < tools/run003_evaluator.py)" = "32419"
+          echo '1a1ee7b058dfcfab6d983ec955eb284ff60757393869822465beee6d4641925b  tools/run003_evaluator.py' | sha256sum -c -
+          python -m py_compile tools/run003_evaluator.py
+      - name: Commit evaluator source only
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add tools/run003_evaluator.py
+          git diff --cached --check
+          git commit -m 'run003: publish post-freeze evaluator source'
+          git push origin HEAD:holonomy-v2-run-003-public
