@@ -682,6 +682,58 @@ def _circular_bit_step_candidates(instructions: str, demos: Sequence[Any]) -> tu
                 candidates.append(data)
     return tuple(candidates)
 
+
+
+def _cyclic_skip_step_candidates(instructions: str, demos: Sequence[Any]) -> tuple[Mapping[str, Any], ...]:
+    lowered = instructions.casefold()
+    if "cycle" not in lowered or "blocked" not in lowered or "skip" not in lowered:
+        return ()
+    if "forward" not in lowered and "move" not in lowered:
+        return ()
+    inputs = [_demo_parts(item)[0] for item in demos]
+    if not inputs or not all(isinstance(item, Mapping) for item in inputs):
+        return ()
+    fields = _common_fields(inputs)
+
+    def named(names: tuple[str, ...]) -> str | None:
+        exact = next((field for field in fields if field.casefold() in names), None)
+        if exact is not None:
+            return exact
+        return next((field for field in fields if any(name in field.casefold() for name in names)), None)
+
+    cycle_field = named(("cycle", "order", "days", "positions"))
+    blocked_field = named(("blocked", "closed", "skipped", "excluded"))
+    start_field = named(("start", "current", "day", "position"))
+    steps_field = named(("steps", "count", "advance", "moves"))
+    if None in {cycle_field, blocked_field, start_field, steps_field}:
+        return ()
+    if len({cycle_field, blocked_field, start_field, steps_field}) != 4:
+        return ()
+    if not all(
+        isinstance(item[cycle_field], Sequence)
+        and not isinstance(item[cycle_field], (str, bytes, bytearray))
+        and item[cycle_field]
+        and isinstance(item[blocked_field], Sequence)
+        and not isinstance(item[blocked_field], (str, bytes, bytearray))
+        and isinstance(item[steps_field], int)
+        and not isinstance(item[steps_field], bool)
+        and item[steps_field] >= 0
+        for item in inputs
+    ):
+        return ()
+    data = {
+        "kind": "cyclic_skip_step",
+        "cycle_field": cycle_field,
+        "start_field": start_field,
+        "steps_field": steps_field,
+        "blocked_field": blocked_field,
+    }
+    try:
+        program = Program.parse(data)
+    except (TypeError, ValueError):
+        return ()
+    return (data,) if _fits(program, demos) else ()
+
 def _grid_data(instructions: str, inputs: Sequence[Any]) -> Mapping[str, Any] | None:
     lowered = instructions.casefold()
     if "orthogon" not in lowered or "jump" not in lowered or "count" not in lowered:
@@ -791,6 +843,9 @@ def build_task_grammar(
 
     for circular_bits in _circular_bit_step_candidates(instructions, demos):
         _add_if_fits(candidates, circular_bits, demos)
+
+    for cyclic_skip in _cyclic_skip_step_candidates(instructions, demos):
+        _add_if_fits(candidates, cyclic_skip, demos)
 
     priority = _priority_data(instructions, demos)
     if priority is not None:

@@ -53,6 +53,7 @@ class NodeKind(str, Enum):
     DISTINCT_SLOT_MATCH = "distinct_slot_match"
     INTEGER_SPAN_COVER = "integer_span_cover"
     CIRCULAR_BIT_STEP = "circular_bit_step"
+    CYCLIC_SKIP_STEP = "cyclic_skip_step"
 
 
 class FailureCode(str, Enum):

@@ -24,6 +24,7 @@ class LoopKind(str, Enum):
     MATCHING_PERMUTATION = "MATCHING_PERMUTATION"
     SPAN_TRANSLATION = "SPAN_TRANSLATION"
     BIT_ROTATION_EQUIVARIANCE = "BIT_ROTATION_EQUIVARIANCE"
+    CYCLE_ROTATION = "CYCLE_ROTATION"
     PRIORITY_AGREEMENT = "PRIORITY_AGREEMENT"
 
 
@@ -359,6 +360,25 @@ def build_loops(
                 deepcopy(rotated_expected),
                 data,
                 f"bit-rotation-{index}",
+            ))
+
+    if data.get("kind") == "cyclic_skip_step":
+        for index, demo in enumerate(demos[:3]):
+            inp, expected = _demo_parts(demo)
+            if not isinstance(inp, Mapping):
+                continue
+            cycle = inp.get(data["cycle_field"])
+            if not isinstance(cycle, Sequence) or isinstance(cycle, (str, bytes, bytearray)) or not cycle:
+                continue
+            rotated_input = deepcopy(dict(inp))
+            rotated_input[data["cycle_field"]] = list(deepcopy(cycle[1:])) + [deepcopy(cycle[0])]
+            mandatory.append(ClosedPath(
+                LoopKind.CYCLE_ROTATION,
+                True,
+                rotated_input,
+                deepcopy(expected),
+                data,
+                f"cycle-rotation-{index}",
             ))
 
     if data.get("kind") == "compose":

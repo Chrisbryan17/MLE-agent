@@ -60,6 +60,7 @@ _NODE_FIELDS: dict[str, frozenset[str]] = {
     "distinct_slot_match": frozenset({"kind", "items_field", "id_field", "slots_field", "success", "failure"}),
     "integer_span_cover": frozenset({"kind", "span_start_field", "span_end_field", "intervals_field", "interval_start_field", "interval_end_field", "mode", "success", "failure"}),
     "circular_bit_step": frozenset({"kind", "sequence_field", "steps_field", "token_mode", "rule"}),
+    "cyclic_skip_step": frozenset({"kind", "cycle_field", "start_field", "steps_field", "blocked_field"}),
 }
 
 

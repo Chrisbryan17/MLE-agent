@@ -520,6 +520,64 @@ def _circular_bit_step(data: Mapping[str, Any], value: Mapping[str, Any], contex
         return tuple(current)
     return current
 
+
+
+def _cyclic_skip_step(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> Any:
+    cycle = value[data["cycle_field"]]
+    if not isinstance(cycle, Sequence) or isinstance(cycle, (str, bytes, bytearray)):
+        raise TypeError("cycle must be a sequence")
+    if not cycle:
+        raise ValueError("cycle must not be empty")
+    if len(cycle) > context.limits.max_state_count:
+        raise BudgetExceeded("cycle length exceeds configured bound")
+
+    steps = value[data["steps_field"]]
+    if not isinstance(steps, int) or isinstance(steps, bool):
+        raise TypeError("step count must be an integer")
+    if steps < 0:
+        raise ValueError("step count must be nonnegative")
+    if steps > context.limits.max_steps:
+        raise BudgetExceeded("step count exceeds configured bound")
+
+    order: list[bytes] = []
+    values: dict[bytes, Any] = {}
+    for item in cycle:
+        context.tick()
+        key = _canonical_bytes(item)
+        if key in values:
+            raise ValueError("duplicate cycle value")
+        order.append(key)
+        values[key] = deepcopy(item)
+
+    start_key = _canonical_bytes(value[data["start_field"]])
+    if start_key not in values:
+        raise ValueError("start is not in cycle")
+
+    blocked = value[data["blocked_field"]]
+    if not isinstance(blocked, Sequence) or isinstance(blocked, (str, bytes, bytearray)):
+        raise TypeError("blocked must be a sequence")
+    if len(blocked) > context.limits.max_state_count:
+        raise BudgetExceeded("blocked count exceeds configured bound")
+    blocked_keys: set[bytes] = set()
+    for item in blocked:
+        context.tick()
+        key = _canonical_bytes(item)
+        if key not in values:
+            raise ValueError("blocked value is not in cycle")
+        blocked_keys.add(key)
+
+    if steps > 0 and len(blocked_keys) == len(order):
+        raise ValueError("cycle has no allowed cycle value")
+
+    index = order.index(start_key)
+    for _ in range(steps):
+        while True:
+            context.tick()
+            index = (index + 1) % len(order)
+            if order[index] not in blocked_keys:
+                break
+    return deepcopy(values[order[index]])
+
 def _resource_makespan(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> int:
     jobs = list(value[data["jobs_field"]])
     if len(jobs) > context.limits.max_schedule_jobs:
@@ -739,6 +797,11 @@ def _validate(data: Mapping[str, Any]) -> None:
         if not isinstance(rule, int) or isinstance(rule, bool) or not 0 <= rule <= 255:
             raise ValueError("circular bit rule must be an integer from zero through 255")
 
+    if kind == "cyclic_skip_step":
+        required_fields = ("cycle_field", "start_field", "steps_field", "blocked_field")
+        if any(not isinstance(data.get(name), str) for name in required_fields):
+            raise ValueError("cyclic_skip_step requires field names")
+
 def _cost(data: Mapping[str, Any]) -> int:
     base = 1
     if data["kind"] == "compose":
@@ -917,4 +980,8 @@ def _run(data: Mapping[str, Any], value: Any, context: EvaluationContext) -> Any
         if not isinstance(value, Mapping):
             raise TypeError("circular-bit input must be a mapping")
         return _circular_bit_step(data, value, context)
+    if kind == "cyclic_skip_step":
+        if not isinstance(value, Mapping):
+            raise TypeError("cyclic-skip input must be a mapping")
+        return _cyclic_skip_step(data, value, context)
     raise ValueError(f"unsupported node kind: {kind}")
