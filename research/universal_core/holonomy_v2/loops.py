@@ -23,6 +23,7 @@ class LoopKind(str, Enum):
     RAY_DIRECTION_SCALE = "RAY_DIRECTION_SCALE"
     MATCHING_PERMUTATION = "MATCHING_PERMUTATION"
     SPAN_TRANSLATION = "SPAN_TRANSLATION"
+    BIT_ROTATION_EQUIVARIANCE = "BIT_ROTATION_EQUIVARIANCE"
     PRIORITY_AGREEMENT = "PRIORITY_AGREEMENT"
 
 
@@ -327,6 +328,37 @@ def build_loops(
                 deepcopy(expected),
                 data,
                 f"span-translation-{index}",
+            ))
+
+    if data.get("kind") == "circular_bit_step":
+        for index, demo in enumerate(demos[:3]):
+            inp, expected = _demo_parts(demo)
+            if not isinstance(inp, Mapping):
+                continue
+            sequence = inp.get(data["sequence_field"])
+            if isinstance(sequence, str):
+                if not sequence or not isinstance(expected, str) or not expected:
+                    continue
+                rotated_sequence = sequence[1:] + sequence[:1]
+                rotated_expected = expected[1:] + expected[:1]
+            elif isinstance(sequence, Sequence) and not isinstance(sequence, (str, bytes, bytearray)):
+                if not sequence or not isinstance(expected, Sequence) or isinstance(expected, (str, bytes, bytearray)) or not expected:
+                    continue
+                changed_sequence = list(sequence[1:]) + [sequence[0]]
+                changed_expected = list(expected[1:]) + [expected[0]]
+                rotated_sequence = tuple(changed_sequence) if isinstance(sequence, tuple) else changed_sequence
+                rotated_expected = tuple(changed_expected) if isinstance(expected, tuple) else changed_expected
+            else:
+                continue
+            rotated_input = deepcopy(dict(inp))
+            rotated_input[data["sequence_field"]] = rotated_sequence
+            mandatory.append(ClosedPath(
+                LoopKind.BIT_ROTATION_EQUIVARIANCE,
+                True,
+                rotated_input,
+                deepcopy(rotated_expected),
+                data,
+                f"bit-rotation-{index}",
             ))
 
     if data.get("kind") == "compose":

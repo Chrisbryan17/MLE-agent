@@ -59,6 +59,7 @@ _NODE_FIELDS: dict[str, frozenset[str]] = {
     "ray_first_hit": frozenset({"kind", "origin_field", "direction_field", "objects_field", "id_field", "min_field", "max_field", "tie_policy", "default"}),
     "distinct_slot_match": frozenset({"kind", "items_field", "id_field", "slots_field", "success", "failure"}),
     "integer_span_cover": frozenset({"kind", "span_start_field", "span_end_field", "intervals_field", "interval_start_field", "interval_end_field", "mode", "success", "failure"}),
+    "circular_bit_step": frozenset({"kind", "sequence_field", "steps_field", "token_mode", "rule"}),
 }
 
 
@@ -116,6 +117,8 @@ def _program_constants(data: Any) -> list[Any]:
             if "success" in data:
                 values.append(data.get("success"))
             values.append(data.get("failure"))
+        elif kind == "circular_bit_step":
+            values.append(data.get("rule"))
         for key, item in data.items():
             if key not in {"value", "a", "b"}:
                 values.extend(_program_constants(item))

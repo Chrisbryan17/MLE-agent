@@ -469,6 +469,57 @@ def _integer_span_cover(data: Mapping[str, Any], value: Mapping[str, Any], conte
         return count if covered else deepcopy(data["failure"])
     return deepcopy(data["success"] if covered else data["failure"])
 
+
+
+def _circular_bit_step(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> Any:
+    raw = value[data["sequence_field"]]
+    mode = data["token_mode"]
+    if mode == "characters":
+        if not isinstance(raw, str) or not raw:
+            raise ValueError("bits must be a nonempty binary string")
+        if any(item not in {"0", "1"} for item in raw):
+            raise ValueError("bits must be binary")
+        bits = [int(item) for item in raw]
+        output_mode = "string"
+    else:
+        if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes, bytearray)) or not raw:
+            raise ValueError("bits must be a nonempty binary sequence")
+        if any(not isinstance(item, int) or isinstance(item, bool) or item not in {0, 1} for item in raw):
+            raise ValueError("bits must be binary integers")
+        bits = list(raw)
+        output_mode = "tuple" if isinstance(raw, tuple) else "list"
+    if len(bits) > context.limits.max_state_count:
+        raise BudgetExceeded("bit count exceeds configured bound")
+
+    steps = value[data["steps_field"]]
+    if not isinstance(steps, int) or isinstance(steps, bool):
+        raise TypeError("step count must be an integer")
+    if steps < 0:
+        raise ValueError("step count must be nonnegative")
+    if steps > context.limits.max_steps:
+        raise BudgetExceeded("step count exceeds configured bound")
+
+    rule = data["rule"]
+    current = bits
+    for _ in range(steps):
+        context.tick()
+        changed: list[int] = []
+        for index in range(len(current)):
+            context.tick()
+            neighborhood = (
+                (current[index - 1] << 2)
+                | (current[index] << 1)
+                | current[(index + 1) % len(current)]
+            )
+            changed.append((rule >> neighborhood) & 1)
+        current = changed
+
+    if output_mode == "string":
+        return "".join(str(item) for item in current)
+    if output_mode == "tuple":
+        return tuple(current)
+    return current
+
 def _resource_makespan(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> int:
     jobs = list(value[data["jobs_field"]])
     if len(jobs) > context.limits.max_schedule_jobs:
@@ -679,6 +730,15 @@ def _validate(data: Mapping[str, Any]) -> None:
             if type(data["success"]) is type(data["failure"]) and data["success"] == data["failure"]:
                 raise ValueError("span cover labels must differ")
 
+    if kind == "circular_bit_step":
+        if not isinstance(data.get("sequence_field"), str) or not isinstance(data.get("steps_field"), str):
+            raise ValueError("circular_bit_step requires field names")
+        if data.get("token_mode") not in {"characters", "integers"}:
+            raise ValueError("invalid circular bit token mode")
+        rule = data.get("rule")
+        if not isinstance(rule, int) or isinstance(rule, bool) or not 0 <= rule <= 255:
+            raise ValueError("circular bit rule must be an integer from zero through 255")
+
 def _cost(data: Mapping[str, Any]) -> int:
     base = 1
     if data["kind"] == "compose":
@@ -853,4 +913,8 @@ def _run(data: Mapping[str, Any], value: Any, context: EvaluationContext) -> Any
         if not isinstance(value, Mapping):
             raise TypeError("span-cover input must be a mapping")
         return _integer_span_cover(data, value, context)
+    if kind == "circular_bit_step":
+        if not isinstance(value, Mapping):
+            raise TypeError("circular-bit input must be a mapping")
+        return _circular_bit_step(data, value, context)
     raise ValueError(f"unsupported node kind: {kind}")

@@ -626,6 +626,62 @@ def _integer_span_cover_candidates(instructions: str, demos: Sequence[Any]) -> t
             candidates.append(data)
     return tuple(candidates)
 
+
+
+def _circular_bit_step_candidates(instructions: str, demos: Sequence[Any]) -> tuple[Mapping[str, Any], ...]:
+    lowered = instructions.casefold()
+    if "circular" not in lowered or "bit" not in lowered or "rule" not in lowered:
+        return ()
+    rule_match = re.search(r"\brule\s+(\d+)\b", instructions, re.IGNORECASE)
+    if rule_match is None:
+        return ()
+    rule = int(rule_match.group(1))
+    if not 0 <= rule <= 255:
+        return ()
+
+    inputs = [_demo_parts(item)[0] for item in demos]
+    if not inputs or not all(isinstance(item, Mapping) for item in inputs):
+        return ()
+    fields = _common_fields(inputs)
+    step_fields = [
+        field
+        for field in fields
+        if all(isinstance(item[field], int) and not isinstance(item[field], bool) and item[field] >= 0 for item in inputs)
+    ]
+    sequence_modes: list[tuple[str, str]] = []
+    for field in fields:
+        values = [item[field] for item in inputs]
+        if all(isinstance(value, str) and value and set(value) <= {"0", "1"} for value in values):
+            sequence_modes.append((field, "characters"))
+        elif all(
+            isinstance(value, Sequence)
+            and not isinstance(value, (str, bytes, bytearray))
+            and value
+            and all(isinstance(bit, int) and not isinstance(bit, bool) and bit in {0, 1} for bit in value)
+            for value in values
+        ):
+            sequence_modes.append((field, "integers"))
+
+    candidates: list[Mapping[str, Any]] = []
+    for sequence_field, token_mode in sequence_modes:
+        for steps_field in step_fields:
+            if sequence_field == steps_field:
+                continue
+            data = {
+                "kind": "circular_bit_step",
+                "sequence_field": sequence_field,
+                "steps_field": steps_field,
+                "token_mode": token_mode,
+                "rule": rule,
+            }
+            try:
+                program = Program.parse(data)
+            except (TypeError, ValueError):
+                continue
+            if _fits(program, demos):
+                candidates.append(data)
+    return tuple(candidates)
+
 def _grid_data(instructions: str, inputs: Sequence[Any]) -> Mapping[str, Any] | None:
     lowered = instructions.casefold()
     if "orthogon" not in lowered or "jump" not in lowered or "count" not in lowered:
@@ -732,6 +788,9 @@ def build_task_grammar(
 
     for span_cover in _integer_span_cover_candidates(instructions, demos):
         _add_if_fits(candidates, span_cover, demos)
+
+    for circular_bits in _circular_bit_step_candidates(instructions, demos):
+        _add_if_fits(candidates, circular_bits, demos)
 
     priority = _priority_data(instructions, demos)
     if priority is not None:

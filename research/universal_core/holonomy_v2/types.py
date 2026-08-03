@@ -52,6 +52,7 @@ class NodeKind(str, Enum):
     RAY_FIRST_HIT = "ray_first_hit"
     DISTINCT_SLOT_MATCH = "distinct_slot_match"
     INTEGER_SPAN_COVER = "integer_span_cover"
+    CIRCULAR_BIT_STEP = "circular_bit_step"
 
 
 class FailureCode(str, Enum):
