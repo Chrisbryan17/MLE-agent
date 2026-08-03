@@ -223,6 +223,64 @@ def _stack_rewrite(data: Mapping[str, Any], value: Mapping[str, Any], context: E
     return _stack_output(stack, output_mode)
 
 
+
+def _weighted_support(value: Any) -> Fraction:
+    if isinstance(value, bool):
+        return Fraction(1 if value else -1)
+    if isinstance(value, Real):
+        return Fraction(str(value))
+    raise TypeError("weighted support must be boolean or numeric")
+
+
+def _weighted_vote_veto(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> Any:
+    ballots = value[data["ballots_field"]]
+    if not isinstance(ballots, Sequence) or isinstance(ballots, (str, bytes, bytearray)):
+        raise TypeError("ballots must be a sequence")
+    if len(ballots) > context.limits.max_state_count:
+        raise BudgetExceeded("ballot count exceeds configured bound")
+
+    scores: dict[bytes, Fraction] = {}
+    choices: dict[bytes, Any] = {}
+    order: list[bytes] = []
+    vetoed: set[bytes] = set()
+    for ballot in ballots:
+        context.tick()
+        if not isinstance(ballot, Mapping):
+            raise TypeError("ballot must be a mapping")
+        choice = ballot[data["choice_field"]]
+        key = _canonical_bytes(choice)
+        if key not in choices:
+            choices[key] = deepcopy(choice)
+            scores[key] = Fraction(0)
+            order.append(key)
+        weight = ballot[data["weight_field"]]
+        if not isinstance(weight, Real) or isinstance(weight, bool):
+            raise TypeError("ballot weight must be numeric")
+        weight_value = Fraction(str(weight))
+        if weight_value < 0:
+            raise ValueError("ballot weight must be nonnegative")
+        veto = ballot[data["veto_field"]]
+        if not isinstance(veto, bool):
+            raise TypeError("ballot veto must be boolean")
+        if veto:
+            vetoed.add(key)
+        scores[key] += weight_value * _weighted_support(ballot[data["support_field"]])
+
+    threshold = Fraction(str(data["threshold"]))
+    eligible = [key for key in order if key not in vetoed and scores[key] >= threshold]
+    if not eligible:
+        return deepcopy(data["default"])
+    best_score = max(scores[key] for key in eligible)
+    tied = [key for key in eligible if scores[key] == best_score]
+    policy = data["tie_policy"]
+    if len(tied) > 1 and policy == "error":
+        raise ValueError("weighted vote tie")
+    if policy == "first":
+        winner = min(tied, key=order.index)
+    else:
+        winner = min(tied)
+    return deepcopy(choices[winner])
+
 def _resource_makespan(data: Mapping[str, Any], value: Mapping[str, Any], context: EvaluationContext) -> int:
     jobs = list(value[data["jobs_field"]])
     if len(jobs) > context.limits.max_schedule_jobs:
@@ -370,6 +428,23 @@ def _validate(data: Mapping[str, Any]) -> None:
                 raise ValueError("conflicting rewrite")
             seen_rules[key] = list(right)
 
+
+    if kind == "weighted_vote_veto":
+        required_fields = (
+            "ballots_field",
+            "choice_field",
+            "weight_field",
+            "support_field",
+            "veto_field",
+        )
+        if any(not isinstance(data.get(name), str) for name in required_fields):
+            raise ValueError("weighted_vote_veto requires ballot field names")
+        if not isinstance(data.get("threshold"), Real) or isinstance(data.get("threshold"), bool):
+            raise ValueError("weighted_vote_veto threshold must be numeric")
+        if data.get("tie_policy") not in {"lexicographic", "first", "error"}:
+            raise ValueError("invalid weighted vote tie policy")
+        if "default" not in data:
+            raise ValueError("weighted_vote_veto requires a default")
 
 def _cost(data: Mapping[str, Any]) -> int:
     base = 1
@@ -529,4 +604,8 @@ def _run(data: Mapping[str, Any], value: Any, context: EvaluationContext) -> Any
         if not isinstance(value, Mapping):
             raise TypeError("stack-rewrite input must be a mapping")
         return _stack_rewrite(data, value, context)
+    if kind == "weighted_vote_veto":
+        if not isinstance(value, Mapping):
+            raise TypeError("weighted-vote input must be a mapping")
+        return _weighted_vote_veto(data, value, context)
     raise ValueError(f"unsupported node kind: {kind}")

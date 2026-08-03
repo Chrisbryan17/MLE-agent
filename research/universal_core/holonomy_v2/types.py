@@ -48,6 +48,7 @@ class NodeKind(str, Enum):
     RESOURCE_MAKESPAN = "resource_makespan"
     STATE_FOLD = "state_fold"
     STACK_REWRITE = "stack_rewrite"
+    WEIGHTED_VOTE_VETO = "weighted_vote_veto"
 
 
 class FailureCode(str, Enum):

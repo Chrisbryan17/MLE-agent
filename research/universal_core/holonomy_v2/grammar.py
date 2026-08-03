@@ -344,6 +344,76 @@ def _stack_rewrite_candidates(instructions: str, demos: Sequence[Any]) -> tuple[
                 candidates.append(data)
     return tuple(candidates)
 
+
+def _weighted_vote_veto_candidates(instructions: str, demos: Sequence[Any]) -> tuple[Mapping[str, Any], ...]:
+    lowered = instructions.casefold()
+    if "weighted vote" not in lowered or "veto" not in lowered:
+        return ()
+    inputs = [_demo_parts(item)[0] for item in demos]
+    if not inputs or not all(isinstance(item, Mapping) for item in inputs):
+        return ()
+
+    threshold_match = re.search(r"minimum score\s+(-?\d+(?:\.\d+)?)", instructions, re.IGNORECASE)
+    threshold = _number_data(Fraction(threshold_match.group(1))) if threshold_match else 0
+    default_match = re.search(r"otherwise return\s+([a-z0-9_-]+)", instructions, re.IGNORECASE)
+    if default_match is None:
+        return ()
+    default = default_match.group(1)
+    if "lexicograph" in lowered:
+        tie_policy = "lexicographic"
+    elif "tie" in lowered and "first" in lowered:
+        tie_policy = "first"
+    elif "tie" in lowered and "error" in lowered:
+        tie_policy = "error"
+    else:
+        tie_policy = "lexicographic"
+
+    def named(fields: tuple[str, ...], names: tuple[str, ...]) -> str | None:
+        exact = next((field for field in fields if field.casefold() in names), None)
+        if exact is not None:
+            return exact
+        return next((field for field in fields if any(name in field.casefold() for name in names)), None)
+
+    candidates: list[Mapping[str, Any]] = []
+    sequence_fields = [
+        field
+        for field in _common_fields(inputs)
+        if all(
+            isinstance(item[field], Sequence)
+            and not isinstance(item[field], (str, bytes, bytearray))
+            for item in inputs
+        )
+    ]
+    for ballots_field in sequence_fields:
+        rows = [row for item in inputs for row in item[ballots_field]]
+        fields = _common_fields(rows)
+        if not fields:
+            continue
+        choice_field = named(fields, ("option", "choice", "candidate", "proposal"))
+        weight_field = named(fields, ("weight", "power", "points", "strength"))
+        support_field = named(fields, ("support", "approve", "approval", "vote", "position"))
+        veto_field = named(fields, ("veto", "block", "blocked"))
+        if None in {choice_field, weight_field, support_field, veto_field}:
+            continue
+        data = {
+            "kind": "weighted_vote_veto",
+            "ballots_field": ballots_field,
+            "choice_field": choice_field,
+            "weight_field": weight_field,
+            "support_field": support_field,
+            "veto_field": veto_field,
+            "threshold": threshold,
+            "tie_policy": tie_policy,
+            "default": default,
+        }
+        try:
+            program = Program.parse(data)
+        except (TypeError, ValueError):
+            continue
+        if _fits(program, demos):
+            candidates.append(data)
+    return tuple(candidates)
+
 def _grid_data(instructions: str, inputs: Sequence[Any]) -> Mapping[str, Any] | None:
     lowered = instructions.casefold()
     if "orthogon" not in lowered or "jump" not in lowered or "count" not in lowered:
@@ -438,6 +508,9 @@ def build_task_grammar(
 
     for stack_rewrite in _stack_rewrite_candidates(instructions, demos):
         _add_if_fits(candidates, stack_rewrite, demos)
+
+    for weighted_vote in _weighted_vote_veto_candidates(instructions, demos):
+        _add_if_fits(candidates, weighted_vote, demos)
 
     priority = _priority_data(instructions, demos)
     if priority is not None:

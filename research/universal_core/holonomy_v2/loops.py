@@ -19,6 +19,7 @@ class LoopKind(str, Enum):
     ADAPTER_ROUND_TRIP = "ADAPTER_ROUND_TRIP"
     STATE_CYCLE = "STATE_CYCLE"
     REWRITE_NORMAL_FORM = "REWRITE_NORMAL_FORM"
+    VOTE_PERMUTATION = "VOTE_PERMUTATION"
     PRIORITY_AGREEMENT = "PRIORITY_AGREEMENT"
 
 
@@ -194,6 +195,25 @@ def build_loops(
                 deepcopy(expected),
                 data,
                 f"rewrite-normal-form-{index}",
+            ))
+
+    if data.get("kind") == "weighted_vote_veto" and data.get("tie_policy") == "lexicographic":
+        for index, demo in enumerate(demos[:3]):
+            inp, expected = _demo_parts(demo)
+            if not isinstance(inp, Mapping):
+                continue
+            ballots = inp.get(data["ballots_field"])
+            if not isinstance(ballots, Sequence) or isinstance(ballots, (str, bytes, bytearray)):
+                continue
+            permuted_input = deepcopy(dict(inp))
+            permuted_input[data["ballots_field"]] = list(reversed(deepcopy(ballots)))
+            mandatory.append(ClosedPath(
+                LoopKind.VOTE_PERMUTATION,
+                True,
+                permuted_input,
+                deepcopy(expected),
+                data,
+                f"vote-permutation-{index}",
             ))
 
     if data.get("kind") == "compose":

@@ -55,6 +55,7 @@ _NODE_FIELDS: dict[str, frozenset[str]] = {
     "resource_makespan": frozenset({"kind", "jobs_field", "edges_field", "id_field", "duration_field", "resource_field"}),
     "state_fold": frozenset({"kind", "state_field", "actions_field", "transitions", "unknown"}),
     "stack_rewrite": frozenset({"kind", "sequence_field", "token_mode", "rules"}),
+    "weighted_vote_veto": frozenset({"kind", "ballots_field", "choice_field", "weight_field", "support_field", "veto_field", "threshold", "tie_policy", "default"}),
 }
 
 
@@ -100,6 +101,9 @@ def _program_constants(data: Any) -> list[Any]:
             for rule in data.get("rules", ()):
                 values.extend(rule.get("left", ()))
                 values.extend(rule.get("right", ()))
+        elif kind == "weighted_vote_veto":
+            values.append(data.get("threshold"))
+            values.append(data.get("default"))
         for key, item in data.items():
             if key not in {"value", "a", "b"}:
                 values.extend(_program_constants(item))
