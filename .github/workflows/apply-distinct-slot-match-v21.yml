@@ -19,8 +19,11 @@ jobs:
         with:
           ref: universal-core-holonomy-v2-1
           fetch-depth: 0
-      - name: Assert transport head
-        run: test "$(git rev-parse HEAD)" = "1749c4c892f71a9765d46063f668083b0d46820a"
+      - name: Assert guarded transport state
+        run: |
+          git merge-base --is-ancestor e30e87582e101517a097f795a9dad72bcbdbad1c HEAD
+          git merge-base --is-ancestor 1749c4c892f71a9765d46063f668083b0d46820a HEAD
+          ! grep -q 'DISTINCT_SLOT_MATCH' research/universal_core/holonomy_v2/types.py
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
