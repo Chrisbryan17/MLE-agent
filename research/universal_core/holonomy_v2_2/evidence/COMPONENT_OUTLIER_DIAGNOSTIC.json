@@ -1,0 +1,24 @@
+{
+  "expected_training_delta": {
+    "accepted_rows": 1,
+    "correct_rows": 1,
+    "execution_failed_rows": -1,
+    "task_id": "b230c067"
+  },
+  "focused_output": "......F........                                                          [100%]\n=================================== FAILURES ===================================\n____________ test_hidden_component_rank_key_error_is_fully_recorded ____________\n\n    def test_hidden_component_rank_key_error_is_fully_recorded() -> None:\n        value = task(\n            [{\n                \"input\": [[5, 0, 5], [0, 0, 5]],\n                \"output\": [[1, 0, 2], [0, 0, 2]],\n            }],\n            [[[5, 0, 5, 0, 5], [0, 0, 5, 0, 5], [0, 0, 0, 0, 5]]],\n            \"unseen-rank\",\n        )\n    \n        result = grid_induction.run_public_task_v2_2(value, None, mechanistic=True)\n        failures = [\n            item\n            for item in events(result[\"mechanistic_trace\"], \"hidden_execution\")\n            if item[\"outcome\"] == \"FAILED\"\n        ]\n    \n        assert result[\"predictions\"] == [{\"status\": \"EXECUTION_FAILED\", \"prediction\": None}]\n        assert failures\n>       assert all(item[\"candidate_kind\"] == \"component_rank_color\" for item in failures)\nE       assert False\nE        +  where False = all(<generator object test_hidden_component_rank_key_error_is_fully_recorded.<locals>.<genexpr> at 0x7f0e78a39560>)\n\nresearch/universal_core/holonomy_v2_2/tests/test_grid_mechanistic.py:94: AssertionError\n=========================== short test summary info ============================\nFAILED research/universal_core/holonomy_v2_2/tests/test_grid_mechanistic.py::test_hidden_component_rank_key_error_is_fully_recorded - assert False\n +  where False = all(<generator object test_hidden_component_rank_key_error_is_fully_recorded.<locals>.<genexpr> at 0x7f0e78a39560>)\n1 failed, 14 passed in 0.41s\n",
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "frozen_output": ".....                                                                    [100%]\n5 passed in 0.08s\n",
+  "mechanistic_invariant": "one unique area extreme and uniform-area peers",
+  "outcomes": {
+    "focused": "failure",
+    "frozen_byte_gate": "success",
+    "frozen_tests": "success",
+    "v2_2_cluster": "failure"
+  },
+  "passed": false,
+  "run_id": "30951741137",
+  "schema_version": 1,
+  "source_trace_digest": "e881dc495aada3c875dd8016cc6768e37a2560e1588cb0bee0b46986b412f4ac",
+  "v2_2_output": "......................F....................................              [100%]\n=================================== FAILURES ===================================\n____________ test_hidden_component_rank_key_error_is_fully_recorded ____________\n\n    def test_hidden_component_rank_key_error_is_fully_recorded() -> None:\n        value = task(\n            [{\n                \"input\": [[5, 0, 5], [0, 0, 5]],\n                \"output\": [[1, 0, 2], [0, 0, 2]],\n            }],\n            [[[5, 0, 5, 0, 5], [0, 0, 5, 0, 5], [0, 0, 0, 0, 5]]],\n            \"unseen-rank\",\n        )\n    \n        result = grid_induction.run_public_task_v2_2(value, None, mechanistic=True)\n        failures = [\n            item\n            for item in events(result[\"mechanistic_trace\"], \"hidden_execution\")\n            if item[\"outcome\"] == \"FAILED\"\n        ]\n    \n        assert result[\"predictions\"] == [{\"status\": \"EXECUTION_FAILED\", \"prediction\": None}]\n        assert failures\n>       assert all(item[\"candidate_kind\"] == \"component_rank_color\" for item in failures)\nE       assert False\nE        +  where False = all(<generator object test_hidden_component_rank_key_error_is_fully_recorded.<locals>.<genexpr> at 0x7f6fb37f2400>)\n\nresearch/universal_core/holonomy_v2_2/tests/test_grid_mechanistic.py:94: AssertionError\n=========================== short test summary info ============================\nFAILED research/universal_core/holonomy_v2_2/tests/test_grid_mechanistic.py::test_hidden_component_rank_key_error_is_fully_recorded - assert False\n +  where False = all(<generator object test_hidden_component_rank_key_error_is_fully_recorded.<locals>.<genexpr> at 0x7f6fb37f2400>)\n1 failed, 58 passed in 0.53s\n",
+  "workflow_source_commit": "179fe0e9b1f317f1b13a3a3bbe78ffb9245bbbb2"
+}
