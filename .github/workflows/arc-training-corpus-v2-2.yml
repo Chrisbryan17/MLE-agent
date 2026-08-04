@@ -1,4 +1,4 @@
-name: ARC V2.2 Training Corpus
+name: ARC V2.2 Mechanistic Training Corpus
 
 on:
   push:
@@ -20,7 +20,7 @@ concurrency:
 jobs:
   training-corpus:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with:
@@ -36,6 +36,14 @@ jobs:
           github-token: ${{ github.token }}
           repository: Chrisbryan17/MLE-agent
           run-id: '30929169392'
+      - name: Download immutable V2.2 baseline report
+        uses: actions/download-artifact@v4
+        with:
+          name: arc-v2-2-training-e50965009efb96457fd769d97b42027f8a4e98c0
+          path: /tmp/arc-v2-2-baseline
+          github-token: ${{ github.token }}
+          repository: Chrisbryan17/MLE-agent
+          run-id: '30941837872'
       - name: Verify V2.2 and frozen V2 gates
         env:
           PYTHONPATH: research
@@ -46,37 +54,199 @@ jobs:
             research/universal_core/holonomy_v2/tests/test_blind_adapter.py \
             research/universal_core/holonomy_v2/tests/test_engine.py
           git diff --quiet 1d7c489bcdbff755d638b35ad47ce62bd4fe829d -- research/universal_core/holonomy_v2
-      - name: Run all ARC training tasks
+      - name: Run all ARC training tasks with complete traces
         run: |
-          mkdir -p /tmp/arc-v2-2-training
+          mkdir -p /tmp/arc-v2-2-training/traces
           python - <<'PY' | tee /tmp/arc-v2-2-training/console-summary.json
+          import hashlib
           import json
           import os
           from pathlib import Path
+
           from research.universal_core.holonomy_v2.engine import HolonomyEngine
           from research.universal_core.holonomy_v2.types import SearchConfig
-          from research.universal_core.holonomy_v2_2.training_eval import run_training_corpus, write_report
+          from research.universal_core.holonomy_v2_2.mechanistic_trace import validate_trace
+          from research.universal_core.holonomy_v2_2.training_eval import (
+              run_training_corpus,
+              write_report,
+          )
           from research.universal_core.public_benchmarks.suite import locate_vendor
 
+          output = Path('/tmp/arc-v2-2-training')
+          trace_dir = output / 'traces'
           vendor = locate_vendor(Path('/tmp/pinned-public-benchmarks'))
           report = run_training_corpus(
               vendor,
               HolonomyEngine(SearchConfig()),
-              run_label='arc-v2-2-training-' + os.environ['GITHUB_SHA'][:12],
+              run_label='arc-v2-2-mechanistic-' + os.environ['GITHUB_SHA'][:12],
               candidate_commit=os.environ['GITHUB_SHA'],
+              mechanistic_dir=trace_dir,
+              verify_parity=True,
           )
-          write_report(report, Path('/tmp/arc-v2-2-training/report.json'))
+          write_report(report, output / 'report.json')
+
+          trace_paths = sorted(
+              path for path in trace_dir.glob('*.json')
+              if path.name != 'diagnosis.json'
+          )
+          if len(trace_paths) != 1000:
+              raise SystemExit(f'expected 1000 task traces, found {len(trace_paths)}')
+          traces = {}
+          for path in trace_paths:
+              trace = json.loads(path.read_text(encoding='utf-8'))
+              validate_trace(trace)
+              traces[path.stem] = trace
+          if report['mechanistic']['trace_count'] != 1000:
+              raise SystemExit('aggregate trace count mismatch')
+          if report['mechanistic']['parity_count'] != 1000:
+              raise SystemExit('compact/mechanistic parity count mismatch')
+
+          baseline = json.loads(
+              Path('/tmp/arc-v2-2-baseline/report.json').read_text(encoding='utf-8')
+          )
+          baseline_rows = {
+              item['task_id']: int(item['metrics']['correct'])
+              for item in baseline['reports']
+              if int(item['metrics']['correct']) > 0
+          }
+          current_rows = {
+              item['task_id']: int(item['metrics']['correct'])
+              for item in report['reports']
+          }
+          lost_rows = {
+              task_id: {
+                  'baseline_correct': correct,
+                  'current_correct': current_rows.get(task_id, 0),
+              }
+              for task_id, correct in baseline_rows.items()
+              if current_rows.get(task_id, 0) < correct
+          }
+          if lost_rows:
+              raise SystemExit('lost baseline-correct rows: ' + json.dumps(lost_rows, sort_keys=True))
+
+          metrics = report['metrics']
+          expected_metrics = {
+              'rows': 1076,
+              'correct': 59,
+              'accepted': 59,
+              'incorrect_attempts': 0,
+          }
+          for key, expected in expected_metrics.items():
+              if int(metrics[key]) != expected:
+                  raise SystemExit(
+                      f'metric {key} changed: expected {expected}, found {metrics[key]}'
+                  )
+          expected_status = {
+              'ACCEPTED': 59,
+              'EXECUTION_FAILED': 2,
+              'GRAMMAR_EXHAUSTED': 1015,
+          }
+          if report['status_counts'] != expected_status:
+              raise SystemExit(
+                  'status counts changed: ' + json.dumps(report['status_counts'], sort_keys=True)
+              )
+
+          first_failures = [
+              event
+              for event in traces['aabf363d']['events']
+              if event.get('event') == 'hidden_execution'
+              and event.get('outcome') == 'FAILED'
+          ]
+          if not any(
+              event.get('candidate_kind') == 'color_map'
+              and event.get('exception_type') == 'KeyError'
+              and 'unmapped grid cell' in event.get('exception_message', '')
+              for event in first_failures
+          ):
+              raise SystemExit('aabf363d did not reproduce unmapped color-map cell')
+
+          second_failures = [
+              event
+              for event in traces['b230c067']['events']
+              if event.get('event') == 'hidden_execution'
+              and event.get('outcome') == 'FAILED'
+          ]
+          matching_second = [
+              event
+              for event in second_failures
+              if event.get('candidate_kind') == 'component_rank_color'
+              and event.get('exception_type') == 'KeyError'
+              and 'unmapped component rank' in event.get('exception_message', '')
+          ]
+          if len(matching_second) != 2:
+              raise SystemExit(
+                  f'b230c067 expected 2 unmapped-rank failures, found {len(matching_second)}'
+              )
+
+          parity = {
+              'schema_version': 1,
+              'candidate_commit': os.environ['GITHUB_SHA'],
+              'checked_tasks': 1000,
+              'mismatches': 0,
+              'baseline_commit': 'e50965009efb96457fd769d97b42027f8a4e98c0',
+              'lost_baseline_rows': lost_rows,
+              'metrics_unchanged': True,
+          }
+          (output / 'parity.json').write_text(
+              json.dumps(parity, sort_keys=True, indent=2) + '\n',
+              encoding='utf-8',
+          )
+          root_causes = {
+              'schema_version': 1,
+              'aabf363d': {
+                  'terminal_status': traces['aabf363d']['terminal_status'],
+                  'trace_digest': traces['aabf363d']['trace_digest'],
+                  'mechanism': 'color_map hidden execution KeyError: unmapped grid cell',
+                  'matching_failure_count': sum(
+                      1
+                      for event in first_failures
+                      if event.get('candidate_kind') == 'color_map'
+                      and event.get('exception_type') == 'KeyError'
+                      and 'unmapped grid cell' in event.get('exception_message', '')
+                  ),
+              },
+              'b230c067': {
+                  'terminal_status': traces['b230c067']['terminal_status'],
+                  'trace_digest': traces['b230c067']['trace_digest'],
+                  'mechanism': 'component_rank_color hidden execution KeyError: unmapped component rank',
+                  'matching_failure_count': len(matching_second),
+              },
+          }
+          (output / 'root-cause-confirmation.json').write_text(
+              json.dumps(root_causes, sort_keys=True, indent=2) + '\n',
+              encoding='utf-8',
+          )
+
+          manifest_lines = []
+          for path in sorted(
+              item for item in output.rglob('*')
+              if item.is_file() and item.name != 'SHA256SUMS'
+          ):
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              manifest_lines.append(f'{digest}  {path.relative_to(output).as_posix()}')
+          (output / 'SHA256SUMS').write_text(
+              '\n'.join(manifest_lines) + '\n',
+              encoding='utf-8',
+          )
+
           print(json.dumps({
               'report_digest': report['report_digest'],
+              'diagnosis_digest': report['mechanistic']['diagnosis_digest'],
               'evaluated_tasks': report['evaluated_tasks'],
+              'trace_count': report['mechanistic']['trace_count'],
+              'parity_count': report['mechanistic']['parity_count'],
               'metrics': report['metrics'],
               'status_counts': report['status_counts'],
+              'root_causes': root_causes,
           }, sort_keys=True))
           PY
-      - name: Publish training report
+      - name: Verify checksum manifest independently
+        working-directory: /tmp/arc-v2-2-training
+        run: sha256sum -c SHA256SUMS
+      - name: Publish mechanistic training evidence
         uses: actions/upload-artifact@v4
         with:
-          name: arc-v2-2-training-${{ github.sha }}
+          name: arc-v2-2-mechanistic-${{ github.sha }}
           path: /tmp/arc-v2-2-training
           if-no-files-found: error
           retention-days: 90
@@ -86,16 +256,27 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
+
           report = json.loads(Path('/tmp/arc-v2-2-training/report.json').read_text())
+          root_causes = json.loads(
+              Path('/tmp/arc-v2-2-training/root-cause-confirmation.json').read_text()
+          )
           lines = [
-              '# ARC V2.2 training corpus',
+              '# ARC V2.2 mechanistic training corpus',
               '',
               f"- Candidate: `{report['identity']['candidate_commit']}`",
               f"- Report digest: `{report['report_digest']}`",
-              f"- Tasks: `{report['evaluated_tasks']}`",
+              f"- Diagnosis digest: `{report['mechanistic']['diagnosis_digest']}`",
+              f"- Tasks/traces/parity: `{report['evaluated_tasks']}` / `{report['mechanistic']['trace_count']}` / `{report['mechanistic']['parity_count']}`",
               f"- Metrics: `{report['metrics']}`",
               f"- Status counts: `{report['status_counts']}`",
+              f"- aabf363d mechanism: `{root_causes['aabf363d']['mechanism']}`",
+              f"- b230c067 mechanism: `{root_causes['b230c067']['mechanism']}`",
+              '- Public ARC evaluation rerun: `no`',
           ]
-          Path('/tmp/arc-v2-2-training-summary.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+          Path('/tmp/arc-v2-2-training-summary.md').write_text(
+              '\n'.join(lines) + '\n',
+              encoding='utf-8',
+          )
           PY
           cat /tmp/arc-v2-2-training-summary.md >> "$GITHUB_STEP_SUMMARY"
