@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 110
     env:
       GH_TOKEN: ${{ github.token }}
-      TARGET_SHA: 047c16717da287e9807ab2801f42fdc6c350492b
+      TARGET_SHA: 29d64251ebfb9465e0d60b89b0fc42c67fbc2dc2
       REPOSITORY: Chrisbryan17/MLE-agent
     steps:
       - uses: actions/checkout@v4
