@@ -1,0 +1,218 @@
+name: Wire ARC Grid Mechanistic Runtime
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-grid-mechanistic-wire.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  wire-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check --quiet pytest
+      - name: Apply guarded runtime dispatch and completeness patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          grid_path = Path('research/universal_core/holonomy_v2_2/grid_induction.py')
+          grid_text = grid_path.read_text(encoding='utf-8')
+          marker = '\ndef run_public_task_v2_2(task: Any, engine: Any) -> dict[str, Any]:\n'
+          if grid_text.count(marker) != 1:
+              raise SystemExit('grid public entry marker mismatch')
+          prefix, _ = grid_text.split(marker, 1)
+          replacement = '''
+          def run_public_task_v2_2(
+              task: Any,
+              engine: Any,
+              *,
+              mechanistic: bool = False,
+          ) -> dict[str, Any]:
+              if not _is_grid_task(task):
+                  result = run_public_task_v2(task, engine)
+                  if not mechanistic:
+                      return result
+                  from .grid_mechanistic_runtime import attach_delegate_trace
+
+                  return attach_delegate_trace(task, result)
+
+              from .grid_mechanistic_runtime import run_grid_task
+
+              return run_grid_task(task, mechanistic=mechanistic)
+          '''
+          replacement = '\n'.join(
+              line[10:] if line.startswith('          ') else line
+              for line in replacement.splitlines()
+          ) + '\n'
+          grid_path.write_text(prefix + replacement, encoding='utf-8')
+
+          trace_path = Path('research/universal_core/holonomy_v2_2/mechanistic_trace.py')
+          trace_text = trace_path.read_text(encoding='utf-8')
+          old = '''    if run_starts:
+              hidden_count = run_starts[0].get("hidden_count")
+              if type(hidden_count) is not int or hidden_count < 0:
+                  raise ValueError("run-start hidden count must be non-negative")
+              hidden_events = _events_named(events, "hidden_execution")
+              by_candidate: dict[str, list[Mapping[str, Any]]] = {}
+              for item in hidden_events:
+                  candidate_id = item.get("candidate_id")
+                  if candidate_id not in representatives:
+                      raise ValueError("hidden execution references non-representative candidate")
+                  by_candidate.setdefault(str(candidate_id), []).append(item)
+              expected_indices = list(range(hidden_count))
+              for candidate_id in sorted(representatives):
+                  indices = sorted(int(item.get("hidden_index", -1)) for item in by_candidate.get(candidate_id, []))
+                  if indices != expected_indices:
+                      raise ValueError("hidden executions do not cover every hidden input")
+          '''
+          old = '\n'.join(
+              line[10:] if line.startswith('          ') else line
+              for line in old.splitlines()
+          ) + '\n'
+          new = '''    if run_starts:
+              demo_count = run_starts[0].get("demo_count")
+              hidden_count = run_starts[0].get("hidden_count")
+              if type(demo_count) is not int or demo_count < 0:
+                  raise ValueError("run-start demonstration count must be non-negative")
+              if type(hidden_count) is not int or hidden_count < 0:
+                  raise ValueError("run-start hidden count must be non-negative")
+
+              demo_events = _events_named(events, "demo_execution")
+              demo_by_candidate: dict[str, list[Mapping[str, Any]]] = {}
+              for item in demo_events:
+                  candidate_id = item.get("candidate_id")
+                  if candidate_id not in proposed:
+                      raise ValueError("demonstration execution references unknown candidate")
+                  demo_by_candidate.setdefault(str(candidate_id), []).append(item)
+              expected_demo_indices = list(range(demo_count))
+              for candidate_id in proposed_ids:
+                  indices = sorted(
+                      int(item.get("demo_index", -1))
+                      for item in demo_by_candidate.get(candidate_id, [])
+                  )
+                  if indices != expected_demo_indices:
+                      raise ValueError("demonstration executions do not cover every candidate and example")
+
+              hidden_events = _events_named(events, "hidden_execution")
+              by_candidate: dict[str, list[Mapping[str, Any]]] = {}
+              for item in hidden_events:
+                  candidate_id = item.get("candidate_id")
+                  if candidate_id not in representatives:
+                      raise ValueError("hidden execution references non-representative candidate")
+                  by_candidate.setdefault(str(candidate_id), []).append(item)
+              expected_indices = list(range(hidden_count))
+              for candidate_id in sorted(representatives):
+                  indices = sorted(
+                      int(item.get("hidden_index", -1))
+                      for item in by_candidate.get(candidate_id, [])
+                  )
+                  if indices != expected_indices:
+                      raise ValueError("hidden executions do not cover every hidden input")
+          '''
+          new = '\n'.join(
+              line[10:] if line.startswith('          ') else line
+              for line in new.splitlines()
+          ) + '\n'
+          if trace_text.count(old) != 1:
+              raise SystemExit('trace completeness anchor mismatch')
+          trace_path.write_text(trace_text.replace(old, new, 1), encoding='utf-8')
+          PY
+          git diff --check
+      - name: Run focused mechanistic tests
+        id: focused
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python -m pytest -q \
+            research/universal_core/holonomy_v2_2/tests/test_grid_mechanistic.py \
+            research/universal_core/holonomy_v2_2/tests/test_mechanistic_trace.py \
+            | tee /tmp/focused.log
+      - name: Run all V2.2 tests
+        id: cluster
+        if: always()
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python -m pytest -q research/universal_core/holonomy_v2_2/tests | tee /tmp/v2-2.log
+      - name: Run frozen V2 integration tests
+        id: frozen
+        if: always()
+        continue-on-error: true
+        env:
+          PYTHONPATH: research
+        run: |
+          set -o pipefail
+          python -m pytest -q \
+            research/universal_core/holonomy_v2/tests/test_blind_adapter.py \
+            research/universal_core/holonomy_v2/tests/test_engine.py | tee /tmp/frozen.log
+      - name: Confirm frozen V2 bytes are unchanged
+        id: byte_gate
+        if: always()
+        continue-on-error: true
+        run: git diff --quiet 1d7c489bcdbff755d638b35ad47ce62bd4fe829d -- research/universal_core/holonomy_v2
+      - name: Record result and commit only valid state
+        if: always()
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          FOCUSED_OUTCOME: ${{ steps.focused.outcome }}
+          CLUSTER_OUTCOME: ${{ steps.cluster.outcome }}
+          FROZEN_OUTCOME: ${{ steps.frozen.outcome }}
+          BYTE_OUTCOME: ${{ steps.byte_gate.outcome }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          outcomes = {
+              'focused': os.environ['FOCUSED_OUTCOME'],
+              'v2_2_cluster': os.environ['CLUSTER_OUTCOME'],
+              'frozen_tests': os.environ['FROZEN_OUTCOME'],
+              'frozen_byte_gate': os.environ['BYTE_OUTCOME'],
+          }
+          passed = all(value == 'success' for value in outcomes.values())
+          evidence = {
+              'schema_version': 1,
+              'workflow_source_commit': os.environ['SOURCE_SHA'],
+              'run_id': os.environ['RUN_ID'],
+              'passed': passed,
+              'outcomes': outcomes,
+              'focused_output': Path('/tmp/focused.log').read_text(encoding='utf-8') if Path('/tmp/focused.log').exists() else '',
+              'v2_2_output': Path('/tmp/v2-2.log').read_text(encoding='utf-8') if Path('/tmp/v2-2.log').exists() else '',
+              'frozen_output': Path('/tmp/frozen.log').read_text(encoding='utf-8') if Path('/tmp/frozen.log').exists() else '',
+              'frozen_core_commit': '1d7c489bcdbff755d638b35ad47ce62bd4fe829d',
+          }
+          name = 'GRID_MECHANISTIC_GREEN.json' if passed else 'GRID_MECHANISTIC_DIAGNOSTIC.json'
+          path = Path('research/universal_core/holonomy_v2_2/evidence') / name
+          path.write_text(json.dumps(evidence, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          Path('/tmp/passed').write_text('1' if passed else '0', encoding='utf-8')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          if [ "$(cat /tmp/passed)" = "1" ]; then
+            git add \
+              research/universal_core/holonomy_v2_2/grid_induction.py \
+              research/universal_core/holonomy_v2_2/mechanistic_trace.py \
+              research/universal_core/holonomy_v2_2/evidence/GRID_MECHANISTIC_GREEN.json
+            git commit -m 'arc: trace complete grid inference path'
+          else
+            git restore research/universal_core/holonomy_v2_2/grid_induction.py research/universal_core/holonomy_v2_2/mechanistic_trace.py
+            git add research/universal_core/holonomy_v2_2/evidence/GRID_MECHANISTIC_DIAGNOSTIC.json
+            git commit -m 'arc: record grid trace diagnostic failure'
+          fi
+          git push origin HEAD:universal-core-arc-training-v2-2
+          test "$(cat /tmp/passed)" = "1"
