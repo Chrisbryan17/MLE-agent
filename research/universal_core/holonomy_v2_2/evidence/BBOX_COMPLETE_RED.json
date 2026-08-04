@@ -1,0 +1,30 @@
+{
+  "expected_failure": "ModuleNotFoundError: No module named 'research.universal_core.holonomy_v2_2.bbox_complete'",
+  "expected_new_exact_tasks": [
+    "3aa6fb7a",
+    "6d75e8bb",
+    "e7639916"
+  ],
+  "failure_confirmed": true,
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "mechanistic_family": {
+    "component_connectivity": [
+      4,
+      8
+    ],
+    "mode": [
+      "fill",
+      "outline"
+    ],
+    "preserve_existing_cells": true,
+    "scope": [
+      "global",
+      "components"
+    ]
+  },
+  "red_commit": "679d54084d72ad4bca103f25b86d6557029bbf62",
+  "red_run_id": "30952677333",
+  "required_ambiguity": "60b61512",
+  "schema_version": 1,
+  "test_command": "python -m pytest -q research/universal_core/holonomy_v2_2/tests/test_bbox_complete.py"
+}
