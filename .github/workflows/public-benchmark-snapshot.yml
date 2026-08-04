@@ -70,7 +70,7 @@ jobs:
             --run-id "$GITHUB_RUN_ID" \
             --artifact-id "$ARTIFACT_ID" \
             --artifact-url "$ARTIFACT_URL" \
-            --artifact-digest "$ARTIFACT_DIGEST"
+            --artifact-digest "sha256:$ARTIFACT_DIGEST"
       - name: Verify committed or newly generated index
         run: python -m research.universal_core.public_benchmarks.snapshot verify-index
       - name: Commit first snapshot index
