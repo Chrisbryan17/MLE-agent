@@ -1,0 +1,127 @@
+{
+  "livebench/coding": {
+    "features": [
+      "category",
+      "citation",
+      "livebench_release_date",
+      "livebench_removal_date",
+      "original_json",
+      "partial_solution",
+      "private_test_cases",
+      "public_test_cases",
+      "question_id",
+      "question_title",
+      "release_date",
+      "remainder",
+      "solution",
+      "task",
+      "turns"
+    ],
+    "release_counts": {
+      "2024-06-24 00:00:00": 88,
+      "2024-07-26 00:00:00": 40
+    },
+    "revision": "a958549fdd8aa57be0a3fafe7b205ffc160ed5f4",
+    "rows": 128
+  },
+  "livebench/data_analysis": {
+    "features": [
+      "category",
+      "ground_truth",
+      "livebench_release_date",
+      "livebench_removal_date",
+      "question_id",
+      "task",
+      "turns"
+    ],
+    "release_counts": {
+      "2024-06-24 00:00:00": 150
+    },
+    "revision": "31b9661ff678df9958e2f7fa228427f4c858c1a1",
+    "rows": 150
+  },
+  "livebench/instruction_following": {
+    "features": [
+      "category",
+      "citation",
+      "instruction_id_list",
+      "kwargs",
+      "livebench_release_date",
+      "livebench_removal_date",
+      "question_id",
+      "release_date",
+      "task",
+      "task_prompt",
+      "turns"
+    ],
+    "release_counts": {
+      "2024-06-24 00:00:00": 200,
+      "2024-11-25 00:00:00": 200
+    },
+    "revision": "0868379c4b5cf62aeacaf8be4f08fced815c81bb",
+    "rows": 400
+  },
+  "livebench/language": {
+    "features": [
+      "category",
+      "citation",
+      "ground_truth",
+      "group",
+      "livebench_release_date",
+      "livebench_removal_date",
+      "movie_name",
+      "question_id",
+      "raw_id",
+      "release_date",
+      "task",
+      "turns"
+    ],
+    "release_counts": {
+      "2024-06-24 00:00:00": 140,
+      "2024-11-25 00:00:00": 50
+    },
+    "revision": "3ada32a2e53d5e04e57fa503384cb85ce9116c40",
+    "rows": 190
+  },
+  "livebench/math": {
+    "features": [
+      "category",
+      "expressions",
+      "ground_truth",
+      "hardness",
+      "livebench_release_date",
+      "livebench_removal_date",
+      "question_id",
+      "release_date",
+      "subtask",
+      "task",
+      "turns",
+      "year"
+    ],
+    "release_counts": {
+      "2024-06-24 00:00:00": 232,
+      "2024-08-31 00:00:00": 136
+    },
+    "revision": "bb66571c8ccf32d3df9e6f48b920d3770ff4aacb",
+    "rows": 368
+  },
+  "livebench/reasoning": {
+    "features": [
+      "category",
+      "ground_truth",
+      "level",
+      "livebench_release_date",
+      "livebench_removal_date",
+      "question_id",
+      "task",
+      "turns"
+    ],
+    "release_counts": {
+      "2024-06-24 00:00:00": 100,
+      "2024-07-26 00:00:00": 50,
+      "2024-11-25 00:00:00": 50
+    },
+    "revision": "6fc6498a5dfba553f69f4413feabade1f1a2d384",
+    "rows": 200
+  }
+}

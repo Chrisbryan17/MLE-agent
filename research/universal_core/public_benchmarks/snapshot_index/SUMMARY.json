@@ -1,0 +1,227 @@
+{
+  "benchmarks": {
+    "arc_agi_2": {
+      "commit": "f3283f727488ad98fe575ea6a5ac981e4a188e49",
+      "splits": {
+        "evaluation": {
+          "pairs": 526,
+          "tasks": 120,
+          "test_inputs": 167
+        },
+        "training": {
+          "pairs": 4308,
+          "tasks": 1000,
+          "test_inputs": 1076
+        }
+      }
+    },
+    "bbeh": {
+      "commit": "80d12ca916b7158f22293fcf3144f4d3d854d4be",
+      "full": {
+        "examples": 4520,
+        "task_names": [
+          "bbeh_boardgame_qa",
+          "bbeh_boolean_expressions",
+          "bbeh_buggy_tables",
+          "bbeh_causal_understanding",
+          "bbeh_disambiguation_qa",
+          "bbeh_dyck_languages",
+          "bbeh_geometric_shapes",
+          "bbeh_hyperbaton",
+          "bbeh_linguini",
+          "bbeh_movie_recommendation",
+          "bbeh_multistep_arithmetic",
+          "bbeh_nycc",
+          "bbeh_object_counting",
+          "bbeh_object_properties",
+          "bbeh_sarc_triples",
+          "bbeh_shuffled_objects",
+          "bbeh_spatial_reasoning",
+          "bbeh_sportqa",
+          "bbeh_temporal_sequence",
+          "bbeh_time_arithmetic",
+          "bbeh_web_of_lies",
+          "bbeh_word_sorting",
+          "bbeh_zebra_puzzles"
+        ],
+        "tasks": 23
+      },
+      "mini": {
+        "examples": 460
+      }
+    },
+    "livebench": {
+      "commit": "00eae856aa1c1a9e9d058a65a9a94d85884034c4",
+      "datasets": {
+        "livebench/coding": {
+          "features": [
+            "category",
+            "citation",
+            "livebench_release_date",
+            "livebench_removal_date",
+            "original_json",
+            "partial_solution",
+            "private_test_cases",
+            "public_test_cases",
+            "question_id",
+            "question_title",
+            "release_date",
+            "remainder",
+            "solution",
+            "task",
+            "turns"
+          ],
+          "release_counts": {
+            "2024-06-24T00:00:00": 88,
+            "2024-07-26T00:00:00": 40
+          },
+          "revision": "a958549fdd8aa57be0a3fafe7b205ffc160ed5f4",
+          "rows": 128,
+          "tasks": {
+            "LCB_generation": 78,
+            "coding_completion": 50
+          }
+        },
+        "livebench/data_analysis": {
+          "features": [
+            "category",
+            "ground_truth",
+            "livebench_release_date",
+            "livebench_removal_date",
+            "question_id",
+            "task",
+            "turns"
+          ],
+          "release_counts": {
+            "2024-06-24T00:00:00": 150
+          },
+          "revision": "31b9661ff678df9958e2f7fa228427f4c858c1a1",
+          "rows": 150,
+          "tasks": {
+            "cta": 50,
+            "tablejoin": 50,
+            "tablereformat": 50
+          }
+        },
+        "livebench/instruction_following": {
+          "features": [
+            "category",
+            "citation",
+            "instruction_id_list",
+            "kwargs",
+            "livebench_release_date",
+            "livebench_removal_date",
+            "question_id",
+            "release_date",
+            "task",
+            "task_prompt",
+            "turns"
+          ],
+          "release_counts": {
+            "2024-06-24T00:00:00": 200,
+            "2024-11-25T00:00:00": 200
+          },
+          "revision": "0868379c4b5cf62aeacaf8be4f08fced815c81bb",
+          "rows": 400,
+          "tasks": {
+            "paraphrase": 100,
+            "simplify": 100,
+            "story_generation": 100,
+            "summarize": 100
+          }
+        },
+        "livebench/language": {
+          "features": [
+            "category",
+            "citation",
+            "ground_truth",
+            "group",
+            "livebench_release_date",
+            "livebench_removal_date",
+            "movie_name",
+            "question_id",
+            "raw_id",
+            "release_date",
+            "task",
+            "turns"
+          ],
+          "release_counts": {
+            "2024-06-24T00:00:00": 140,
+            "2024-11-25T00:00:00": 50
+          },
+          "revision": "3ada32a2e53d5e04e57fa503384cb85ce9116c40",
+          "rows": 190,
+          "tasks": {
+            "connections": 100,
+            "plot_unscrambling": 40,
+            "typos": 50
+          }
+        },
+        "livebench/math": {
+          "features": [
+            "category",
+            "expressions",
+            "ground_truth",
+            "hardness",
+            "livebench_release_date",
+            "livebench_removal_date",
+            "question_id",
+            "release_date",
+            "subtask",
+            "task",
+            "turns",
+            "year"
+          ],
+          "release_counts": {
+            "2024-06-24T00:00:00": 232,
+            "2024-08-31T00:00:00": 136
+          },
+          "revision": "bb66571c8ccf32d3df9e6f48b920d3770ff4aacb",
+          "rows": 368,
+          "tasks": {
+            "AMPS_Hard": 150,
+            "math_comp": 146,
+            "olympiad": 72
+          }
+        },
+        "livebench/reasoning": {
+          "features": [
+            "category",
+            "ground_truth",
+            "level",
+            "livebench_release_date",
+            "livebench_removal_date",
+            "question_id",
+            "task",
+            "turns"
+          ],
+          "release_counts": {
+            "2024-06-24T00:00:00": 100,
+            "2024-07-26T00:00:00": 50,
+            "2024-11-25T00:00:00": 50
+          },
+          "revision": "6fc6498a5dfba553f69f4413feabade1f1a2d384",
+          "rows": 200,
+          "tasks": {
+            "spatial": 50,
+            "web_of_lies_v2": 50,
+            "zebra_puzzle": 100
+          }
+        }
+      },
+      "release_ceiling": "2026-06-25",
+      "total_rows": 1436
+    }
+  },
+  "created_at_utc": "2026-08-04T16:27:41+00:00",
+  "frozen_core": {
+    "commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+    "repository": "Chrisbryan17/MLE-agent"
+  },
+  "inventory_digest": "486badc9ccc8eb4911b1b7f234d785c68c4ff3e53f5d320d7c230e1ceff3dff3",
+  "schema_version": 1,
+  "totals": {
+    "bytes": 283933291,
+    "files": 1187
+  }
+}
