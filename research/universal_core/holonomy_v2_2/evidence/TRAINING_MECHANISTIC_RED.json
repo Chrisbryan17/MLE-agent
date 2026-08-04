@@ -1,0 +1,10 @@
+{
+  "captured_log": "\n==================================== ERRORS ====================================\n_ ERROR collecting research/universal_core/holonomy_v2_2/tests/test_trace_diagnosis.py _\nImportError while importing test module '/home/runner/work/MLE-agent/MLE-agent/research/universal_core/holonomy_v2_2/tests/test_trace_diagnosis.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nresearch/universal_core/holonomy_v2_2/tests/test_trace_diagnosis.py:4: in <module>\n    from research.universal_core.holonomy_v2_2.trace_diagnosis import build_trace_diagnosis\nE   ModuleNotFoundError: No module named 'research.universal_core.holonomy_v2_2.trace_diagnosis'\n=========================== short test summary info ============================\nERROR research/universal_core/holonomy_v2_2/tests/test_trace_diagnosis.py\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.19s\n",
+  "expected_failure": "ModuleNotFoundError: No module named 'research.universal_core.holonomy_v2_2.trace_diagnosis'",
+  "failure_confirmed": true,
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "red_commit": "83b264802da77bc772b0e3fd5d10b6e2eadbad6c",
+  "red_run_id": "30949172439",
+  "schema_version": 1,
+  "test_command": "python -m pytest -q research/universal_core/holonomy_v2_2/tests/test_trace_diagnosis.py research/universal_core/holonomy_v2_2/tests/test_training_mechanistic.py"
+}
