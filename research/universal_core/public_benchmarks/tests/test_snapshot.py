@@ -96,3 +96,51 @@ def test_snapshot_creation_is_one_shot(tmp_path: pathlib.Path, monkeypatch: pyte
     monkeypatch.setattr(snapshot, "load_lock", lambda: {})
     with pytest.raises(RuntimeError, match="already exists"):
         snapshot.fetch_all(vendor)
+
+
+def test_exported_index_excludes_dataset_payload(tmp_path: pathlib.Path) -> None:
+    vendor = tmp_path / "vendor"
+    manifest = {
+        "schema_version": 1,
+        "created_at_utc": "2026-08-04T16:11:43+00:00",
+        "frozen_core": {
+            "repository": "Chrisbryan17/MLE-agent",
+            "commit": "frozen-sha",
+        },
+        "benchmarks": {
+            "arc_agi_2": {"commit": "arc-sha"},
+            "bbeh": {"commit": "bbeh-sha"},
+            "livebench": {"commit": "livebench-sha", "datasets": {}},
+        },
+        "inventory": [
+            {"path": "livebench/questions/coding.jsonl", "bytes": 250_000_000, "sha256": "a" * 64},
+        ],
+        "totals": {"files": 1, "bytes": 250_000_000},
+    }
+    manifest["inventory_digest"] = snapshot.hash_inventory(manifest["inventory"])
+    write(vendor / snapshot.MANIFEST_NAME, manifest)
+    write(vendor / "livebench" / "DATASET_REVISIONS.json", {"livebench/coding": {"revision": "hf-sha", "rows": 128}})
+    (vendor / "livebench" / "questions").mkdir(parents=True, exist_ok=True)
+    (vendor / "livebench" / "questions" / "coding.jsonl").write_text("payload", encoding="utf-8")
+
+    index = tmp_path / "snapshot_index"
+    exported = snapshot.export_index(
+        vendor,
+        index,
+        artifact={
+            "run_id": "30927877941",
+            "artifact_id": "12345",
+            "artifact_url": "https://example.invalid/artifacts/12345",
+            "artifact_digest": "sha256:" + "b" * 64,
+        },
+    )
+
+    assert exported["inventory_digest"] == manifest["inventory_digest"]
+    assert sorted(path.name for path in index.iterdir()) == [
+        "ARTIFACT_POINTER.json",
+        "LIVEBENCH_DATASET_REVISIONS.json",
+        "SNAPSHOT_MANIFEST.json",
+        "SUMMARY.json",
+    ]
+    assert not (index / "coding.jsonl").exists()
+    assert snapshot.verify_index(index)["totals"]["bytes"] == 250_000_000
