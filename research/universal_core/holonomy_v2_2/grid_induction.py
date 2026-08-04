@@ -353,49 +353,20 @@ def _abstain(task_id: str, hidden_count: int, status: str, evidence: Mapping[str
         ],
     }
 
-
-def run_public_task_v2_2(task: Any, engine: Any) -> dict[str, Any]:
+def run_public_task_v2_2(
+    task: Any,
+    engine: Any,
+    *,
+    mechanistic: bool = False,
+) -> dict[str, Any]:
     if not _is_grid_task(task):
-        return run_public_task_v2(task, engine)
+        result = run_public_task_v2(task, engine)
+        if not mechanistic:
+            return result
+        from .grid_mechanistic_runtime import attach_delegate_trace
 
-    task_id = str(_get(task, "task_id"))
-    demos = tuple(_demo_pair(item) for item in tuple(_get(task, "demonstrations")))
-    hidden = tuple(_grid(item) for item in tuple(_get(task, "hidden_inputs")))
-    candidates = _candidate_programs(demos)
-    if not candidates:
-        return _abstain(task_id, len(hidden), "GRAMMAR_EXHAUSTED", _evidence(candidates, 0))
+        return attach_delegate_trace(task, result)
 
-    batches: dict[bytes, tuple[tuple[Grid, ...], list[Program]]] = {}
-    for candidate in candidates:
-        try:
-            outputs = tuple(_apply(candidate, item) for item in hidden)
-        except (KeyError, TypeError, ValueError):
-            continue
-        key = _canonical(outputs)
-        if key not in batches:
-            batches[key] = (outputs, [])
-        batches[key][1].append(candidate)
+    from .grid_mechanistic_runtime import run_grid_task
 
-    evidence = _evidence(candidates, len(batches))
-    if not batches:
-        return _abstain(task_id, len(hidden), "EXECUTION_FAILED", evidence)
-    if len(batches) != 1:
-        return _abstain(task_id, len(hidden), "AMBIGUOUS_PROGRAM", evidence)
-
-    outputs, agreeing = next(iter(batches.values()))
-    chosen = min(agreeing, key=_digest)
-    program_digest = _digest(chosen)
-    freeze_digest = _digest({"version": _VERSION, "program_digest": program_digest})
-    predictions = [
-        {"status": "ACCEPTED", "prediction": deepcopy(item)}
-        for item in outputs
-    ]
-    return {
-        "task_id": task_id,
-        "tier": "V2.2-GRID",
-        "program_digest": program_digest,
-        "freeze_digest": freeze_digest,
-        "prediction_digest": _digest(predictions),
-        "evidence": evidence,
-        "predictions": predictions,
-    }
+    return run_grid_task(task, mechanistic=mechanistic)

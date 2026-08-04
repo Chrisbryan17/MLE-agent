@@ -155,9 +155,29 @@ def validate_trace(trace: Mapping[str, Any]) -> None:
     if len(run_starts) > 1:
         raise ValueError("trace has multiple run-start events")
     if run_starts:
+        demo_count = run_starts[0].get("demo_count")
         hidden_count = run_starts[0].get("hidden_count")
+        if type(demo_count) is not int or demo_count < 0:
+            raise ValueError("run-start demonstration count must be non-negative")
         if type(hidden_count) is not int or hidden_count < 0:
             raise ValueError("run-start hidden count must be non-negative")
+
+        demo_events = _events_named(events, "demo_execution")
+        demo_by_candidate: dict[str, list[Mapping[str, Any]]] = {}
+        for item in demo_events:
+            candidate_id = item.get("candidate_id")
+            if candidate_id not in proposed:
+                raise ValueError("demonstration execution references unknown candidate")
+            demo_by_candidate.setdefault(str(candidate_id), []).append(item)
+        expected_demo_indices = list(range(demo_count))
+        for candidate_id in proposed_ids:
+            indices = sorted(
+                int(item.get("demo_index", -1))
+                for item in demo_by_candidate.get(candidate_id, [])
+            )
+            if indices != expected_demo_indices:
+                raise ValueError("demonstration executions do not cover every candidate and example")
+
         hidden_events = _events_named(events, "hidden_execution")
         by_candidate: dict[str, list[Mapping[str, Any]]] = {}
         for item in hidden_events:
@@ -167,7 +187,10 @@ def validate_trace(trace: Mapping[str, Any]) -> None:
             by_candidate.setdefault(str(candidate_id), []).append(item)
         expected_indices = list(range(hidden_count))
         for candidate_id in sorted(representatives):
-            indices = sorted(int(item.get("hidden_index", -1)) for item in by_candidate.get(candidate_id, []))
+            indices = sorted(
+                int(item.get("hidden_index", -1))
+                for item in by_candidate.get(candidate_id, [])
+            )
             if indices != expected_indices:
                 raise ValueError("hidden executions do not cover every hidden input")
 
