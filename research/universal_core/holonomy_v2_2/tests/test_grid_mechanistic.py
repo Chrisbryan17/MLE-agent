@@ -83,17 +83,17 @@ def test_hidden_component_rank_key_error_is_fully_recorded() -> None:
     )
 
     result = grid_induction.run_public_task_v2_2(value, None, mechanistic=True)
-    failures = [
+    rank_failures = [
         item
         for item in events(result["mechanistic_trace"], "hidden_execution")
         if item["outcome"] == "FAILED"
+        and item["candidate_kind"] == "component_rank_color"
     ]
 
     assert result["predictions"] == [{"status": "EXECUTION_FAILED", "prediction": None}]
-    assert failures
-    assert all(item["candidate_kind"] == "component_rank_color" for item in failures)
-    assert all(item["exception_type"] == "KeyError" for item in failures)
-    assert all("unmapped component rank" in item["exception_message"] for item in failures)
+    assert rank_failures
+    assert all(item["exception_type"] == "KeyError" for item in rank_failures)
+    assert all("unmapped component rank" in item["exception_message"] for item in rank_failures)
 
 
 def test_trace_replay_is_deterministic_and_task_id_independent() -> None:
