@@ -7,11 +7,13 @@ from typing import Any, Mapping, Sequence
 
 from research.universal_core.holonomy_v2.blind_adapter import run_public_task_v2
 
+from .panel_combine import apply_panel, panel_candidates
+
 
 Grid = list[list[int]]
 Program = dict[str, Any]
 Point = tuple[int, int]
-_VERSION = "grid-v2.2-2"
+_VERSION = "grid-v2.2-3"
 
 
 def _canonical(value: Any) -> bytes:
@@ -203,6 +205,8 @@ def _apply(program: Program, value: Any) -> Grid:
         return _crop(grid, int(program["background"]))
     if kind == "component_rank_color":
         return _apply_component_rank(program, grid)
+    if kind == "panel_boolean_combine":
+        return apply_panel(program, grid)
     if kind == "color_map":
         mapping = {int(key): int(item) for key, item in program["mapping"].items()}
         if any(cell not in mapping for row in grid for cell in row):
@@ -305,6 +309,8 @@ def _candidate_programs(demos: Sequence[tuple[Grid, Grid]]) -> tuple[Program, ..
             data = _component_rank_program(demos, background, mode)
             if data is not None:
                 candidates.append(data)
+
+    candidates.extend(panel_candidates(demos))
 
     by_digest: dict[str, Program] = {}
     for candidate in candidates:
