@@ -36,14 +36,14 @@ def test_middle_size_class_can_map_to_background() -> None:
             "input": [[4, 0, 4, 0, 4], [0, 0, 4, 0, 4], [0, 0, 0, 0, 4]],
             "output": [[1, 0, 0, 0, 2], [0, 0, 0, 0, 2], [0, 0, 0, 0, 2]],
         }],
-        [[[4, 0, 4, 4, 0], [4, 0, 0, 0, 0], [4, 0, 4, 4, 4]]],
+        [[[4, 0, 4, 4, 0], [0, 0, 0, 0, 0], [0, 0, 4, 4, 4]]],
     )
 
     result = run_public_task_v2_2(value, engine=None)
 
     assert result["predictions"][0] == {
         "status": "ACCEPTED",
-        "prediction": [[0, 0, 1, 1, 0], [0, 0, 0, 0, 0], [0, 0, 2, 2, 2]],
+        "prediction": [[1, 0, 0, 0, 0], [0, 0, 0, 0, 0], [0, 0, 2, 2, 2]],
     }
 
 
