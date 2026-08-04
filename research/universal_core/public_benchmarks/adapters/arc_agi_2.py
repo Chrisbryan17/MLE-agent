@@ -117,3 +117,50 @@ def build_submission(
             )
         submission[task_id] = attempts
     return submission
+
+
+def score_result(
+    task_id: str,
+    payload: Mapping[str, Any],
+    result: Mapping[str, Any],
+) -> dict[str, Any]:
+    if not isinstance(result, Mapping) or result.get("task_id") != task_id:
+        raise ValueError("ARC result task id does not match")
+    targets: list[list[list[int]]] = []
+    for pair in _pair_list(payload, "test"):
+        if "output" not in pair:
+            raise ValueError("ARC public target is missing")
+        targets.append(validate_grid(pair["output"]))
+    predictions = result.get("predictions")
+    if not isinstance(predictions, (list, tuple)) or len(predictions) != len(targets):
+        raise ValueError("ARC prediction count does not match public target count")
+
+    correct = 0
+    accepted = 0
+    failed = 0
+    for target, item in zip(targets, predictions):
+        if not isinstance(item, Mapping):
+            failed += 1
+            continue
+        status = item.get("status")
+        if status == "ACCEPTED":
+            accepted += 1
+            if accepted_grid(item) == target:
+                correct += 1
+        elif status == "EXECUTION_FAILED" or (isinstance(status, str) and status.endswith("_FAILED")):
+            failed += 1
+
+    rows = len(targets)
+    abstained = rows - accepted - failed
+    return {
+        "task_id": task_id,
+        "rows": rows,
+        "correct": correct,
+        "accepted": accepted,
+        "abstained": abstained,
+        "failed": failed,
+        "incorrect_attempts": accepted - correct,
+        "raw_accuracy": correct / rows,
+        "coverage": accepted / rows,
+        "attempted_accuracy": correct / accepted if accepted else 0.0,
+    }
