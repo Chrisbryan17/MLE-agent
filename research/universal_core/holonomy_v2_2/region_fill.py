@@ -108,20 +108,30 @@ def _background_candidates(demos: Sequence[tuple[Grid, Grid]]) -> tuple[int, ...
     return tuple(sorted(candidates))
 
 
-def region_candidates(demos: Sequence[tuple[Grid, Grid]]) -> tuple[Program, ...]:
+def region_programs(
+    demos: Sequence[tuple[Grid, Grid]],
+) -> tuple[tuple[Program, ...], str | None]:
+    backgrounds = _background_candidates(demos)
+    if not backgrounds:
+        return (), "NO_BACKGROUND_CANDIDATE"
     target_colors = sorted({cell for _, target in demos for row in target for cell in row})
-    candidates: list[Program] = []
-    for background in _background_candidates(demos):
+    programs: list[Program] = []
+    for background in backgrounds:
         for connectivity in (4, 8):
             for mode in ("fill_copy", "highlight", "solidify"):
                 for fill_color in target_colors:
-                    program = {
+                    programs.append({
                         "kind": "enclosed_region_fill",
                         "background": background,
                         "connectivity": connectivity,
                         "mode": mode,
                         "fill_color": fill_color,
-                    }
-                    if _fits(program, demos):
-                        candidates.append(program)
-    return tuple(candidates)
+                    })
+    if not programs:
+        return (), "NO_STRUCTURAL_PROGRAM"
+    return tuple(programs), None
+
+
+def region_candidates(demos: Sequence[tuple[Grid, Grid]]) -> tuple[Program, ...]:
+    programs, _ = region_programs(demos)
+    return tuple(program for program in programs if _fits(program, demos))
