@@ -15,7 +15,6 @@ _PREDICATES = (
     "left_only",
     "right_only",
     "same_color",
-    "different_color",
 )
 
 
@@ -58,8 +57,6 @@ def _predicate(name: str, left: int, right: int, background: int) -> bool:
         return right_foreground and not left_foreground
     if name == "same_color":
         return left_foreground and left == right
-    if name == "different_color":
-        return left != right
     raise ValueError("unknown panel predicate")
 
 
