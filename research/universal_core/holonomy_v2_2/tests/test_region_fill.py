@@ -93,14 +93,14 @@ def test_closed_regions_can_be_solidified_to_one_color() -> None:
             {"input": ring(2), "output": solid},
             {"input": ring(8), "output": solid},
         ],
-        [[[0, 3, 3, 0], [0, 3, 0, 3], [0, 3, 3, 3]]],
+        [ring(3)],
     )
 
     result = run_public_task_v2_2(value, engine=None)
 
     assert result["predictions"] == [{
         "status": "ACCEPTED",
-        "prediction": [[0, 6, 6, 0], [0, 6, 6, 6], [0, 6, 6, 6]],
+        "prediction": solid,
     }]
 
 
