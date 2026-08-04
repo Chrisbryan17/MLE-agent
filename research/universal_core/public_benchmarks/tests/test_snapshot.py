@@ -110,7 +110,15 @@ def test_exported_index_excludes_dataset_payload(tmp_path: pathlib.Path) -> None
         "benchmarks": {
             "arc_agi_2": {"commit": "arc-sha"},
             "bbeh": {"commit": "bbeh-sha"},
-            "livebench": {"commit": "livebench-sha", "datasets": {}},
+            "livebench": {
+                "commit": "livebench-sha",
+                "datasets": {
+                    "livebench/coding": {
+                        "revision": "hf-sha",
+                        "rows": 128,
+                    }
+                },
+            },
         },
         "inventory": [
             {"path": "livebench/questions/coding.jsonl", "bytes": 250_000_000, "sha256": "a" * 64},
