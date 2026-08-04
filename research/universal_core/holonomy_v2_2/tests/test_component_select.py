@@ -90,10 +90,22 @@ def test_selected_component_crop_preserves_background_holes() -> None:
 def test_hidden_area_tie_returns_execution_failure() -> None:
     value = make_task(
         [{
-            "input": [[0, 2, 0, 3, 3], [0, 0, 0, 3, 0]],
+            "input": [
+                [0, 2, 0, 0, 0, 3, 3, 0, 0],
+                [0, 0, 0, 0, 0, 3, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            ],
             "output": [[3, 3], [3, 0]],
         }],
-        [[[4, 4, 0, 5, 5]]],
+        [[
+            [0, 4, 4, 0, 0, 5, 5, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        ]],
     )
 
     result = run_public_task_v2_2(value, engine=None)
