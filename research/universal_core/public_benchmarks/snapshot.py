@@ -244,7 +244,7 @@ def verify_livebench(target: pathlib.Path, lock: dict[str, Any]) -> dict[str, An
         releases: collections.Counter[str] = collections.Counter()
         tasks: collections.Counter[str] = collections.Counter()
         for row in rows:
-            required = {"question_id", "category", "task", "turns", "ground_truth"}
+            required = {"question_id", "task", "turns", "livebench_release_date"}
             if not required.issubset(row):
                 raise RuntimeError(f"LiveBench {category} row missing required keys")
             qid = str(row["question_id"])
@@ -259,6 +259,7 @@ def verify_livebench(target: pathlib.Path, lock: dict[str, Any]) -> dict[str, An
         result["datasets"][repo_id] = {
             "revision": recorded["revision"],
             "rows": len(rows),
+            "features": recorded.get("features", sorted(rows[0].keys())),
             "tasks": dict(sorted(tasks.items())),
             "release_counts": dict(sorted(releases.items())),
         }
