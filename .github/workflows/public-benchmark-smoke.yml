@@ -13,7 +13,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: public-benchmark-smoke-attempt-0001
+  group: public-benchmark-smoke-attempt-0002
   cancel-in-progress: false
 
 jobs:
@@ -47,18 +47,20 @@ jobs:
             research/universal_core/holonomy_v2/tests/test_engine.py
       - name: Run sealed smoke attempt
         run: |
+          set -o pipefail
+          mkdir -p /tmp/public-benchmark-smoke-0002
           python -m research.universal_core.public_benchmarks.runner \
             --vendor-root /tmp/pinned-public-benchmarks \
-            --output /tmp/public-benchmark-smoke-0001 \
+            --output /tmp/public-benchmark-smoke-0002 \
             --mode smoke \
-            --run-label public-benchmark-smoke-0001 \
+            --run-label public-benchmark-smoke-0002 \
             --adapter-commit "$GITHUB_SHA" \
-            | tee /tmp/public-benchmark-smoke-0001/console-summary.json
+            | tee /tmp/public-benchmark-smoke-0002/console-summary.json
       - name: Publish smoke attempt artifact
         uses: actions/upload-artifact@v4
         with:
-          name: public-benchmark-smoke-0001
-          path: /tmp/public-benchmark-smoke-0001
+          name: public-benchmark-smoke-0002
+          path: /tmp/public-benchmark-smoke-0002
           if-no-files-found: error
           retention-days: 90
           compression-level: 6
@@ -67,9 +69,9 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
-          report = json.loads(Path('/tmp/public-benchmark-smoke-0001/report.json').read_text())
+          report = json.loads(Path('/tmp/public-benchmark-smoke-0002/report.json').read_text())
           lines = [
-              '# Public benchmark smoke attempt 0001',
+              '# Public benchmark smoke attempt 0002',
               '',
               f"- Report digest: `{report['report_digest']}`",
               f"- Frozen core: `{report['identity']['frozen_core_commit']}`",
@@ -78,7 +80,6 @@ jobs:
               f"- BBEH transfer: `{report['bbeh_transfer']['metrics']}`",
               f"- LiveBench scalar transfer: `{report['livebench_scalar_transfer']['metrics']}`",
           ]
-          with Path('/tmp/public-benchmark-summary.md').open('w', encoding='utf-8') as handle:
-              handle.write('\n'.join(lines) + '\n')
+          Path('/tmp/public-benchmark-summary.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
           PY
           cat /tmp/public-benchmark-summary.md >> "$GITHUB_STEP_SUMMARY"
