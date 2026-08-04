@@ -46,6 +46,40 @@ def test_bbeh_mini_counter_requires_input_and_target(tmp_path: pathlib.Path) -> 
         snapshot.count_bbeh_mini(path)
 
 
+def test_livebench_accepts_category_specific_answer_fields(tmp_path: pathlib.Path) -> None:
+    repositories = [
+        "livebench/coding",
+        "livebench/data_analysis",
+        "livebench/instruction_following",
+        "livebench/language",
+        "livebench/math",
+        "livebench/reasoning",
+    ]
+    revisions = {}
+    for index, repo_id in enumerate(repositories):
+        category = repo_id.split("/", 1)[1]
+        row = {
+            "question_id": f"q-{index}",
+            "task": f"task-{index}",
+            "turns": ["prompt"],
+            "livebench_release_date": "2026-06-25",
+        }
+        path = tmp_path / "questions" / f"{category}.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(row) + "\n", encoding="utf-8")
+        revisions[repo_id] = {"revision": f"sha-{index}", "rows": 1}
+    write(tmp_path / "DATASET_REVISIONS.json", revisions)
+    result = snapshot.verify_livebench(
+        tmp_path,
+        {
+            "commit": "harness-sha",
+            "public_release_ceiling": "2026-06-25",
+            "dataset_repositories": repositories,
+        },
+    )
+    assert result["total_rows"] == 6
+
+
 def test_inventory_is_stable_and_excludes_manifest(tmp_path: pathlib.Path) -> None:
     (tmp_path / "b.txt").write_text("b", encoding="utf-8")
     (tmp_path / "a.txt").write_text("a", encoding="utf-8")
