@@ -1,0 +1,85 @@
+name: Public Benchmark Smoke Attempt
+
+on:
+  push:
+    branches:
+      - universal-core-public-benchmark-adapters-v1
+    paths:
+      - '.github/workflows/public-benchmark-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: public-benchmark-smoke-attempt-0002
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-public-benchmark-adapters-v1
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download immutable benchmark corpus
+        uses: actions/download-artifact@v4
+        with:
+          name: public-benchmarks-pinned-2026-08-04
+          path: /tmp/pinned-public-benchmarks
+          github-token: ${{ github.token }}
+          repository: Chrisbryan17/MLE-agent
+          run-id: '30929169392'
+      - name: Verify adapter and frozen-core tests
+        env:
+          PYTHONPATH: research
+        run: |
+          python -m pip install --disable-pip-version-check --quiet pytest
+          python -m pytest -q research/universal_core/public_benchmarks/tests
+          python -m pytest -q \
+            research/universal_core/holonomy_v2/tests/test_blind_adapter.py \
+            research/universal_core/holonomy_v2/tests/test_engine.py
+      - name: Run sealed smoke attempt
+        run: |
+          set -o pipefail
+          mkdir -p /tmp/public-benchmark-smoke-0002
+          python -m research.universal_core.public_benchmarks.runner \
+            --vendor-root /tmp/pinned-public-benchmarks \
+            --output /tmp/public-benchmark-smoke-0002 \
+            --mode smoke \
+            --run-label public-benchmark-smoke-0002 \
+            --adapter-commit "$GITHUB_SHA" \
+            | tee /tmp/public-benchmark-smoke-0002/console-summary.json
+      - name: Publish smoke attempt artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-benchmark-smoke-0002
+          path: /tmp/public-benchmark-smoke-0002
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 6
+      - name: Write run summary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('/tmp/public-benchmark-smoke-0002/report.json').read_text())
+          lines = [
+              '# Public benchmark smoke attempt 0002',
+              '',
+              f"- Report digest: `{report['report_digest']}`",
+              f"- Frozen core: `{report['identity']['frozen_core_commit']}`",
+              f"- Snapshot inventory: `{report['identity']['snapshot_inventory_digest']}`",
+              f"- ARC: `{report['arc_agi_2']['metrics']}`",
+              f"- BBEH transfer: `{report['bbeh_transfer']['metrics']}`",
+              f"- LiveBench scalar transfer: `{report['livebench_scalar_transfer']['metrics']}`",
+          ]
+          Path('/tmp/public-benchmark-summary.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+          PY
+          cat /tmp/public-benchmark-summary.md >> "$GITHUB_STEP_SUMMARY"
