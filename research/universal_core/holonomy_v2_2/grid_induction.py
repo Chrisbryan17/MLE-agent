@@ -3,14 +3,15 @@ from __future__ import annotations
 import hashlib
 import json
 from copy import deepcopy
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 from research.universal_core.holonomy_v2.blind_adapter import run_public_task_v2
 
 
 Grid = list[list[int]]
 Program = dict[str, Any]
-_VERSION = "grid-v2.2-1"
+Point = tuple[int, int]
+_VERSION = "grid-v2.2-2"
 
 
 def _canonical(value: Any) -> bytes:
@@ -124,6 +125,67 @@ def _crop(grid: Grid, background: int) -> Grid:
     return [row[left : right + 1] for row in grid[top : bottom + 1]]
 
 
+def _components(grid: Grid, background: int) -> tuple[tuple[Point, ...], ...]:
+    height = len(grid)
+    width = len(grid[0])
+    seen: set[Point] = set()
+    found: list[tuple[Point, ...]] = []
+    for row in range(height):
+        for col in range(width):
+            if (row, col) in seen or grid[row][col] == background:
+                continue
+            color = grid[row][col]
+            pending = [(row, col)]
+            seen.add((row, col))
+            cells: list[Point] = []
+            while pending:
+                current = pending.pop()
+                cells.append(current)
+                for row_step, col_step in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    next_row = current[0] + row_step
+                    next_col = current[1] + col_step
+                    next_point = (next_row, next_col)
+                    if not (0 <= next_row < height and 0 <= next_col < width):
+                        continue
+                    if next_point in seen or grid[next_row][next_col] != color:
+                        continue
+                    seen.add(next_point)
+                    pending.append(next_point)
+            found.append(tuple(sorted(cells)))
+    return tuple(found)
+
+
+def _rank_key(components: Sequence[Sequence[Point]], cells: Sequence[Point], mode: str) -> str:
+    sizes = sorted({len(item) for item in components})
+    size = len(cells)
+    if mode == "rank":
+        return str(sizes.index(size))
+    if mode == "extreme":
+        if len(sizes) == 1:
+            return "only"
+        if size == sizes[0]:
+            return "min"
+        if size == sizes[-1]:
+            return "max"
+        return "mid"
+    raise ValueError("unknown component rank mode")
+
+
+def _apply_component_rank(program: Program, grid: Grid) -> Grid:
+    background = int(program["background"])
+    mode = str(program["mode"])
+    mapping = {str(key): int(value) for key, value in program["mapping"].items()}
+    components = _components(grid, background)
+    output = deepcopy(grid)
+    for cells in components:
+        key = _rank_key(components, cells, mode)
+        if key not in mapping:
+            raise KeyError("unmapped component rank")
+        for row, col in cells:
+            output[row][col] = mapping[key]
+    return output
+
+
 def _apply(program: Program, value: Any) -> Grid:
     grid = _grid(value)
     kind = program["kind"]
@@ -139,6 +201,8 @@ def _apply(program: Program, value: Any) -> Grid:
         return _tile(grid, int(program["rows"]), int(program["cols"]))
     if kind == "crop":
         return _crop(grid, int(program["background"]))
+    if kind == "component_rank_color":
+        return _apply_component_rank(program, grid)
     if kind == "color_map":
         mapping = {int(key): int(item) for key, item in program["mapping"].items()}
         if any(cell not in mapping for row in grid for cell in row):
@@ -165,6 +229,40 @@ def _color_map(demos: Sequence[tuple[Grid, Grid]]) -> Program | None:
                     return None
                 mapping[before] = after
     return {"kind": "color_map", "mapping": {str(key): mapping[key] for key in sorted(mapping)}}
+
+
+def _component_rank_program(
+    demos: Sequence[tuple[Grid, Grid]],
+    background: int,
+    mode: str,
+) -> Program | None:
+    mapping: dict[str, int] = {}
+    for source, target in demos:
+        if len(source) != len(target) or len(source[0]) != len(target[0]):
+            return None
+        components = _components(source, background)
+        if not components:
+            return None
+        covered = {point for cells in components for point in cells}
+        for cells in components:
+            target_colors = {target[row][col] for row, col in cells}
+            if len(target_colors) != 1:
+                return None
+            key = _rank_key(components, cells, mode)
+            target_color = next(iter(target_colors))
+            if key in mapping and mapping[key] != target_color:
+                return None
+            mapping[key] = target_color
+        for row, source_row in enumerate(source):
+            for col, source_color in enumerate(source_row):
+                if (row, col) not in covered and target[row][col] != source_color:
+                    return None
+    return {
+        "kind": "component_rank_color",
+        "background": background,
+        "mode": mode,
+        "mapping": {key: mapping[key] for key in sorted(mapping)},
+    }
 
 
 def _dimension_program(
@@ -202,6 +300,11 @@ def _candidate_programs(demos: Sequence[tuple[Grid, Grid]]) -> tuple[Program, ..
             candidates.append(data)
     backgrounds = sorted({cell for source, _ in demos for row in source for cell in row})
     candidates.extend({"kind": "crop", "background": item} for item in backgrounds)
+    for background in backgrounds:
+        for mode in ("rank", "extreme"):
+            data = _component_rank_program(demos, background, mode)
+            if data is not None:
+                candidates.append(data)
 
     by_digest: dict[str, Program] = {}
     for candidate in candidates:
