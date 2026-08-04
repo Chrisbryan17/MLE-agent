@@ -1,0 +1,72 @@
+name: ARC Component Outlier RED
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-component-outlier-red.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  verify-red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check --quiet pytest
+      - name: Require missing component-outlier module
+        run: |
+          set +e
+          python -m pytest -q research/universal_core/holonomy_v2_2/tests/test_component_outlier.py > /tmp/component-outlier-red.log 2>&1
+          status=$?
+          set -e
+          cat /tmp/component-outlier-red.log
+          test "$status" -ne 0
+          grep -F "No module named 'research.universal_core.holonomy_v2_2.component_outlier'" /tmp/component-outlier-red.log
+      - name: Commit RED evidence
+        env:
+          RED_SOURCE_SHA: ${{ github.sha }}
+          RED_RUN_ID: ${{ github.run_id }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          evidence = {
+              'schema_version': 1,
+              'red_commit': os.environ['RED_SOURCE_SHA'],
+              'red_run_id': os.environ['RED_RUN_ID'],
+              'test_command': 'python -m pytest -q research/universal_core/holonomy_v2_2/tests/test_component_outlier.py',
+              'expected_failure': "ModuleNotFoundError: No module named 'research.universal_core.holonomy_v2_2.component_outlier'",
+              'failure_confirmed': True,
+              'captured_log': Path('/tmp/component-outlier-red.log').read_text(encoding='utf-8'),
+              'source_trace': {
+                  'task_id': 'b230c067',
+                  'trace_digest': 'e881dc495aada3c875dd8016cc6768e37a2560e1588cb0bee0b46986b412f4ac',
+                  'failure': "two component_rank_color KeyErrors: 'unmapped component rank'",
+              },
+              'mechanistic_hypothesis': {
+                  'primitive': 'component_area_outlier_color',
+                  'invariant': 'one unique area extreme and uniform-area peers',
+                  'hidden_disambiguation': 'four-connectivity violates peer-area uniformity; eight-connectivity completes',
+              },
+              'frozen_core_commit': '1d7c489bcdbff755d638b35ad47ce62bd4fe829d',
+          }
+          path = Path('research/universal_core/holonomy_v2_2/evidence/COMPONENT_OUTLIER_RED.json')
+          path.write_text(json.dumps(evidence, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add research/universal_core/holonomy_v2_2/evidence/COMPONENT_OUTLIER_RED.json
+          git commit -m 'arc: record component outlier RED evidence'
+          git push origin HEAD:universal-core-arc-training-v2-2
