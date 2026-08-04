@@ -20,7 +20,7 @@ jobs:
   snapshot:
     if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[benchmark snapshot]') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,29 +33,51 @@ jobs:
         run: python -m pip install --disable-pip-version-check --quiet pytest datasets huggingface_hub pyarrow
       - name: Run focused regression tests
         run: python -m pytest -q research/universal_core/public_benchmarks/tests
-      - name: Fetch or verify immutable snapshot
+      - name: Determine snapshot mode
+        id: mode
         run: |
-          if test -f research/universal_core/public_benchmarks/vendor/SNAPSHOT_MANIFEST.json; then
-            python -m research.universal_core.public_benchmarks.snapshot verify | tee /tmp/public-benchmark-summary.json
+          if test -f research/universal_core/public_benchmarks/snapshot_index/SNAPSHOT_MANIFEST.json; then
+            echo 'create=false' >> "$GITHUB_OUTPUT"
           else
-            python -m research.universal_core.public_benchmarks.snapshot fetch | tee /tmp/public-benchmark-summary.json
-            python -m research.universal_core.public_benchmarks.snapshot verify
+            echo 'create=true' >> "$GITHUB_OUTPUT"
           fi
-      - name: Commit first snapshot
+      - name: Fetch and verify pinned datasets
+        if: ${{ steps.mode.outputs.create == 'true' }}
         run: |
-          if git status --porcelain -- research/universal_core/public_benchmarks/vendor | grep -q .; then
-            git config user.name github-actions[bot]
-            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-            git add research/universal_core/public_benchmarks/vendor
-            git commit -m '[benchmark snapshot] import pinned ARC-AGI-2, BBEH, and LiveBench data'
-            git push origin HEAD:universal-core-public-benchmarks-v1
-          fi
-      - uses: actions/upload-artifact@v4
+          python -m research.universal_core.public_benchmarks.snapshot fetch | tee /tmp/public-benchmark-summary.json
+          python -m research.universal_core.public_benchmarks.snapshot verify
+      - name: Upload complete benchmark bundle
+        if: ${{ steps.mode.outputs.create == 'true' }}
+        id: snapshot_artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: public-benchmark-snapshot
+          name: public-benchmarks-pinned-2026-08-04
           path: |
             research/universal_core/public_benchmarks/sources.lock.json
             research/universal_core/public_benchmarks/vendor/**
             /tmp/public-benchmark-summary.json
           if-no-files-found: error
           retention-days: 90
+          compression-level: 6
+      - name: Export lightweight immutable index
+        if: ${{ steps.mode.outputs.create == 'true' }}
+        env:
+          ARTIFACT_ID: ${{ steps.snapshot_artifact.outputs.artifact-id }}
+          ARTIFACT_URL: ${{ steps.snapshot_artifact.outputs.artifact-url }}
+          ARTIFACT_DIGEST: ${{ steps.snapshot_artifact.outputs.artifact-digest }}
+        run: |
+          python -m research.universal_core.public_benchmarks.snapshot export-index \
+            --run-id "$GITHUB_RUN_ID" \
+            --artifact-id "$ARTIFACT_ID" \
+            --artifact-url "$ARTIFACT_URL" \
+            --artifact-digest "$ARTIFACT_DIGEST"
+      - name: Verify committed or newly generated index
+        run: python -m research.universal_core.public_benchmarks.snapshot verify-index
+      - name: Commit first snapshot index
+        if: ${{ steps.mode.outputs.create == 'true' }}
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add research/universal_core/public_benchmarks/snapshot_index
+          git commit -m '[benchmark snapshot] seal ARC-AGI-2, BBEH, and LiveBench artifact index'
+          git push origin HEAD:universal-core-public-benchmarks-v1
