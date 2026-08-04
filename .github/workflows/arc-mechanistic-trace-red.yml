@@ -1,0 +1,68 @@
+name: ARC Mechanistic Trace RED
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-mechanistic-trace-red.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  verify-red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check --quiet pytest
+      - name: Require exact missing-recorder failure
+        id: red
+        shell: bash
+        run: |
+          set +e
+          python -m pytest -q research/universal_core/holonomy_v2_2/tests/test_mechanistic_trace.py > /tmp/mechanistic-trace-red.log 2>&1
+          status=$?
+          set -e
+          cat /tmp/mechanistic-trace-red.log
+          test "$status" -ne 0
+          grep -F "No module named 'research.universal_core.holonomy_v2_2.mechanistic_trace'" /tmp/mechanistic-trace-red.log
+      - name: Commit RED evidence
+        env:
+          RED_SOURCE_SHA: ${{ github.sha }}
+          RED_RUN_ID: ${{ github.run_id }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          log = Path('/tmp/mechanistic-trace-red.log').read_text(encoding='utf-8')
+          evidence = {
+              'schema_version': 1,
+              'branch': 'universal-core-arc-training-v2-2',
+              'red_commit': os.environ['RED_SOURCE_SHA'],
+              'red_run_id': os.environ['RED_RUN_ID'],
+              'test_command': 'python -m pytest -q research/universal_core/holonomy_v2_2/tests/test_mechanistic_trace.py',
+              'expected_failure': "ModuleNotFoundError: No module named 'research.universal_core.holonomy_v2_2.mechanistic_trace'",
+              'failure_confirmed': True,
+              'captured_log': log,
+              'frozen_core_commit': '1d7c489bcdbff755d638b35ad47ce62bd4fe829d',
+          }
+          path = Path('research/universal_core/holonomy_v2_2/evidence/MECHANISTIC_TRACE_RED.json')
+          path.parent.mkdir(parents=True, exist_ok=True)
+          path.write_text(json.dumps(evidence, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add research/universal_core/holonomy_v2_2/evidence/MECHANISTIC_TRACE_RED.json
+          git commit -m 'arc: record mechanistic trace RED evidence'
+          git push origin HEAD:universal-core-arc-training-v2-2
