@@ -1,7 +1,7 @@
-from research.universal_core.public_benchmarks import snapshot
+from pathlib import Path
 
 
-def test_normalize_artifact_digest_accepts_upload_action_output() -> None:
-    raw = "b" * 64
-    assert snapshot.normalize_artifact_digest(raw) == f"sha256:{raw}"
-    assert snapshot.normalize_artifact_digest(f"sha256:{raw}") == f"sha256:{raw}"
+def test_workflow_prefixes_upload_artifact_digest() -> None:
+    root = Path(__file__).resolve().parents[4]
+    workflow = (root / ".github" / "workflows" / "public-benchmark-snapshot.yml").read_text(encoding="utf-8")
+    assert '--artifact-digest "sha256:$ARTIFACT_DIGEST"' in workflow
