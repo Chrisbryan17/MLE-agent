@@ -1,0 +1,65 @@
+name: Wire ARC Component Selection
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-component-select-wire.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 0
+      - name: Apply guarded integration patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('research/universal_core/holonomy_v2_2/grid_induction.py')
+          text = path.read_text(encoding='utf-8')
+
+          import_anchor = 'from .region_fill import apply_region, region_candidates\n'
+          import_value = import_anchor + 'from .component_select import apply_component_select, component_select_candidates\n'
+          if text.count(import_anchor) != 1 or 'from .component_select import' in text:
+              raise SystemExit('component selection import anchor mismatch')
+          text = text.replace(import_anchor, import_value, 1)
+
+          version_anchor = '_VERSION = "grid-v2.2-4"'
+          if text.count(version_anchor) != 1:
+              raise SystemExit('version anchor mismatch')
+          text = text.replace(version_anchor, '_VERSION = "grid-v2.2-5"', 1)
+
+          apply_anchor = '    if kind == "color_map":\n'
+          apply_value = (
+              '    if kind == "component_area_select":\n'
+              '        return apply_component_select(program, grid)\n'
+          )
+          if text.count(apply_anchor) != 1:
+              raise SystemExit('component selection apply anchor mismatch')
+          text = text.replace(apply_anchor, apply_value + apply_anchor, 1)
+
+          candidate_anchor = '    candidates.extend(region_candidates(demos))\n'
+          candidate_value = candidate_anchor + '    candidates.extend(component_select_candidates(demos))\n'
+          if text.count(candidate_anchor) != 1:
+              raise SystemExit('component selection candidate anchor mismatch')
+          text = text.replace(candidate_anchor, candidate_value, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+          git diff --check
+          git diff -- research/universal_core/holonomy_v2_2/grid_induction.py
+      - name: Commit integration
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add research/universal_core/holonomy_v2_2/grid_induction.py
+          git commit -m 'arc: wire component area candidates'
+          git push origin HEAD:universal-core-arc-training-v2-2
