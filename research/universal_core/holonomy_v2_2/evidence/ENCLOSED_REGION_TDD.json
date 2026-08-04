@@ -1,0 +1,10 @@
+{
+  "development_split": "ARC-AGI-2 training only",
+  "fixture_commit": "b6c46649f6530a31041a72290ecdc3a651975c6c",
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "implementation_module_commit": "825d11358afc678a56d12a3017a839d1638b3dce",
+  "integration_commit": "89d11fcd561d8f9a70b386f5922d74e98c39870e",
+  "red_run_id": "30940671616",
+  "red_summary": "three enclosed-region contracts failed before integration; the open-region ambiguity control passed",
+  "schema_version": 1
+}
