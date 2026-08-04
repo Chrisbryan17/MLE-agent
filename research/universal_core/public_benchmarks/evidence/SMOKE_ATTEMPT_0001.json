@@ -1,0 +1,50 @@
+{
+  "adapter_commit": "38cef411347baa143a336e9e0aeb6efd52cd260b",
+  "arc_agi_2": {
+    "abstained": 1,
+    "accepted": 0,
+    "attempted_accuracy": 0.0,
+    "correct": 0,
+    "coverage": 0.0,
+    "failed": 0,
+    "families": 1,
+    "incorrect_attempts": 0,
+    "raw_accuracy": 0.0,
+    "rows": 1
+  },
+  "bbeh_transfer": {
+    "abstained": 0,
+    "accepted": 154,
+    "attempted_accuracy": 0.3181818181818182,
+    "correct": 49,
+    "coverage": 0.7897435897435897,
+    "failed": 41,
+    "families": 1,
+    "incorrect_attempts": 105,
+    "raw_accuracy": 0.2512820512820513,
+    "rows": 195
+  },
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "livebench_scalar_transfer": {
+    "abstained": 0,
+    "accepted": 3,
+    "attempted_accuracy": 0.0,
+    "correct": 0,
+    "coverage": 0.06666666666666667,
+    "failed": 42,
+    "families": 1,
+    "incorrect_attempts": 3,
+    "raw_accuracy": 0.0,
+    "rows": 45
+  },
+  "raw_report_artifact_available": false,
+  "report_digest_emitted_by_runner": "97ff2090d09f3bd7c646533eaa618264a3b4a16a4271db126bf877047b4ba4ab",
+  "run_label": "public-benchmark-smoke-0001",
+  "snapshot_inventory_digest": "486badc9ccc8eb4911b1b7f234d785c68c4ff3e53f5d320d7c230e1ceff3dff3",
+  "status": "runner_completed_wrapper_failed",
+  "workflow_failure": {
+    "cause": "tee opened console-summary.json before the output directory existed",
+    "job_id": "92083040905",
+    "run_id": "30936255166"
+  }
+}
