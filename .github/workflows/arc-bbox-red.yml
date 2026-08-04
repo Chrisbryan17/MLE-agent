@@ -1,0 +1,69 @@
+name: ARC Bounding Box RED
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-bbox-red.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  verify-red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check --quiet pytest
+      - name: Require missing bounding-box module
+        run: |
+          set +e
+          python -m pytest -q research/universal_core/holonomy_v2_2/tests/test_bbox_complete.py > /tmp/bbox-red.log 2>&1
+          status=$?
+          set -e
+          cat /tmp/bbox-red.log
+          test "$status" -ne 0
+          grep -F "No module named 'research.universal_core.holonomy_v2_2.bbox_complete'" /tmp/bbox-red.log
+      - name: Commit RED evidence
+        env:
+          RED_SOURCE_SHA: ${{ github.sha }}
+          RED_RUN_ID: ${{ github.run_id }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          evidence = {
+              'schema_version': 1,
+              'red_commit': os.environ['RED_SOURCE_SHA'],
+              'red_run_id': os.environ['RED_RUN_ID'],
+              'test_command': 'python -m pytest -q research/universal_core/holonomy_v2_2/tests/test_bbox_complete.py',
+              'expected_failure': "ModuleNotFoundError: No module named 'research.universal_core.holonomy_v2_2.bbox_complete'",
+              'failure_confirmed': True,
+              'expected_new_exact_tasks': ['3aa6fb7a', '6d75e8bb', 'e7639916'],
+              'required_ambiguity': '60b61512',
+              'mechanistic_family': {
+                  'scope': ['global', 'components'],
+                  'mode': ['fill', 'outline'],
+                  'preserve_existing_cells': True,
+                  'component_connectivity': [4, 8],
+              },
+              'frozen_core_commit': '1d7c489bcdbff755d638b35ad47ce62bd4fe829d',
+          }
+          path = Path('research/universal_core/holonomy_v2_2/evidence/BBOX_COMPLETE_RED.json')
+          path.write_text(json.dumps(evidence, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add research/universal_core/holonomy_v2_2/evidence/BBOX_COMPLETE_RED.json
+          git commit -m 'arc: record bounding box RED evidence'
+          git push origin HEAD:universal-core-arc-training-v2-2
