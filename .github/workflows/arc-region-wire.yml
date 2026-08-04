@@ -52,20 +52,16 @@ jobs:
               raise SystemExit('region candidate anchor mismatch')
           text = text.replace(candidate_anchor, candidate_value, 1)
 
-          background_anchor = '''    backgrounds = sorted({cell for source, _ in demos for row in source for cell in row})
-          candidates.extend({"kind": "crop", "background": item} for item in backgrounds)
-          for background in backgrounds:
-          '''
-          background_value = '''    backgrounds = sorted({cell for source, _ in demos for row in source for cell in row})
-          candidates.extend({"kind": "crop", "background": item} for item in backgrounds)
-          common_backgrounds = set(cell for row in demos[0][0] for cell in row)
-          for source, _ in demos[1:]:
-              common_backgrounds.intersection_update(cell for row in source for cell in row)
-          for background in sorted(common_backgrounds):
-          '''
-          if text.count(background_anchor) != 1:
-              raise SystemExit('component background anchor mismatch')
-          text = text.replace(background_anchor, background_value, 1)
+          background_loop = '    for background in backgrounds:\n'
+          background_value = (
+              '    common_backgrounds = set(cell for row in demos[0][0] for cell in row)\n'
+              '    for source, _ in demos[1:]:\n'
+              '        common_backgrounds.intersection_update(cell for row in source for cell in row)\n'
+              '    for background in sorted(common_backgrounds):\n'
+          )
+          if text.count(background_loop) != 1:
+              raise SystemExit('component background loop mismatch')
+          text = text.replace(background_loop, background_value, 1)
 
           path.write_text(text, encoding='utf-8')
           PY
