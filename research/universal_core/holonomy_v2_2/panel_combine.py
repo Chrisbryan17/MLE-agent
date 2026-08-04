@@ -97,13 +97,15 @@ def _background_candidates(demos: Sequence[tuple[Grid, Grid]]) -> tuple[int, ...
     return tuple(sorted(backgrounds))
 
 
-def panel_candidates(demos: Sequence[tuple[Grid, Grid]]) -> tuple[Program, ...]:
+def panel_programs(
+    demos: Sequence[tuple[Grid, Grid]],
+) -> tuple[tuple[Program, ...], str | None]:
     target_colors = sorted(
         {cell for _, target in demos for row in target for cell in row}
     )
     if len(target_colors) != 2:
-        return ()
-    candidates: list[Program] = []
+        return (), "TARGET_COLOR_CARDINALITY_NOT_TWO"
+    programs: list[Program] = []
     for axis in ("vertical", "horizontal"):
         for gap in (0, 1, 2):
             for background in _background_candidates(demos):
@@ -112,7 +114,7 @@ def panel_candidates(demos: Sequence[tuple[Grid, Grid]]) -> tuple[Program, ...]:
                         (target_colors[0], target_colors[1]),
                         (target_colors[1], target_colors[0]),
                     ):
-                        program = {
+                        programs.append({
                             "kind": "panel_boolean_combine",
                             "axis": axis,
                             "gap": gap,
@@ -120,7 +122,12 @@ def panel_candidates(demos: Sequence[tuple[Grid, Grid]]) -> tuple[Program, ...]:
                             "predicate": predicate,
                             "true_color": true_color,
                             "false_color": false_color,
-                        }
-                        if _fits(program, demos):
-                            candidates.append(program)
-    return tuple(candidates)
+                        })
+    if not programs:
+        return (), "NO_STRUCTURAL_PROGRAM"
+    return tuple(programs), None
+
+
+def panel_candidates(demos: Sequence[tuple[Grid, Grid]]) -> tuple[Program, ...]:
+    programs, _ = panel_programs(demos)
+    return tuple(program for program in programs if _fits(program, demos))
