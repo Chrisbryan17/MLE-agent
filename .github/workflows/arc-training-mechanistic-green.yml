@@ -1,0 +1,107 @@
+name: ARC Training Mechanistic GREEN
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-training-mechanistic-green.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  verify-green:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check --quiet pytest
+      - name: Run focused corpus trace tests
+        id: focused
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python -m pytest -q \
+            research/universal_core/holonomy_v2_2/tests/test_trace_diagnosis.py \
+            research/universal_core/holonomy_v2_2/tests/test_training_mechanistic.py \
+            research/universal_core/holonomy_v2_2/tests/test_training_eval.py \
+            | tee /tmp/focused.log
+      - name: Run all V2.2 tests
+        id: cluster
+        if: always()
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python -m pytest -q research/universal_core/holonomy_v2_2/tests | tee /tmp/v2-2.log
+      - name: Run frozen V2 integration tests
+        id: frozen
+        if: always()
+        continue-on-error: true
+        env:
+          PYTHONPATH: research
+        run: |
+          set -o pipefail
+          python -m pytest -q \
+            research/universal_core/holonomy_v2/tests/test_blind_adapter.py \
+            research/universal_core/holonomy_v2/tests/test_engine.py | tee /tmp/frozen.log
+      - name: Confirm frozen V2 bytes are unchanged
+        id: byte_gate
+        if: always()
+        continue-on-error: true
+        run: git diff --quiet 1d7c489bcdbff755d638b35ad47ce62bd4fe829d -- research/universal_core/holonomy_v2
+      - name: Record GREEN or diagnostics
+        if: always()
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          FOCUSED_OUTCOME: ${{ steps.focused.outcome }}
+          CLUSTER_OUTCOME: ${{ steps.cluster.outcome }}
+          FROZEN_OUTCOME: ${{ steps.frozen.outcome }}
+          BYTE_OUTCOME: ${{ steps.byte_gate.outcome }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          outcomes = {
+              'focused': os.environ['FOCUSED_OUTCOME'],
+              'v2_2_cluster': os.environ['CLUSTER_OUTCOME'],
+              'frozen_tests': os.environ['FROZEN_OUTCOME'],
+              'frozen_byte_gate': os.environ['BYTE_OUTCOME'],
+          }
+          passed = all(value == 'success' for value in outcomes.values())
+          evidence = {
+              'schema_version': 1,
+              'green_commit': os.environ['SOURCE_SHA'],
+              'run_id': os.environ['RUN_ID'],
+              'passed': passed,
+              'outcomes': outcomes,
+              'focused_output': Path('/tmp/focused.log').read_text(encoding='utf-8') if Path('/tmp/focused.log').exists() else '',
+              'v2_2_output': Path('/tmp/v2-2.log').read_text(encoding='utf-8') if Path('/tmp/v2-2.log').exists() else '',
+              'frozen_output': Path('/tmp/frozen.log').read_text(encoding='utf-8') if Path('/tmp/frozen.log').exists() else '',
+              'frozen_core_commit': '1d7c489bcdbff755d638b35ad47ce62bd4fe829d',
+          }
+          name = 'TRAINING_MECHANISTIC_GREEN.json' if passed else 'TRAINING_MECHANISTIC_DIAGNOSTIC.json'
+          path = Path('research/universal_core/holonomy_v2_2/evidence') / name
+          path.write_text(json.dumps(evidence, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          Path('/tmp/passed').write_text('1' if passed else '0', encoding='utf-8')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          if [ "$(cat /tmp/passed)" = "1" ]; then
+            git add research/universal_core/holonomy_v2_2/evidence/TRAINING_MECHANISTIC_GREEN.json
+            git commit -m 'arc: record mechanistic corpus GREEN evidence'
+          else
+            git add research/universal_core/holonomy_v2_2/evidence/TRAINING_MECHANISTIC_DIAGNOSTIC.json
+            git commit -m 'arc: record mechanistic corpus diagnostic failure'
+          fi
+          git push origin HEAD:universal-core-arc-training-v2-2
+          test "$(cat /tmp/passed)" = "1"
