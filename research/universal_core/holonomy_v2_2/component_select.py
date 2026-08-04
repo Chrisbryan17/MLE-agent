@@ -97,10 +97,18 @@ def _fits(program: Program, demos: Sequence[tuple[Grid, Grid]]) -> bool:
         return False
 
 
-def _modal_color(grid: Grid) -> int:
-    counts = Counter(cell for row in grid for cell in row)
+def _mode(values: Sequence[int]) -> int:
+    counts = Counter(values)
     highest = max(counts.values())
     return min(color for color, count in counts.items() if count == highest)
+
+
+def _modal_color(grid: Grid) -> int:
+    return _mode([cell for row in grid for cell in row])
+
+
+def _corner_mode(grid: Grid) -> int:
+    return _mode([grid[0][0], grid[0][-1], grid[-1][0], grid[-1][-1]])
 
 
 def _background_candidates(demos: Sequence[tuple[Grid, Grid]]) -> tuple[int, ...]:
@@ -109,12 +117,14 @@ def _background_candidates(demos: Sequence[tuple[Grid, Grid]]) -> tuple[int, ...
         common.intersection_update(cell for row in source for cell in row)
     if 0 in common:
         return (0,)
+    candidates: set[int] = set()
     modal_colors = {_modal_color(source) for source, _ in demos}
     if len(modal_colors) == 1:
-        modal = next(iter(modal_colors))
-        if modal in common:
-            return (modal,)
-    return ()
+        candidates.update(modal_colors & common)
+    corner_colors = {_corner_mode(source) for source, _ in demos}
+    if len(corner_colors) == 1:
+        candidates.update(corner_colors & common)
+    return tuple(sorted(candidates))
 
 
 def component_select_candidates(demos: Sequence[tuple[Grid, Grid]]) -> tuple[Program, ...]:
