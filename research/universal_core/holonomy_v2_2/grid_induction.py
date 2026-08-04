@@ -9,12 +9,13 @@ from research.universal_core.holonomy_v2.blind_adapter import run_public_task_v2
 
 from .panel_combine import apply_panel, panel_candidates
 from .region_fill import apply_region, region_candidates
+from .component_select import apply_component_select, component_select_candidates
 
 
 Grid = list[list[int]]
 Program = dict[str, Any]
 Point = tuple[int, int]
-_VERSION = "grid-v2.2-4"
+_VERSION = "grid-v2.2-5"
 
 
 def _canonical(value: Any) -> bytes:
@@ -210,6 +211,8 @@ def _apply(program: Program, value: Any) -> Grid:
         return apply_panel(program, grid)
     if kind == "enclosed_region_fill":
         return apply_region(program, grid)
+    if kind == "component_area_select":
+        return apply_component_select(program, grid)
     if kind == "color_map":
         mapping = {int(key): int(item) for key, item in program["mapping"].items()}
         if any(cell not in mapping for row in grid for cell in row):
@@ -318,6 +321,7 @@ def _candidate_programs(demos: Sequence[tuple[Grid, Grid]]) -> tuple[Program, ..
 
     candidates.extend(panel_candidates(demos))
     candidates.extend(region_candidates(demos))
+    candidates.extend(component_select_candidates(demos))
 
     by_digest: dict[str, Program] = {}
     for candidate in candidates:
