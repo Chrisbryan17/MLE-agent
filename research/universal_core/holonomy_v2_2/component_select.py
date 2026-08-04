@@ -127,17 +127,27 @@ def _background_candidates(demos: Sequence[tuple[Grid, Grid]]) -> tuple[int, ...
     return tuple(sorted(candidates))
 
 
-def component_select_candidates(demos: Sequence[tuple[Grid, Grid]]) -> tuple[Program, ...]:
-    candidates: list[Program] = []
-    for background in _background_candidates(demos):
+def component_select_programs(
+    demos: Sequence[tuple[Grid, Grid]],
+) -> tuple[tuple[Program, ...], str | None]:
+    backgrounds = _background_candidates(demos)
+    if not backgrounds:
+        return (), "NO_BACKGROUND_CANDIDATE"
+    programs: list[Program] = []
+    for background in backgrounds:
         for connectivity in (4, 8):
             for selector in ("minimum", "maximum"):
-                program = {
+                programs.append({
                     "kind": "component_area_select",
                     "background": background,
                     "connectivity": connectivity,
                     "selector": selector,
-                }
-                if _fits(program, demos):
-                    candidates.append(program)
-    return tuple(candidates)
+                })
+    if not programs:
+        return (), "NO_STRUCTURAL_PROGRAM"
+    return tuple(programs), None
+
+
+def component_select_candidates(demos: Sequence[tuple[Grid, Grid]]) -> tuple[Program, ...]:
+    programs, _ = component_select_programs(demos)
+    return tuple(program for program in programs if _fits(program, demos))
