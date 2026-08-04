@@ -1,0 +1,39 @@
+name: ARC Training V2.2
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-training-v2-2.yml'
+      - 'research/universal_core/holonomy_v2_2/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  grid-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check --quiet pytest
+      - name: Run V2.2 grid tests
+        run: python -m pytest -q research/universal_core/holonomy_v2_2/tests
+      - name: Run frozen V2 integration cluster
+        env:
+          PYTHONPATH: research
+        run: >-
+          python -m pytest -q
+          research/universal_core/holonomy_v2/tests/test_blind_adapter.py
+          research/universal_core/holonomy_v2/tests/test_engine.py
+      - name: Confirm frozen V2 bytes are unchanged
+        run: git diff --quiet 1d7c489bcdbff755d638b35ad47ce62bd4fe829d -- research/universal_core/holonomy_v2
