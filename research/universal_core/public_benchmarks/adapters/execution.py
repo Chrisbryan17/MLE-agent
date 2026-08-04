@@ -4,7 +4,7 @@ from typing import Any, Iterable, Mapping
 
 from research.universal_core.holonomy_v2.blind_adapter import run_public_task_v2
 
-from .arc_agi_2 import arc_task_from_payload, build_submission
+from .arc_agi_2 import arc_task_from_payload, build_submission, score_result as score_arc
 from .bbeh import bbeh_task_from_payload, score_result as score_bbeh
 from .livebench import livebench_task_from_rows, score_result as score_livebench
 
@@ -22,6 +22,7 @@ def run_arc_payload(
         "task_id": task_id,
         "raw_result": raw_result,
         "submission": submission,
+        "metrics": score_arc(task_id, payload, raw_result),
     }
 
 
