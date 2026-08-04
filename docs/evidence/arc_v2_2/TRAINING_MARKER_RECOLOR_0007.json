@@ -1,0 +1,74 @@
+{
+  "artifact": {
+    "digest": "sha256:eb62c32eddeaf04817ee17d076469160ca9a653d6fd910b8d02844754c3f8edf",
+    "id": 8909206467,
+    "name": "arc-v2-2-mechanistic-bbb192edd1706b204428041015779c28ded0c4b7",
+    "size_in_bytes": 17989697
+  },
+  "candidate_commit": "bbb192edd1706b204428041015779c28ded0c4b7",
+  "checksum_manifest": {
+    "entry_count": 1006,
+    "verified": true
+  },
+  "diagnosis": {
+    "diagnosis_digest": "a1d5c224724b77cd98d87589a78504960c9b490c86b2d0130a39a8fc704a3298",
+    "hidden_failure_counts": {
+      "color_map": {
+        "KeyError": 1
+      },
+      "component_rank_color": {
+        "KeyError": 3
+      }
+    },
+    "selected_marker_recolor_tasks": 1,
+    "total_event_count": 326046,
+    "trace_count": 1000
+  },
+  "focused_green": {
+    "focused_tests": 11,
+    "frozen_byte_gate": true,
+    "frozen_tests": 5,
+    "run_id": 30950841994,
+    "v2_2_tests": 55
+  },
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "mechanistic": {
+    "compact_parity_count": 1000,
+    "compact_parity_mismatches": 0,
+    "trace_count": 1000,
+    "trace_schema": "mechanistic-grid-trace-v1"
+  },
+  "metrics": {
+    "accepted": 60,
+    "attempted_accuracy": 1.0,
+    "correct": 60,
+    "coverage": 0.055762081784386616,
+    "incorrect_attempts": 0,
+    "raw_accuracy": 0.055762081784386616,
+    "rows": 1076
+  },
+  "public_arc_evaluation_rerun": false,
+  "report_digest": "4ba3f1e42d25d6d328891fb00cf79a2b26b218db7355fb0ad7fccef9f94ae7d3",
+  "run_id": 30951065593,
+  "schema_version": 1,
+  "status_counts": {
+    "ACCEPTED": 60,
+    "EXECUTION_FAILED": 1,
+    "GRAMMAR_EXHAUSTED": 1015
+  },
+  "transition": {
+    "gained_rows": {
+      "aabf363d": {
+        "baseline_correct": 0,
+        "current_correct": 1
+      }
+    },
+    "lost_rows": {},
+    "preserved_color_map_failure_count": 1,
+    "repair_success_count": 2,
+    "selected_candidate_id": "marker_recolor:0000",
+    "task_id": "aabf363d",
+    "terminal_status": "ACCEPTED",
+    "trace_digest": "c961a60fee167994dfa1eea3efd25330fad6c59ba8c3d82e135a151ee50886bc"
+  }
+}
