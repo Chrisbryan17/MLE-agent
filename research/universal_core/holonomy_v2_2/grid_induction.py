@@ -13,12 +13,13 @@ from .component_select import apply_component_select, component_select_candidate
 from .marker_recolor import apply_marker_recolor
 from .component_outlier import apply_component_outlier
 from .bbox_complete import apply_bbox_complete
+from .mirror_concat import apply_mirror_concat
 
 
 Grid = list[list[int]]
 Program = dict[str, Any]
 Point = tuple[int, int]
-_VERSION = "grid-v2.2-8"
+_VERSION = "grid-v2.2-9"
 
 
 def _canonical(value: Any) -> bytes:
@@ -216,6 +217,8 @@ def _apply(program: Program, value: Any) -> Grid:
         return apply_region(program, grid)
     if kind == "component_area_select":
         return apply_component_select(program, grid)
+    if kind == "mirror_concatenate":
+        return apply_mirror_concat(program, grid)
     if kind == "bounding_box_complete":
         return apply_bbox_complete(program, grid)
     if kind == "component_area_outlier_color":

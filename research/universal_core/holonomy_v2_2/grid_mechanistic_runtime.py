@@ -9,6 +9,7 @@ from .mechanistic_trace import TraceRecorder
 from .marker_recolor import marker_recolor_programs
 from .component_outlier import component_outlier_programs
 from .bbox_complete import bbox_complete_programs
+from .mirror_concat import mirror_concat_programs
 from .panel_combine import panel_programs
 from .region_fill import region_programs
 
@@ -92,6 +93,7 @@ def _generator_batches(demos: Sequence[Demo]) -> tuple[tuple[str, tuple[Program,
     marker_recolor, marker_reason = marker_recolor_programs(demos)
     component_outlier, outlier_reason = component_outlier_programs(demos)
     bbox_complete, bbox_reason = bbox_complete_programs(demos)
+    mirror_concat, mirror_reason = mirror_concat_programs(demos)
     return (
         ("fixed", fixed, None),
         ("color_map", color_programs, None if color_programs else "NO_CONSISTENT_COLOR_MAP"),
@@ -106,6 +108,7 @@ def _generator_batches(demos: Sequence[Demo]) -> tuple[tuple[str, tuple[Program,
         ("marker_recolor", marker_recolor, marker_reason),
         ("component_outlier", component_outlier, outlier_reason),
         ("bbox_complete", bbox_complete, bbox_reason),
+        ("mirror_concat", mirror_concat, mirror_reason),
         ("panel", panel, panel_reason),
         ("region", region, region_reason),
         ("component_select", component_select, component_reason),
