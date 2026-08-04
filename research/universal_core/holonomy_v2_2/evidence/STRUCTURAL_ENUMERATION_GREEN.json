@@ -1,0 +1,15 @@
+{
+  "focused_output": "......                                                                   [100%]\n6 passed in 0.03s\n",
+  "frozen_byte_gate": true,
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "frozen_output": ".....                                                                    [100%]\n5 passed in 0.16s\n",
+  "green_commit": "438d55f277a41cb10b2cfa1fff3688f9e2cae0af",
+  "green_run_id": "30948261324",
+  "interfaces": [
+    "panel_programs",
+    "region_programs",
+    "component_select_programs"
+  ],
+  "schema_version": 1,
+  "v2_2_output": ".......................................                                  [100%]\n39 passed in 0.21s\n"
+}
