@@ -1,0 +1,11 @@
+{
+  "branch": "universal-core-arc-training-v2-2",
+  "captured_log": "\n==================================== ERRORS ====================================\n_ ERROR collecting research/universal_core/holonomy_v2_2/tests/test_mechanistic_trace.py _\nImportError while importing test module '/home/runner/work/MLE-agent/MLE-agent/research/universal_core/holonomy_v2_2/tests/test_mechanistic_trace.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nresearch/universal_core/holonomy_v2_2/tests/test_mechanistic_trace.py:8: in <module>\n    from research.universal_core.holonomy_v2_2.mechanistic_trace import (\nE   ModuleNotFoundError: No module named 'research.universal_core.holonomy_v2_2.mechanistic_trace'\n=========================== short test summary info ============================\nERROR research/universal_core/holonomy_v2_2/tests/test_mechanistic_trace.py\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.12s\n",
+  "expected_failure": "ModuleNotFoundError: No module named 'research.universal_core.holonomy_v2_2.mechanistic_trace'",
+  "failure_confirmed": true,
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "red_commit": "ed0b66d72faab36df527bc656c52be56c720e439",
+  "red_run_id": "30947444119",
+  "schema_version": 1,
+  "test_command": "python -m pytest -q research/universal_core/holonomy_v2_2/tests/test_mechanistic_trace.py"
+}
