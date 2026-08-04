@@ -1,0 +1,20 @@
+{
+  "expected_failure": "ModuleNotFoundError: No module named 'research.universal_core.holonomy_v2_2.mirror_concat'",
+  "expected_new_exact_tasks": [
+    "4c4377d9",
+    "6d0aefbc",
+    "6fa7a44f",
+    "8be77c9e",
+    "c9e6f938"
+  ],
+  "failure_confirmed": true,
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "red_commit": "5bd85542a5f049043c9c428574a1ab36d5b75781",
+  "red_run_id": "30953619229",
+  "schema_version": 1,
+  "test_command": "python -m pytest -q research/universal_core/holonomy_v2_2/tests/test_mirror_concat.py",
+  "training_scan": {
+    "ambiguous_hidden_outputs": 0,
+    "wrong_completed_hidden_outputs": 0
+  }
+}
