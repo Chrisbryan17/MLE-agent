@@ -1,0 +1,101 @@
+name: ARC V2.2 Training Corpus
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-training-corpus-v2-2.yml'
+      - 'research/universal_core/holonomy_v2_2/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: arc-v2-2-training-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  training-corpus:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download immutable benchmark corpus
+        uses: actions/download-artifact@v4
+        with:
+          name: public-benchmarks-pinned-2026-08-04
+          path: /tmp/pinned-public-benchmarks
+          github-token: ${{ github.token }}
+          repository: Chrisbryan17/MLE-agent
+          run-id: '30929169392'
+      - name: Verify V2.2 and frozen V2 gates
+        env:
+          PYTHONPATH: research
+        run: |
+          python -m pip install --disable-pip-version-check --quiet pytest
+          python -m pytest -q research/universal_core/holonomy_v2_2/tests
+          python -m pytest -q \
+            research/universal_core/holonomy_v2/tests/test_blind_adapter.py \
+            research/universal_core/holonomy_v2/tests/test_engine.py
+          git diff --quiet 1d7c489bcdbff755d638b35ad47ce62bd4fe829d -- research/universal_core/holonomy_v2
+      - name: Run all ARC training tasks
+        run: |
+          mkdir -p /tmp/arc-v2-2-training
+          python - <<'PY' | tee /tmp/arc-v2-2-training/console-summary.json
+          import json
+          import os
+          from pathlib import Path
+          from research.universal_core.holonomy_v2.engine import HolonomyEngine
+          from research.universal_core.holonomy_v2.types import SearchConfig
+          from research.universal_core.holonomy_v2_2.training_eval import run_training_corpus, write_report
+          from research.universal_core.public_benchmarks.suite import locate_vendor
+
+          vendor = locate_vendor(Path('/tmp/pinned-public-benchmarks'))
+          report = run_training_corpus(
+              vendor,
+              HolonomyEngine(SearchConfig()),
+              run_label='arc-v2-2-training-' + os.environ['GITHUB_SHA'][:12],
+              candidate_commit=os.environ['GITHUB_SHA'],
+          )
+          write_report(report, Path('/tmp/arc-v2-2-training/report.json'))
+          print(json.dumps({
+              'report_digest': report['report_digest'],
+              'evaluated_tasks': report['evaluated_tasks'],
+              'metrics': report['metrics'],
+              'status_counts': report['status_counts'],
+          }, sort_keys=True))
+          PY
+      - name: Publish training report
+        uses: actions/upload-artifact@v4
+        with:
+          name: arc-v2-2-training-${{ github.sha }}
+          path: /tmp/arc-v2-2-training
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 6
+      - name: Write training summary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('/tmp/arc-v2-2-training/report.json').read_text())
+          lines = [
+              '# ARC V2.2 training corpus',
+              '',
+              f"- Candidate: `{report['identity']['candidate_commit']}`",
+              f"- Report digest: `{report['report_digest']}`",
+              f"- Tasks: `{report['evaluated_tasks']}`",
+              f"- Metrics: `{report['metrics']}`",
+              f"- Status counts: `{report['status_counts']}`",
+          ]
+          Path('/tmp/arc-v2-2-training-summary.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+          PY
+          cat /tmp/arc-v2-2-training-summary.md >> "$GITHUB_STEP_SUMMARY"
