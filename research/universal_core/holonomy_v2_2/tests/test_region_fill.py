@@ -12,12 +12,40 @@ def make_task(demos: list[dict[str, object]], hidden: list[object]) -> dict[str,
     }
 
 
+def ring(color: int) -> list[list[int]]:
+    return [
+        [0, 0, 0, 0, 0],
+        [0, color, color, color, 0],
+        [0, color, 0, color, 0],
+        [0, color, color, color, 0],
+        [0, 0, 0, 0, 0],
+    ]
+
+
 def test_enclosed_background_cells_are_filled_on_a_copy() -> None:
     value = make_task(
-        [{
-            "input": [[0, 2, 2, 2, 0], [0, 2, 0, 2, 0], [0, 2, 2, 2, 0]],
-            "output": [[0, 2, 2, 2, 0], [0, 2, 4, 2, 0], [0, 2, 2, 2, 0]],
-        }],
+        [
+            {
+                "input": ring(2),
+                "output": [
+                    [0, 0, 0, 0, 0],
+                    [0, 2, 2, 2, 0],
+                    [0, 2, 4, 2, 0],
+                    [0, 2, 2, 2, 0],
+                    [0, 0, 0, 0, 0],
+                ],
+            },
+            {
+                "input": ring(8),
+                "output": [
+                    [0, 0, 0, 0, 0],
+                    [0, 8, 8, 8, 0],
+                    [0, 8, 4, 8, 0],
+                    [0, 8, 8, 8, 0],
+                    [0, 0, 0, 0, 0],
+                ],
+            },
+        ],
         [[[3, 3, 3], [3, 0, 3], [3, 3, 3]]],
     )
 
@@ -31,11 +59,16 @@ def test_enclosed_background_cells_are_filled_on_a_copy() -> None:
 
 
 def test_only_enclosed_cells_can_be_highlighted() -> None:
+    blank = [[0, 0, 0, 0, 0] for _ in range(5)]
+    first = [row[:] for row in blank]
+    second = [row[:] for row in blank]
+    first[2][2] = 7
+    second[2][2] = 7
     value = make_task(
-        [{
-            "input": [[0, 2, 2, 2, 0], [0, 2, 0, 2, 0], [0, 2, 2, 2, 0]],
-            "output": [[0, 0, 0, 0, 0], [0, 0, 7, 0, 0], [0, 0, 0, 0, 0]],
-        }],
+        [
+            {"input": ring(2), "output": first},
+            {"input": ring(8), "output": second},
+        ],
         [[[5, 5, 5], [5, 0, 5], [5, 5, 5]]],
     )
 
@@ -48,11 +81,18 @@ def test_only_enclosed_cells_can_be_highlighted() -> None:
 
 
 def test_closed_regions_can_be_solidified_to_one_color() -> None:
+    solid = [
+        [0, 0, 0, 0, 0],
+        [0, 6, 6, 6, 0],
+        [0, 6, 6, 6, 0],
+        [0, 6, 6, 6, 0],
+        [0, 0, 0, 0, 0],
+    ]
     value = make_task(
-        [{
-            "input": [[0, 2, 2, 2, 0], [0, 2, 0, 2, 0], [0, 2, 2, 2, 0]],
-            "output": [[0, 6, 6, 6, 0], [0, 6, 6, 6, 0], [0, 6, 6, 6, 0]],
-        }],
+        [
+            {"input": ring(2), "output": solid},
+            {"input": ring(8), "output": solid},
+        ],
         [[[0, 3, 3, 0], [0, 3, 0, 3], [0, 3, 3, 3]]],
     )
 
