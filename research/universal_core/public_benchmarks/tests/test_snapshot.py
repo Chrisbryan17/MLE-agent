@@ -29,6 +29,23 @@ def test_bbeh_counter_requires_input_and_target(tmp_path: pathlib.Path) -> None:
         snapshot.count_bbeh(tmp_path)
 
 
+def test_bbeh_mini_counter_requires_input_and_target(tmp_path: pathlib.Path) -> None:
+    path = tmp_path / "data.json"
+    write(
+        path,
+        {
+            "examples": [
+                {"input": "q1", "target": "a1"},
+                {"input": "q2", "target": "a2"},
+            ]
+        },
+    )
+    assert snapshot.count_bbeh_mini(path) == 2
+    write(path, {"examples": [{"input": "q"}]})
+    with pytest.raises(RuntimeError, match="malformed"):
+        snapshot.count_bbeh_mini(path)
+
+
 def test_inventory_is_stable_and_excludes_manifest(tmp_path: pathlib.Path) -> None:
     (tmp_path / "b.txt").write_text("b", encoding="utf-8")
     (tmp_path / "a.txt").write_text("a", encoding="utf-8")
