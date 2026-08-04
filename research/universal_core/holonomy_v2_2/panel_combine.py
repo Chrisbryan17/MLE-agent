@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from typing import Any, Mapping, Sequence
 
 
@@ -88,19 +89,30 @@ def _fits(program: Program, demos: Sequence[tuple[Grid, Grid]]) -> bool:
         return False
 
 
+def _modal_color(grid: Grid) -> int:
+    counts = Counter(cell for row in grid for cell in row)
+    highest = max(counts.values())
+    return min(color for color, count in counts.items() if count == highest)
+
+
+def _background_candidates(demos: Sequence[tuple[Grid, Grid]]) -> tuple[int, ...]:
+    backgrounds = {0}
+    modal_colors = {_modal_color(source) for source, _ in demos}
+    if len(modal_colors) == 1:
+        backgrounds.update(modal_colors)
+    return tuple(sorted(backgrounds))
+
+
 def panel_candidates(demos: Sequence[tuple[Grid, Grid]]) -> tuple[Program, ...]:
     target_colors = sorted(
         {cell for _, target in demos for row in target for cell in row}
     )
     if len(target_colors) != 2:
         return ()
-    source_colors = sorted(
-        {cell for source, _ in demos for row in source for cell in row}
-    )
     candidates: list[Program] = []
     for axis in ("vertical", "horizontal"):
         for gap in (0, 1, 2):
-            for background in source_colors:
+            for background in _background_candidates(demos):
                 for predicate in _PREDICATES:
                     for true_color, false_color in (
                         (target_colors[0], target_colors[1]),
