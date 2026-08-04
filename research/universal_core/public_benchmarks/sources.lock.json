@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "frozen_core": {
+    "repository": "Chrisbryan17/MLE-agent",
+    "commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d"
+  },
+  "benchmarks": {
+    "arc_agi_2": {
+      "repository": "https://github.com/arcprize/ARC-AGI-2.git",
+      "commit": "f3283f727488ad98fe575ea6a5ac981e4a188e49",
+      "license": "Apache-2.0",
+      "expected_training_tasks": 1000,
+      "expected_evaluation_tasks": 120
+    },
+    "bbeh": {
+      "repository": "https://github.com/google-deepmind/bbeh.git",
+      "commit": "80d12ca916b7158f22293fcf3144f4d3d854d4be",
+      "software_license": "Apache-2.0",
+      "materials_license": "CC-BY-4.0",
+      "expected_full_examples": 4520,
+      "expected_mini_examples": 460
+    },
+    "livebench": {
+      "repository": "https://github.com/LiveBench/LiveBench.git",
+      "commit": "00eae856aa1c1a9e9d058a65a9a94d85884034c4",
+      "public_release_ceiling": "2026-06-25",
+      "dataset_repositories": [
+        "livebench/coding",
+        "livebench/data_analysis",
+        "livebench/instruction_following",
+        "livebench/language",
+        "livebench/math",
+        "livebench/reasoning"
+      ]
+    }
+  }
+}
