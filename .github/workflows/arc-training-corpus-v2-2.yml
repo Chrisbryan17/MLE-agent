@@ -58,7 +58,6 @@ jobs:
         run: |
           mkdir -p /tmp/arc-v2-2-training/traces
           python - <<'PY' | tee /tmp/arc-v2-2-training/console-summary.json
-          import hashlib
           import json
           import os
           from pathlib import Path
@@ -217,6 +216,24 @@ jobs:
               encoding='utf-8',
           )
 
+          print(json.dumps({
+              'report_digest': report['report_digest'],
+              'diagnosis_digest': report['mechanistic']['diagnosis_digest'],
+              'evaluated_tasks': report['evaluated_tasks'],
+              'trace_count': report['mechanistic']['trace_count'],
+              'parity_count': report['mechanistic']['parity_count'],
+              'metrics': report['metrics'],
+              'status_counts': report['status_counts'],
+              'root_causes': root_causes,
+          }, sort_keys=True))
+          PY
+      - name: Build checksum manifest after all writers close
+        run: |
+          python - <<'PY'
+          import hashlib
+          from pathlib import Path
+
+          output = Path('/tmp/arc-v2-2-training')
           manifest_lines = []
           for path in sorted(
               item for item in output.rglob('*')
@@ -228,17 +245,6 @@ jobs:
               '\n'.join(manifest_lines) + '\n',
               encoding='utf-8',
           )
-
-          print(json.dumps({
-              'report_digest': report['report_digest'],
-              'diagnosis_digest': report['mechanistic']['diagnosis_digest'],
-              'evaluated_tasks': report['evaluated_tasks'],
-              'trace_count': report['mechanistic']['trace_count'],
-              'parity_count': report['mechanistic']['parity_count'],
-              'metrics': report['metrics'],
-              'status_counts': report['status_counts'],
-              'root_causes': root_causes,
-          }, sort_keys=True))
           PY
       - name: Verify checksum manifest independently
         working-directory: /tmp/arc-v2-2-training
