@@ -71,6 +71,17 @@ def write_jsonl(path: pathlib.Path, rows: Iterable[dict[str, Any]]) -> int:
     return count
 
 
+def fetch_arc(lock: dict[str, Any], work: pathlib.Path, vendor: pathlib.Path) -> dict[str, Any]:
+    source = work / "arc-agi-2"
+    clone_at(lock["repository"], lock["commit"], source)
+    target = vendor / "arc_agi_2"
+    shutil.copytree(source / "data", target / "data")
+    for name in ("LICENSE", "readme.md", "changelog.md"):
+        if (source / name).exists():
+            shutil.copy2(source / name, target / name)
+    return verify_arc(target, lock)
+
+
 def valid_grid(grid: Any) -> bool:
     if not isinstance(grid, list) or not grid or not all(isinstance(row, list) and row for row in grid):
         return False
@@ -113,35 +124,6 @@ def verify_arc(target: pathlib.Path, lock: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-def fetch_arc(lock: dict[str, Any], work: pathlib.Path, vendor: pathlib.Path) -> dict[str, Any]:
-    source = work / "arc-agi-2"
-    clone_at(lock["repository"], lock["commit"], source)
-    target = vendor / "arc_agi_2"
-    shutil.copytree(source / "data", target / "data")
-    for name in ("LICENSE", "readme.md", "changelog.md"):
-        if (source / name).exists():
-            shutil.copy2(source / name, target / name)
-    return verify_arc(target, lock)
-
-
-def locate_bbeh_sets(source: pathlib.Path) -> tuple[pathlib.Path, pathlib.Path]:
-    task_roots = [path for path in source.rglob("benchmark_tasks*") if path.is_dir()]
-    scored: list[tuple[int, pathlib.Path]] = []
-    for root in task_roots:
-        count = 0
-        for path in root.rglob("task.json"):
-            try:
-                count += len(json.loads(path.read_text(encoding="utf-8"))["examples"])
-            except (KeyError, json.JSONDecodeError, TypeError):
-                continue
-        if count:
-            scored.append((count, root))
-    by_count = {count: root for count, root in scored}
-    if 4520 not in by_count or 460 not in by_count:
-        raise RuntimeError(f"unable to locate BBEH full/mini roots; observed {sorted(by_count)}")
-    return by_count[4520], by_count[460]
-
-
 def count_bbeh(root: pathlib.Path) -> tuple[int, int, list[str]]:
     tasks = 0
     examples = 0
@@ -160,9 +142,42 @@ def count_bbeh(root: pathlib.Path) -> tuple[int, int, list[str]]:
     return tasks, examples, names
 
 
+def count_bbeh_mini(path: pathlib.Path) -> int:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    rows = data.get("examples") if isinstance(data, dict) else None
+    if not isinstance(rows, list):
+        raise RuntimeError(f"BBEH mini missing examples list in {path}")
+    for row in rows:
+        if not isinstance(row, dict) or "input" not in row or "target" not in row:
+            raise RuntimeError(f"BBEH mini malformed example in {path}")
+    return len(rows)
+
+
+def fetch_bbeh(lock: dict[str, Any], work: pathlib.Path, vendor: pathlib.Path) -> dict[str, Any]:
+    source = work / "bbeh"
+    clone_at(lock["repository"], lock["commit"], source)
+    full_root = source / "bbeh" / "benchmark_tasks"
+    mini_path = source / "bbeh" / "mini" / "data.json"
+    if not full_root.is_dir() or not mini_path.is_file():
+        raise RuntimeError("official BBEH full or mini data path is missing")
+    target = vendor / "bbeh"
+    shutil.copytree(full_root, target / "full")
+    (target / "mini").mkdir(parents=True)
+    shutil.copy2(mini_path, target / "mini" / "data.json")
+    mini_readme = source / "bbeh" / "mini" / "README.md"
+    if mini_readme.exists():
+        shutil.copy2(mini_readme, target / "mini" / "README.md")
+    for name in ("LICENSE", "README.md", "leaderboard.md"):
+        if (source / name).exists():
+            shutil.copy2(source / name, target / name)
+    if (source / "bbeh" / "evaluate.py").exists():
+        shutil.copy2(source / "bbeh" / "evaluate.py", target / "evaluate.py")
+    return verify_bbeh(target, lock)
+
+
 def verify_bbeh(target: pathlib.Path, lock: dict[str, Any]) -> dict[str, Any]:
     full_tasks, full_examples, full_names = count_bbeh(target / "full")
-    mini_tasks, mini_examples, mini_names = count_bbeh(target / "mini")
+    mini_examples = count_bbeh_mini(target / "mini" / "data.json")
     if full_examples != lock["expected_full_examples"]:
         raise RuntimeError(f"BBEH full: expected {lock['expected_full_examples']}, found {full_examples}")
     if mini_examples != lock["expected_mini_examples"]:
@@ -170,23 +185,8 @@ def verify_bbeh(target: pathlib.Path, lock: dict[str, Any]) -> dict[str, Any]:
     return {
         "commit": lock["commit"],
         "full": {"tasks": full_tasks, "examples": full_examples, "task_names": full_names},
-        "mini": {"tasks": mini_tasks, "examples": mini_examples, "task_names": mini_names},
+        "mini": {"examples": mini_examples},
     }
-
-
-def fetch_bbeh(lock: dict[str, Any], work: pathlib.Path, vendor: pathlib.Path) -> dict[str, Any]:
-    source = work / "bbeh"
-    clone_at(lock["repository"], lock["commit"], source)
-    full_root, mini_root = locate_bbeh_sets(source)
-    target = vendor / "bbeh"
-    shutil.copytree(full_root, target / "full")
-    shutil.copytree(mini_root, target / "mini")
-    for name in ("LICENSE", "README.md", "leaderboard.md"):
-        if (source / name).exists():
-            shutil.copy2(source / name, target / name)
-    if (source / "bbeh" / "evaluate.py").exists():
-        shutil.copy2(source / "bbeh" / "evaluate.py", target / "evaluate.py")
-    return verify_bbeh(target, lock)
 
 
 def fetch_livebench(lock: dict[str, Any], work: pathlib.Path, vendor: pathlib.Path) -> dict[str, Any]:
@@ -208,7 +208,8 @@ def fetch_livebench(lock: dict[str, Any], work: pathlib.Path, vendor: pathlib.Pa
     repositories: dict[str, Any] = {}
     for repo_id in lock["dataset_repositories"]:
         category = repo_id.split("/", 1)[1]
-        revision = api.dataset_info(repo_id=repo_id).sha
+        info = api.dataset_info(repo_id=repo_id)
+        revision = info.sha
         dataset = load_dataset(repo_id, split="test", revision=revision)
         rows = [dict(row) for row in dataset]
         rows.sort(key=lambda row: str(row.get("question_id", "")))
@@ -232,11 +233,7 @@ def verify_livebench(target: pathlib.Path, lock: dict[str, Any]) -> dict[str, An
     expected_repositories = set(lock["dataset_repositories"])
     if set(revisions) != expected_repositories:
         raise RuntimeError("LiveBench dataset repository set mismatch")
-    result: dict[str, Any] = {
-        "commit": lock["commit"],
-        "release_ceiling": lock["public_release_ceiling"],
-        "datasets": {},
-    }
+    result: dict[str, Any] = {"commit": lock["commit"], "release_ceiling": lock["public_release_ceiling"], "datasets": {}}
     seen_ids: set[str] = set()
     for repo_id in sorted(expected_repositories):
         category = repo_id.split("/", 1)[1]
