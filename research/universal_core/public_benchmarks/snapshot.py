@@ -17,11 +17,16 @@ from typing import Any, Iterable
 PACKAGE_DIR = pathlib.Path(__file__).resolve().parent
 LOCK_PATH = PACKAGE_DIR / "sources.lock.json"
 DEFAULT_VENDOR = PACKAGE_DIR / "vendor"
+DEFAULT_INDEX = PACKAGE_DIR / "snapshot_index"
 MANIFEST_NAME = "SNAPSHOT_MANIFEST.json"
 
 
 def canonical_json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def hash_inventory(inventory: list[dict[str, Any]]) -> str:
+    return hashlib.sha256(canonical_json(inventory).encode("utf-8")).hexdigest()
 
 
 def sha256_file(path: pathlib.Path) -> str:
@@ -295,7 +300,7 @@ def build_manifest(vendor: pathlib.Path, lock: dict[str, Any], results: dict[str
             "bytes": sum(item["bytes"] for item in inventory),
         },
     }
-    payload["inventory_digest"] = hashlib.sha256(canonical_json(inventory).encode("utf-8")).hexdigest()
+    payload["inventory_digest"] = hash_inventory(inventory)
     return payload
 
 
@@ -330,7 +335,7 @@ def verify_all(vendor: pathlib.Path) -> dict[str, Any]:
         "livebench": verify_livebench(vendor / "livebench", lock["benchmarks"]["livebench"]),
     }
     inventory = file_inventory(vendor)
-    digest = hashlib.sha256(canonical_json(inventory).encode("utf-8")).hexdigest()
+    digest = hash_inventory(inventory)
     if inventory != manifest["inventory"]:
         raise RuntimeError("snapshot file inventory does not match manifest")
     if digest != manifest["inventory_digest"]:
@@ -340,12 +345,132 @@ def verify_all(vendor: pathlib.Path) -> dict[str, Any]:
     return manifest
 
 
+def summary_from_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": manifest["schema_version"],
+        "created_at_utc": manifest["created_at_utc"],
+        "frozen_core": manifest["frozen_core"],
+        "benchmarks": manifest["benchmarks"],
+        "totals": manifest["totals"],
+        "inventory_digest": manifest["inventory_digest"],
+    }
+
+
+def validate_manifest_identity(manifest: dict[str, Any]) -> None:
+    inventory = manifest.get("inventory")
+    totals = manifest.get("totals")
+    if not isinstance(inventory, list) or not isinstance(totals, dict):
+        raise RuntimeError("snapshot manifest inventory or totals are malformed")
+    if hash_inventory(inventory) != manifest.get("inventory_digest"):
+        raise RuntimeError("snapshot manifest inventory digest is invalid")
+    if totals.get("files") != len(inventory):
+        raise RuntimeError("snapshot manifest file count is invalid")
+    if totals.get("bytes") != sum(item["bytes"] for item in inventory):
+        raise RuntimeError("snapshot manifest byte count is invalid")
+
+
+def export_index(
+    vendor: pathlib.Path,
+    index: pathlib.Path,
+    *,
+    artifact: dict[str, str],
+) -> dict[str, Any]:
+    manifest_path = vendor / MANIFEST_NAME
+    revisions_path = vendor / "livebench" / "DATASET_REVISIONS.json"
+    if not manifest_path.exists() or not revisions_path.exists():
+        raise RuntimeError("verified snapshot manifest or LiveBench revisions are missing")
+    if (index / MANIFEST_NAME).exists():
+        raise RuntimeError("snapshot index already exists; refusing to replace immutable identity")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    validate_manifest_identity(manifest)
+    revisions = json.loads(revisions_path.read_text(encoding="utf-8"))
+    required_artifact = {"run_id", "artifact_id", "artifact_url", "artifact_digest"}
+    if set(artifact) != required_artifact or not all(str(value).strip() for value in artifact.values()):
+        raise RuntimeError("artifact pointer is incomplete")
+    if index.exists():
+        shutil.rmtree(index)
+    index.mkdir(parents=True)
+    write_json(index / MANIFEST_NAME, manifest)
+    write_json(index / "LIVEBENCH_DATASET_REVISIONS.json", revisions)
+    write_json(index / "SUMMARY.json", summary_from_manifest(manifest))
+    write_json(
+        index / "ARTIFACT_POINTER.json",
+        {
+            "schema_version": 1,
+            "repository": manifest["frozen_core"]["repository"],
+            "workflow_run_id": str(artifact["run_id"]),
+            "artifact_id": str(artifact["artifact_id"]),
+            "artifact_url": str(artifact["artifact_url"]),
+            "artifact_digest": str(artifact["artifact_digest"]),
+            "retention_days": 90,
+            "inventory_digest": manifest["inventory_digest"],
+        },
+    )
+    verify_index(index)
+    return manifest
+
+
+def verify_index(index: pathlib.Path) -> dict[str, Any]:
+    expected_names = {
+        MANIFEST_NAME,
+        "LIVEBENCH_DATASET_REVISIONS.json",
+        "SUMMARY.json",
+        "ARTIFACT_POINTER.json",
+    }
+    actual_names = {path.name for path in index.iterdir() if path.is_file()} if index.exists() else set()
+    if actual_names != expected_names:
+        raise RuntimeError(f"snapshot index file set mismatch: {sorted(actual_names)}")
+    manifest = json.loads((index / MANIFEST_NAME).read_text(encoding="utf-8"))
+    validate_manifest_identity(manifest)
+    summary = json.loads((index / "SUMMARY.json").read_text(encoding="utf-8"))
+    if summary != summary_from_manifest(manifest):
+        raise RuntimeError("snapshot index summary does not match manifest")
+    revisions = json.loads((index / "LIVEBENCH_DATASET_REVISIONS.json").read_text(encoding="utf-8"))
+    livebench = manifest["benchmarks"]["livebench"]["datasets"]
+    if set(revisions) != set(livebench):
+        raise RuntimeError("snapshot index LiveBench repository set mismatch")
+    for repo_id, recorded in revisions.items():
+        if recorded["revision"] != livebench[repo_id]["revision"]:
+            raise RuntimeError(f"snapshot index LiveBench revision mismatch for {repo_id}")
+        if recorded["rows"] != livebench[repo_id]["rows"]:
+            raise RuntimeError(f"snapshot index LiveBench row count mismatch for {repo_id}")
+    pointer = json.loads((index / "ARTIFACT_POINTER.json").read_text(encoding="utf-8"))
+    if pointer.get("inventory_digest") != manifest["inventory_digest"]:
+        raise RuntimeError("artifact pointer inventory digest mismatch")
+    if not str(pointer.get("artifact_digest", "")).startswith("sha256:"):
+        raise RuntimeError("artifact pointer digest is malformed")
+    for key in ("workflow_run_id", "artifact_id", "artifact_url"):
+        if not str(pointer.get(key, "")).strip():
+            raise RuntimeError(f"artifact pointer {key} is missing")
+    return manifest
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=("fetch", "verify"))
+    parser.add_argument("command", choices=("fetch", "verify", "export-index", "verify-index"))
     parser.add_argument("--vendor", type=pathlib.Path, default=DEFAULT_VENDOR)
+    parser.add_argument("--index", type=pathlib.Path, default=DEFAULT_INDEX)
+    parser.add_argument("--run-id")
+    parser.add_argument("--artifact-id")
+    parser.add_argument("--artifact-url")
+    parser.add_argument("--artifact-digest")
     args = parser.parse_args()
-    manifest = fetch_all(args.vendor) if args.command == "fetch" else verify_all(args.vendor)
+
+    if args.command == "fetch":
+        manifest = fetch_all(args.vendor)
+    elif args.command == "verify":
+        manifest = verify_all(args.vendor)
+    elif args.command == "verify-index":
+        manifest = verify_index(args.index)
+    else:
+        artifact = {
+            "run_id": args.run_id or "",
+            "artifact_id": args.artifact_id or "",
+            "artifact_url": args.artifact_url or "",
+            "artifact_digest": args.artifact_digest or "",
+        }
+        manifest = export_index(args.vendor, args.index, artifact=artifact)
+
     print(json.dumps({
         "inventory_digest": manifest["inventory_digest"],
         "files": manifest["totals"]["files"],
