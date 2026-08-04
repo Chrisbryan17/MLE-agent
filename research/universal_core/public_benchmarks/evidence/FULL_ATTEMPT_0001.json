@@ -1,0 +1,75 @@
+{
+  "adapter_archive_ref": "archive/public-benchmark-adapters-v1-attempt-0001",
+  "adapter_commit": "c1c6203ea2676e224bc49eaf130fa6e79e4a4e6a",
+  "arc_agi_2": {
+    "abstained": 167,
+    "accepted": 0,
+    "attempted_accuracy": 0.0,
+    "correct": 0,
+    "coverage": 0.0,
+    "failed": 0,
+    "families": 120,
+    "incorrect_attempts": 0,
+    "raw_accuracy": 0.0,
+    "rows": 167,
+    "status_counts": {
+      "GRAMMAR_EXHAUSTED": 167
+    }
+  },
+  "artifact": {
+    "digest": "sha256:43f2237a3079041fe66c652928af857cf24d53fdeb923bbee0b9e23c656afa71",
+    "expires_at": "2026-11-02T18:00:04Z",
+    "id": "8903337683",
+    "name": "public-benchmark-full-0001",
+    "size_bytes": 77378
+  },
+  "bbeh_transfer": {
+    "abstained": 1170,
+    "accepted": 1649,
+    "attempted_accuracy": 0.12795633717404487,
+    "correct": 211,
+    "coverage": 0.37434733257661745,
+    "failed": 1586,
+    "families": 23,
+    "incorrect_attempts": 1438,
+    "raw_accuracy": 0.04790011350737798,
+    "rows": 4405,
+    "status_counts": {
+      "ACCEPTED": 1649,
+      "EXECUTION_FAILED": 1586,
+      "GRAMMAR_EXHAUSTED": 1170
+    }
+  },
+  "claim_boundary": {
+    "arc": "Public ARC-AGI-2 evaluation data, not Kaggle hidden scoring. Frozen V2.1 produced no accepted grid predictions.",
+    "bbeh": "Deterministic five-demonstration family-transfer view. This is not the official zero-shot BBEH protocol and excludes the five demonstration rows per family from scoring.",
+    "livebench": "Deterministic five-demonstration scalar-target transfer view over 12 public families. Coding and instruction-following require their official evaluators and were not scored.",
+    "overall": "This attempt is external public-corpus regression evidence. It is not an independent hidden benchmark win and does not support unrestricted universal-reasoning claims."
+  },
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "livebench_scalar_transfer": {
+    "abstained": 0,
+    "accepted": 301,
+    "attempted_accuracy": 0.06312292358803986,
+    "correct": 19,
+    "coverage": 0.35495283018867924,
+    "failed": 547,
+    "families": 12,
+    "incorrect_attempts": 282,
+    "raw_accuracy": 0.02240566037735849,
+    "rows": 848,
+    "status_counts": {
+      "ACCEPTED": 301,
+      "EXECUTION_FAILED": 547
+    },
+    "unsupported_rows": {
+      "coding": 128,
+      "instruction_following": 400
+    }
+  },
+  "report_digest": "8a68b679617399564025da2d06968b21bf475fc1de433cbe4854892fc992bb92",
+  "run_id": "30936532184",
+  "run_label": "public-benchmark-full-0001",
+  "snapshot_inventory_digest": "486badc9ccc8eb4911b1b7f234d785c68c4ff3e53f5d320d7c230e1ceff3dff3",
+  "status": "completed"
+}
