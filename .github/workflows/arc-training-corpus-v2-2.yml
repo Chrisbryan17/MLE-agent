@@ -106,7 +106,6 @@ jobs:
           baseline_rows = {
               item['task_id']: int(item['metrics']['correct'])
               for item in baseline['reports']
-              if int(item['metrics']['correct']) > 0
           }
           current_rows = {
               item['task_id']: int(item['metrics']['correct'])
@@ -120,14 +119,35 @@ jobs:
               for task_id, correct in baseline_rows.items()
               if current_rows.get(task_id, 0) < correct
           }
+          gained_rows = {
+              task_id: {
+                  'baseline_correct': baseline_rows.get(task_id, 0),
+                  'current_correct': correct,
+              }
+              for task_id, correct in current_rows.items()
+              if correct > baseline_rows.get(task_id, 0)
+          }
+          expected_gains = {
+              'aabf363d': {
+                  'baseline_correct': 0,
+                  'current_correct': 1,
+              }
+          }
           if lost_rows:
               raise SystemExit('lost baseline-correct rows: ' + json.dumps(lost_rows, sort_keys=True))
+          if gained_rows != expected_gains:
+              raise SystemExit(
+                  'unexpected gained rows: expected '
+                  + json.dumps(expected_gains, sort_keys=True)
+                  + ' found '
+                  + json.dumps(gained_rows, sort_keys=True)
+              )
 
           metrics = report['metrics']
           expected_metrics = {
               'rows': 1076,
-              'correct': 59,
-              'accepted': 59,
+              'correct': 60,
+              'accepted': 60,
               'incorrect_attempts': 0,
           }
           for key, expected in expected_metrics.items():
@@ -136,47 +156,84 @@ jobs:
                       f'metric {key} changed: expected {expected}, found {metrics[key]}'
                   )
           expected_status = {
-              'ACCEPTED': 59,
-              'EXECUTION_FAILED': 2,
+              'ACCEPTED': 60,
+              'EXECUTION_FAILED': 1,
               'GRAMMAR_EXHAUSTED': 1015,
           }
           if report['status_counts'] != expected_status:
               raise SystemExit(
-                  'status counts changed: ' + json.dumps(report['status_counts'], sort_keys=True)
+                  'status counts changed: expected '
+                  + json.dumps(expected_status, sort_keys=True)
+                  + ' found '
+                  + json.dumps(report['status_counts'], sort_keys=True)
               )
 
-          first_failures = [
+          aab_trace = traces['aabf363d']
+          aab_events = aab_trace['events']
+          color_failures = [
               event
-              for event in traces['aabf363d']['events']
+              for event in aab_events
               if event.get('event') == 'hidden_execution'
+              and event.get('candidate_kind') == 'color_map'
               and event.get('outcome') == 'FAILED'
-          ]
-          if not any(
-              event.get('candidate_kind') == 'color_map'
               and event.get('exception_type') == 'KeyError'
               and 'unmapped grid cell' in event.get('exception_message', '')
-              for event in first_failures
-          ):
-              raise SystemExit('aabf363d did not reproduce unmapped color-map cell')
-
-          second_failures = [
-              event
-              for event in traces['b230c067']['events']
-              if event.get('event') == 'hidden_execution'
-              and event.get('outcome') == 'FAILED'
           ]
-          matching_second = [
+          marker_successes = [
               event
-              for event in second_failures
-              if event.get('candidate_kind') == 'component_rank_color'
+              for event in aab_events
+              if event.get('event') == 'hidden_execution'
+              and event.get('candidate_kind') == 'marker_recolor'
+              and event.get('outcome') == 'SUCCEEDED'
+          ]
+          aab_final = [
+              event for event in aab_events
+              if event.get('event') == 'final_decision'
+          ][0]
+          if aab_trace['terminal_status'] != 'ACCEPTED':
+              raise SystemExit('aabf363d did not transition to ACCEPTED')
+          if len(color_failures) != 1:
+              raise SystemExit(
+                  f'aabf363d expected one preserved color-map failure, found {len(color_failures)}'
+              )
+          if len(marker_successes) != 2:
+              raise SystemExit(
+                  f'aabf363d expected two marker successes, found {len(marker_successes)}'
+              )
+          if not str(aab_final.get('selected_candidate_id', '')).startswith('marker_recolor:'):
+              raise SystemExit('aabf363d did not select a marker-recolor candidate')
+
+          b230_trace = traces['b230c067']
+          b230_events = b230_trace['events']
+          rank_failures = [
+              event
+              for event in b230_events
+              if event.get('event') == 'hidden_execution'
+              and event.get('candidate_kind') == 'component_rank_color'
+              and event.get('outcome') == 'FAILED'
               and event.get('exception_type') == 'KeyError'
               and 'unmapped component rank' in event.get('exception_message', '')
           ]
-          if len(matching_second) != 2:
+          if b230_trace['terminal_status'] != 'EXECUTION_FAILED':
+              raise SystemExit('b230c067 changed before its dedicated repair')
+          if len(rank_failures) != 2:
               raise SystemExit(
-                  f'b230c067 expected 2 unmapped-rank failures, found {len(matching_second)}'
+                  f'b230c067 expected two preserved rank failures, found {len(rank_failures)}'
               )
 
+          transitions = {
+              'schema_version': 1,
+              'candidate_commit': os.environ['GITHUB_SHA'],
+              'baseline_commit': 'e50965009efb96457fd769d97b42027f8a4e98c0',
+              'lost_rows': lost_rows,
+              'gained_rows': gained_rows,
+              'expected_gains_matched': True,
+              'incorrect_attempts': int(metrics['incorrect_attempts']),
+          }
+          (output / 'transitions.json').write_text(
+              json.dumps(transitions, sort_keys=True, indent=2) + '\n',
+              encoding='utf-8',
+          )
           parity = {
               'schema_version': 1,
               'candidate_commit': os.environ['GITHUB_SHA'],
@@ -184,31 +241,27 @@ jobs:
               'mismatches': 0,
               'baseline_commit': 'e50965009efb96457fd769d97b42027f8a4e98c0',
               'lost_baseline_rows': lost_rows,
-              'metrics_unchanged': True,
           }
           (output / 'parity.json').write_text(
               json.dumps(parity, sort_keys=True, indent=2) + '\n',
               encoding='utf-8',
           )
           root_causes = {
-              'schema_version': 1,
+              'schema_version': 2,
               'aabf363d': {
-                  'terminal_status': traces['aabf363d']['terminal_status'],
-                  'trace_digest': traces['aabf363d']['trace_digest'],
-                  'mechanism': 'color_map hidden execution KeyError: unmapped grid cell',
-                  'matching_failure_count': sum(
-                      1
-                      for event in first_failures
-                      if event.get('candidate_kind') == 'color_map'
-                      and event.get('exception_type') == 'KeyError'
-                      and 'unmapped grid cell' in event.get('exception_message', '')
-                  ),
+                  'terminal_status': aab_trace['terminal_status'],
+                  'trace_digest': aab_trace['trace_digest'],
+                  'preserved_failure': 'color_map hidden execution KeyError: unmapped grid cell',
+                  'preserved_failure_count': len(color_failures),
+                  'repair': 'dynamic singleton marker recolors all other foreground and is erased',
+                  'repair_success_count': len(marker_successes),
+                  'selected_candidate_id': aab_final['selected_candidate_id'],
               },
               'b230c067': {
-                  'terminal_status': traces['b230c067']['terminal_status'],
-                  'trace_digest': traces['b230c067']['trace_digest'],
+                  'terminal_status': b230_trace['terminal_status'],
+                  'trace_digest': b230_trace['trace_digest'],
                   'mechanism': 'component_rank_color hidden execution KeyError: unmapped component rank',
-                  'matching_failure_count': len(matching_second),
+                  'matching_failure_count': len(rank_failures),
               },
           }
           (output / 'root-cause-confirmation.json').write_text(
@@ -224,6 +277,7 @@ jobs:
               'parity_count': report['mechanistic']['parity_count'],
               'metrics': report['metrics'],
               'status_counts': report['status_counts'],
+              'transitions': transitions,
               'root_causes': root_causes,
           }, sort_keys=True))
           PY
@@ -267,6 +321,9 @@ jobs:
           root_causes = json.loads(
               Path('/tmp/arc-v2-2-training/root-cause-confirmation.json').read_text()
           )
+          transitions = json.loads(
+              Path('/tmp/arc-v2-2-training/transitions.json').read_text()
+          )
           lines = [
               '# ARC V2.2 mechanistic training corpus',
               '',
@@ -276,8 +333,9 @@ jobs:
               f"- Tasks/traces/parity: `{report['evaluated_tasks']}` / `{report['mechanistic']['trace_count']}` / `{report['mechanistic']['parity_count']}`",
               f"- Metrics: `{report['metrics']}`",
               f"- Status counts: `{report['status_counts']}`",
-              f"- aabf363d mechanism: `{root_causes['aabf363d']['mechanism']}`",
-              f"- b230c067 mechanism: `{root_causes['b230c067']['mechanism']}`",
+              f"- Gains: `{transitions['gained_rows']}`",
+              f"- aabf363d repair: `{root_causes['aabf363d']['repair']}`",
+              f"- b230c067 remaining mechanism: `{root_causes['b230c067']['mechanism']}`",
               '- Public ARC evaluation rerun: `no`',
           ]
           Path('/tmp/arc-v2-2-training-summary.md').write_text(
