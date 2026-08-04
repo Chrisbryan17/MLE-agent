@@ -1,0 +1,154 @@
+name: Verify ARC Mechanistic Corpus Run
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-mechanistic-run-verifier.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  verify-target-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: 047c16717da287e9807ab2801f42fdc6c350492b
+      REPOSITORY: Chrisbryan17/MLE-agent
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 0
+      - name: Wait for exact mechanistic corpus run
+        run: |
+          set -euo pipefail
+          run_id=''
+          status=''
+          conclusion=''
+          for attempt in $(seq 1 180); do
+            runs=$(gh api --method GET "repos/$REPOSITORY/actions/runs" \
+              -f head_sha="$TARGET_SHA" \
+              -f per_page=100)
+            run_id=$(printf '%s' "$runs" | jq -r '
+              [.workflow_runs[]
+               | select(.name == "ARC V2.2 Mechanistic Training Corpus")
+               | select(.head_sha == env.TARGET_SHA)]
+              | sort_by(.created_at)
+              | last
+              | .id // empty')
+            if [ -n "$run_id" ]; then
+              run=$(gh api "repos/$REPOSITORY/actions/runs/$run_id")
+              status=$(printf '%s' "$run" | jq -r '.status')
+              conclusion=$(printf '%s' "$run" | jq -r '.conclusion // ""')
+              echo "run=$run_id status=$status conclusion=$conclusion attempt=$attempt"
+              if [ "$status" = 'completed' ]; then
+                break
+              fi
+            else
+              echo "target run not visible yet; attempt=$attempt"
+            fi
+            sleep 30
+          done
+          test -n "$run_id"
+          test "$status" = 'completed'
+          printf '%s\n' "$run_id" > /tmp/run-id
+          printf '%s\n' "$conclusion" > /tmp/conclusion
+      - name: Capture run, artifact, jobs, and failure logs
+        if: always()
+        run: |
+          set -euo pipefail
+          run_id=$(cat /tmp/run-id 2>/dev/null || true)
+          conclusion=$(cat /tmp/conclusion 2>/dev/null || true)
+          mkdir -p /tmp/run-evidence
+          if [ -n "$run_id" ]; then
+            gh api "repos/$REPOSITORY/actions/runs/$run_id" > /tmp/run-evidence/run.json
+            gh api "repos/$REPOSITORY/actions/runs/$run_id/jobs?per_page=100" > /tmp/run-evidence/jobs.json
+            gh api "repos/$REPOSITORY/actions/runs/$run_id/artifacts?per_page=100" > /tmp/run-evidence/artifacts.json
+            if [ "$conclusion" != 'success' ]; then
+              gh run view "$run_id" --repo "$REPOSITORY" --log-failed > /tmp/run-evidence/failed.log 2>&1 || true
+            fi
+          else
+            printf '%s\n' 'target run was not discovered before verifier timeout' > /tmp/run-evidence/failed.log
+          fi
+      - name: Commit immutable run evidence
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path('/tmp/run-evidence')
+          run = json.loads((root / 'run.json').read_text()) if (root / 'run.json').exists() else {}
+          jobs = json.loads((root / 'jobs.json').read_text()) if (root / 'jobs.json').exists() else {'jobs': []}
+          artifacts = json.loads((root / 'artifacts.json').read_text()) if (root / 'artifacts.json').exists() else {'artifacts': []}
+          target_name = 'arc-v2-2-mechanistic-' + os.environ['TARGET_SHA']
+          artifact = next(
+              (item for item in artifacts.get('artifacts', []) if item.get('name') == target_name),
+              None,
+          )
+          failed_log = (root / 'failed.log').read_text(encoding='utf-8', errors='replace') if (root / 'failed.log').exists() else ''
+          evidence = {
+              'schema_version': 1,
+              'target_commit': os.environ['TARGET_SHA'],
+              'workflow_name': run.get('name'),
+              'run_id': run.get('id'),
+              'run_number': run.get('run_number'),
+              'status': run.get('status'),
+              'conclusion': run.get('conclusion'),
+              'event': run.get('event'),
+              'created_at': run.get('created_at'),
+              'updated_at': run.get('updated_at'),
+              'artifact': None if artifact is None else {
+                  'id': artifact.get('id'),
+                  'name': artifact.get('name'),
+                  'size_in_bytes': artifact.get('size_in_bytes'),
+                  'digest': artifact.get('digest'),
+                  'expired': artifact.get('expired'),
+              },
+              'jobs': [
+                  {
+                      'id': item.get('id'),
+                      'name': item.get('name'),
+                      'status': item.get('status'),
+                      'conclusion': item.get('conclusion'),
+                      'started_at': item.get('started_at'),
+                      'completed_at': item.get('completed_at'),
+                      'steps': [
+                          {
+                              'number': step.get('number'),
+                              'name': step.get('name'),
+                              'status': step.get('status'),
+                              'conclusion': step.get('conclusion'),
+                          }
+                          for step in item.get('steps', [])
+                      ],
+                  }
+                  for item in jobs.get('jobs', [])
+              ],
+              'failed_log_tail': failed_log[-20000:],
+              'frozen_core_commit': '1d7c489bcdbff755d638b35ad47ce62bd4fe829d',
+              'public_arc_evaluation_rerun': False,
+          }
+          path = Path('docs/evidence/arc_v2_2/FULL_MECHANISTIC_RUN_0006.json')
+          path.parent.mkdir(parents=True, exist_ok=True)
+          path.write_text(json.dumps(evidence, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add docs/evidence/arc_v2_2/FULL_MECHANISTIC_RUN_0006.json
+          git commit -m 'arc: record full mechanistic corpus run'
+          git push origin HEAD:universal-core-arc-training-v2-2
+          conclusion=$(python -c "import json; print(json.load(open('docs/evidence/arc_v2_2/FULL_MECHANISTIC_RUN_0006.json'))['conclusion'])")
+          test "$conclusion" = 'success'
+          python - <<'PY'
+          import json
+          evidence = json.load(open('docs/evidence/arc_v2_2/FULL_MECHANISTIC_RUN_0006.json'))
+          if not evidence['artifact']:
+              raise SystemExit('successful run did not publish the expected artifact')
+          PY
