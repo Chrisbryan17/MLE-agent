@@ -51,7 +51,7 @@ def test_vertical_panels_can_select_left_only_cells() -> None:
     value = make_task(
         [{
             "input": [[1, 1, 0, 2], [0, 1, 2, 0]],
-            "output": [[0, 7], [0, 7]],
+            "output": [[7, 0], [0, 7]],
         }],
         [[[3, 0, 0, 4], [3, 3, 4, 0]]],
     )
@@ -60,17 +60,17 @@ def test_vertical_panels_can_select_left_only_cells() -> None:
 
     assert result["predictions"] == [{
         "status": "ACCEPTED",
-        "prediction": [[0, 0], [0, 7]],
+        "prediction": [[7, 0], [0, 7]],
     }]
 
 
 def test_disagreeing_panel_rules_abstain() -> None:
     value = make_task(
         [{
-            "input": [[0, 0, 9, 0, 0]],
-            "output": [[0, 0]],
+            "input": [[1, 0, 0, 9, 0, 2, 0]],
+            "output": [[5, 5, 0]],
         }],
-        [[[1, 0, 9, 0, 2]]],
+        [[[1, 0, 0, 9, 2, 0, 0]]],
     )
 
     result = run_public_task_v2_2(value, engine=None)
