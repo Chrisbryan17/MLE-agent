@@ -1,0 +1,23 @@
+{
+  "expected_training_delta": {
+    "accepted_rows": 1,
+    "correct_rows": 1,
+    "execution_failed_rows": -1,
+    "task_id": "aabf363d"
+  },
+  "focused_output": "...........                                                              [100%]\n11 passed in 0.33s\n",
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "frozen_output": ".....                                                                    [100%]\n5 passed in 0.08s\n",
+  "outcomes": {
+    "focused": "success",
+    "frozen_byte_gate": "success",
+    "frozen_tests": "success",
+    "v2_2_cluster": "success"
+  },
+  "passed": true,
+  "run_id": "30950841994",
+  "schema_version": 1,
+  "source_trace_digest": "29544f72d9511885b6ea71838162ee86d83437198841c2e4815a5ffb824f54e4",
+  "v2_2_output": ".......................................................                  [100%]\n55 passed in 0.45s\n",
+  "workflow_source_commit": "215ebf17475db1b518b1a8dbc4db707da08dc916"
+}
