@@ -8,12 +8,13 @@ from typing import Any, Mapping, Sequence
 from research.universal_core.holonomy_v2.blind_adapter import run_public_task_v2
 
 from .panel_combine import apply_panel, panel_candidates
+from .region_fill import apply_region, region_candidates
 
 
 Grid = list[list[int]]
 Program = dict[str, Any]
 Point = tuple[int, int]
-_VERSION = "grid-v2.2-3"
+_VERSION = "grid-v2.2-4"
 
 
 def _canonical(value: Any) -> bytes:
@@ -207,6 +208,8 @@ def _apply(program: Program, value: Any) -> Grid:
         return _apply_component_rank(program, grid)
     if kind == "panel_boolean_combine":
         return apply_panel(program, grid)
+    if kind == "enclosed_region_fill":
+        return apply_region(program, grid)
     if kind == "color_map":
         mapping = {int(key): int(item) for key, item in program["mapping"].items()}
         if any(cell not in mapping for row in grid for cell in row):
@@ -304,13 +307,17 @@ def _candidate_programs(demos: Sequence[tuple[Grid, Grid]]) -> tuple[Program, ..
             candidates.append(data)
     backgrounds = sorted({cell for source, _ in demos for row in source for cell in row})
     candidates.extend({"kind": "crop", "background": item} for item in backgrounds)
-    for background in backgrounds:
+    common_backgrounds = set(cell for row in demos[0][0] for cell in row)
+    for source, _ in demos[1:]:
+        common_backgrounds.intersection_update(cell for row in source for cell in row)
+    for background in sorted(common_backgrounds):
         for mode in ("rank", "extreme"):
             data = _component_rank_program(demos, background, mode)
             if data is not None:
                 candidates.append(data)
 
     candidates.extend(panel_candidates(demos))
+    candidates.extend(region_candidates(demos))
 
     by_digest: dict[str, Program] = {}
     for candidate in candidates:
