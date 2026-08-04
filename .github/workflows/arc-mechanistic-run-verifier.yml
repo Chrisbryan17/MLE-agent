@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 110
     env:
       GH_TOKEN: ${{ github.token }}
-      TARGET_SHA: 29d64251ebfb9465e0d60b89b0fc42c67fbc2dc2
+      TARGET_SHA: bbb192edd1706b204428041015779c28ded0c4b7
       REPOSITORY: Chrisbryan17/MLE-agent
     steps:
       - uses: actions/checkout@v4
@@ -135,20 +135,20 @@ jobs:
               'frozen_core_commit': '1d7c489bcdbff755d638b35ad47ce62bd4fe829d',
               'public_arc_evaluation_rerun': False,
           }
-          path = Path('docs/evidence/arc_v2_2/FULL_MECHANISTIC_RUN_0006.json')
+          path = Path('docs/evidence/arc_v2_2/FULL_MARKER_RECOLOR_RUN_0007.json')
           path.parent.mkdir(parents=True, exist_ok=True)
           path.write_text(json.dumps(evidence, sort_keys=True, indent=2) + '\n', encoding='utf-8')
           PY
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add docs/evidence/arc_v2_2/FULL_MECHANISTIC_RUN_0006.json
-          git commit -m 'arc: record full mechanistic corpus run'
+          git add docs/evidence/arc_v2_2/FULL_MARKER_RECOLOR_RUN_0007.json
+          git commit -m 'arc: record marker recolor corpus run'
           git push origin HEAD:universal-core-arc-training-v2-2
-          conclusion=$(python -c "import json; print(json.load(open('docs/evidence/arc_v2_2/FULL_MECHANISTIC_RUN_0006.json'))['conclusion'])")
+          conclusion=$(python -c "import json; print(json.load(open('docs/evidence/arc_v2_2/FULL_MARKER_RECOLOR_RUN_0007.json'))['conclusion'])")
           test "$conclusion" = 'success'
           python - <<'PY'
           import json
-          evidence = json.load(open('docs/evidence/arc_v2_2/FULL_MECHANISTIC_RUN_0006.json'))
+          evidence = json.load(open('docs/evidence/arc_v2_2/FULL_MARKER_RECOLOR_RUN_0007.json'))
           if not evidence['artifact']:
               raise SystemExit('successful run did not publish the expected artifact')
           PY
