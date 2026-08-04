@@ -11,12 +11,13 @@ from .panel_combine import apply_panel, panel_candidates
 from .region_fill import apply_region, region_candidates
 from .component_select import apply_component_select, component_select_candidates
 from .marker_recolor import apply_marker_recolor
+from .component_outlier import apply_component_outlier
 
 
 Grid = list[list[int]]
 Program = dict[str, Any]
 Point = tuple[int, int]
-_VERSION = "grid-v2.2-6"
+_VERSION = "grid-v2.2-7"
 
 
 def _canonical(value: Any) -> bytes:
@@ -214,6 +215,8 @@ def _apply(program: Program, value: Any) -> Grid:
         return apply_region(program, grid)
     if kind == "component_area_select":
         return apply_component_select(program, grid)
+    if kind == "component_area_outlier_color":
+        return apply_component_outlier(program, grid)
     if kind == "marker_recolor":
         return apply_marker_recolor(program, grid)
     if kind == "color_map":

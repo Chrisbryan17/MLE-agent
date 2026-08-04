@@ -1,0 +1,24 @@
+{
+  "expected_training_delta": {
+    "accepted_rows": 1,
+    "correct_rows": 1,
+    "execution_failed_rows": -1,
+    "task_id": "b230c067"
+  },
+  "focused_output": "...............                                                          [100%]\n15 passed in 0.42s\n",
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "frozen_output": ".....                                                                    [100%]\n5 passed in 0.11s\n",
+  "mechanistic_invariant": "one unique area extreme and uniform-area peers",
+  "outcomes": {
+    "focused": "success",
+    "frozen_byte_gate": "success",
+    "frozen_tests": "success",
+    "v2_2_cluster": "success"
+  },
+  "passed": true,
+  "run_id": "30951907670",
+  "schema_version": 2,
+  "source_trace_digest": "e881dc495aada3c875dd8016cc6768e37a2560e1588cb0bee0b46986b412f4ac",
+  "v2_2_output": "...........................................................              [100%]\n59 passed in 0.54s\n",
+  "workflow_source_commit": "a96557caf150291da56d2a333356cdf74bc91f49"
+}
