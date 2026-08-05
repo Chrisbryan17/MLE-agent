@@ -110,6 +110,21 @@ def test_program_derivation_reports_non_double_output_shape() -> None:
     assert reason == "OUTPUT_NOT_DOUBLE_SOURCE_SHAPE"
 
 
+def test_program_derivation_defers_uniform_quadrant_roles_to_tile() -> None:
+    programs, reason = quadrant_mosaic_programs((
+        (
+            [[1, 2]],
+            [
+                [1, 2, 1, 2],
+                [1, 2, 1, 2],
+            ],
+        ),
+    ))
+
+    assert programs == ()
+    assert reason == "NO_DISTINCT_QUADRANT_ROLES"
+
+
 def test_nine_training_gaps_become_exact_trace_explained_acceptances() -> None:
     for task_id in _TASK_IDS:
         result = grid_induction.run_public_task_v2_2(
@@ -142,11 +157,11 @@ def test_symmetric_demonstration_preserves_hidden_transform_ambiguity() -> None:
         "task_id": "quadrant-mosaic-ambiguity",
         "instructions": "Infer the exact grid mapping.",
         "demonstrations": [{
-            "input": [[1, 1], [1, 1]],
+            "input": [[1, 1], [2, 2]],
             "output": [
                 [1, 1, 1, 1],
-                [1, 1, 1, 1],
-                [1, 1, 1, 1],
+                [2, 2, 2, 2],
+                [2, 2, 2, 2],
                 [1, 1, 1, 1],
             ],
         }],
