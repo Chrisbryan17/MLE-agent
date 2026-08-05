@@ -1,0 +1,11 @@
+{
+  "frozen_byte_gate": true,
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "passed": true,
+  "public_arc_evaluation_rerun": false,
+  "run_id": "30973091597",
+  "schema_version": 1,
+  "source_commit": "7d006b98bb09ce03f3f8fe0317724af883060173",
+  "test_count": 4,
+  "test_output": "....                                                                     [100%]\n4 passed in 0.12s\n"
+}
