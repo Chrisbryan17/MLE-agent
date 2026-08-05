@@ -11,6 +11,7 @@ from .component_outlier import component_outlier_programs
 from .bbox_complete import bbox_complete_programs
 from .mirror_concat import mirror_concat_programs
 from .quadrant_mosaic import quadrant_mosaic_programs
+from .palette_repeat import palette_repeat_programs
 from .panel_combine import panel_programs
 from .region_fill import region_programs
 
@@ -96,6 +97,7 @@ def _generator_batches(demos: Sequence[Demo]) -> tuple[tuple[str, tuple[Program,
     bbox_complete, bbox_reason = bbox_complete_programs(demos)
     mirror_concat, mirror_reason = mirror_concat_programs(demos)
     quadrant_mosaic, quadrant_reason = quadrant_mosaic_programs(demos)
+    palette_repeat, palette_reason = palette_repeat_programs(demos)
     return (
         ("fixed", fixed, None),
         ("color_map", color_programs, None if color_programs else "NO_CONSISTENT_COLOR_MAP"),
@@ -112,6 +114,7 @@ def _generator_batches(demos: Sequence[Demo]) -> tuple[tuple[str, tuple[Program,
         ("bbox_complete", bbox_complete, bbox_reason),
         ("mirror_concat", mirror_concat, mirror_reason),
         ("quadrant_mosaic", quadrant_mosaic, quadrant_reason),
+        ("palette_repeat", palette_repeat, palette_reason),
         ("panel", panel, panel_reason),
         ("region", region, region_reason),
         ("component_select", component_select, component_reason),
