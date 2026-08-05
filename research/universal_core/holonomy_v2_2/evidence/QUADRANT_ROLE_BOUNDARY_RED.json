@@ -1,0 +1,13 @@
+{
+  "failure_confirmed": true,
+  "observed_candidate_count": 16,
+  "observed_failure": "quadrant_mosaic_programs returned repeated-transform programs instead of an empty program set",
+  "public_arc_evaluation_rerun": false,
+  "required_boundary": "NO_DISTINCT_QUADRANT_ROLES",
+  "root_cause": "a transform supported in all four quadrant roles overlaps whole-grid tiling and creates hidden ambiguity when source shape changes",
+  "run_id": 30973614403,
+  "schema_version": 1,
+  "source_commit": "bd04a806be01800eaea0acce866d5b6282b10177",
+  "test_command": "python -m pytest -q research/universal_core/holonomy_v2_2/tests/test_quadrant_mosaic.py::test_program_derivation_defers_uniform_quadrant_roles_to_tile",
+  "test_result": "1 failed; expected programs == (), observed 16 programs"
+}
