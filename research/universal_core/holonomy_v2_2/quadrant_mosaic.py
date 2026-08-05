@@ -106,6 +106,8 @@ def quadrant_mosaic_programs(
 
     if any(not names for names in supported):
         return (), "NO_SUPPORTED_QUADRANT_TRANSFORM"
+    if set.intersection(*supported):
+        return (), "NO_DISTINCT_QUADRANT_ROLES"
 
     ordered = [
         tuple(name for name in _TRANSFORM_ORDER if name in names)
