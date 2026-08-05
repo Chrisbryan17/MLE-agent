@@ -1,0 +1,33 @@
+{
+  "expected_new_exact_tasks": [
+    "0c786b71",
+    "3af2c5a8",
+    "46442a0e",
+    "62c24649",
+    "67e8384a",
+    "7953d61e",
+    "7fe24cdd",
+    "833dafe3",
+    "ed98d772"
+  ],
+  "expected_training_delta": {
+    "accepted_rows": 9,
+    "correct_rows": 9,
+    "grammar_exhausted_rows": -9
+  },
+  "focused_output": ".................................                                        [100%]\n33 passed in 2.99s\n",
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "frozen_output": ".....                                                                    [100%]\n5 passed in 0.08s\n",
+  "outcomes": {
+    "focused": "success",
+    "frozen_byte_gate": "success",
+    "frozen_tests": "success",
+    "v2_2_cluster": "failure"
+  },
+  "passed": false,
+  "public_arc_evaluation_rerun": false,
+  "run_id": "30973470601",
+  "schema_version": 1,
+  "v2_2_output": "....................F................................................... [ 93%]\n.....                                                                    [100%]\n=================================== FAILURES ===================================\n_______________ test_cell_scale_and_whole_grid_tile_are_distinct _______________\n\n    def test_cell_scale_and_whole_grid_tile_are_distinct() -> None:\n        scale = task(\n            [{\"input\": [[1, 2]], \"output\": [[1, 1, 2, 2], [1, 1, 2, 2]]}],\n            [[[3], [4]]],\n            \"scale\",\n        )\n        tile = task(\n            [{\"input\": [[1, 2]], \"output\": [[1, 2, 1, 2], [1, 2, 1, 2]]}],\n            [[[3], [4]]],\n            \"tile\",\n        )\n    \n        scaled = grid_induction.run_public_task_v2_2(scale, engine=None)\n        tiled = grid_induction.run_public_task_v2_2(tile, engine=None)\n    \n        assert scaled[\"predictions\"][0][\"prediction\"] == [[3, 3], [3, 3], [4, 4], [4, 4]]\n>       assert tiled[\"predictions\"][0][\"prediction\"] == [[3, 3], [4, 4], [3, 3], [4, 4]]\nE       assert None == [[3, 3], [4, 4], [3, 3], [4, 4]]\n\nresearch/universal_core/holonomy_v2_2/tests/test_grid_induction.py:67: AssertionError\n=========================== short test summary info ============================\nFAILED research/universal_core/holonomy_v2_2/tests/test_grid_induction.py::test_cell_scale_and_whole_grid_tile_are_distinct - assert None == [[3, 3], [4, 4], [3, 3], [4, 4]]\n1 failed, 76 passed in 3.10s\n",
+  "workflow_source_commit": "97133b1631258e0018b4c9428a28db68e1c359ac"
+}
