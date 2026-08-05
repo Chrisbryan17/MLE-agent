@@ -1,0 +1,73 @@
+name: ARC Palette Repeat RED
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-palette-repeat-red.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  verify-red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check --quiet pytest
+      - name: Verify pinned fixture integrity
+        run: python -m pytest -q research/universal_core/holonomy_v2_2/tests/test_palette_repeat_fixtures.py
+      - name: Require missing palette module
+        run: |
+          set +e
+          python -m pytest -q research/universal_core/holonomy_v2_2/tests/test_palette_repeat.py > /tmp/palette-red.log 2>&1
+          status=$?
+          set -e
+          cat /tmp/palette-red.log
+          test "$status" -ne 0
+          grep -F "No module named 'research.universal_core.holonomy_v2_2.palette_repeat'" /tmp/palette-red.log
+      - name: Commit RED evidence
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          evidence = {
+              'schema_version': 1,
+              'source_commit': os.environ['SOURCE_SHA'],
+              'run_id': os.environ['RUN_ID'],
+              'failure_confirmed': True,
+              'expected_failure': "ModuleNotFoundError: No module named 'research.universal_core.holonomy_v2_2.palette_repeat'",
+              'fixture_count': 4,
+              'fixture_integrity': True,
+              'expected_new_exact_tasks': ['a59b95c0', 'ac0a08a4', 'b91ae062', 'd4b1c2b1'],
+              'training_scan': {
+                  'compatible_tasks': 4,
+                  'wrong_completed_hidden_outputs': 0,
+                  'ambiguous_hidden_outputs': 0,
+                  'compatible_accepted_tasks': 0,
+              },
+              'test_command': 'python -m pytest -q research/universal_core/holonomy_v2_2/tests/test_palette_repeat.py',
+              'captured_log': Path('/tmp/palette-red.log').read_text(encoding='utf-8'),
+              'frozen_core_commit': '1d7c489bcdbff755d638b35ad47ce62bd4fe829d',
+              'public_arc_evaluation_rerun': False,
+          }
+          path = Path('research/universal_core/holonomy_v2_2/evidence/PALETTE_REPEAT_RED.json')
+          path.write_text(json.dumps(evidence, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add research/universal_core/holonomy_v2_2/evidence/PALETTE_REPEAT_RED.json
+          git commit -m 'arc: record palette repeat RED evidence'
+          git push origin HEAD:universal-core-arc-training-v2-2
