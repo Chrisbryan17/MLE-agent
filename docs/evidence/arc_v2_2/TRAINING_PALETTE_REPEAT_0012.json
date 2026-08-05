@@ -1,0 +1,143 @@
+{
+  "accepted_selected_kind_counts": {
+    "bounding_box_complete": 4,
+    "color_map": 3,
+    "component_area_outlier_color": 1,
+    "component_area_select": 5,
+    "component_rank_color": 10,
+    "dihedral_quadrant_mosaic": 9,
+    "enclosed_region_fill": 3,
+    "marker_recolor": 1,
+    "mirror_concatenate": 5,
+    "palette_cardinality_repeat": 4,
+    "panel_boolean_combine": 20,
+    "reflect": 4,
+    "rotate": 3,
+    "scale": 3,
+    "tile": 1
+  },
+  "artifact": {
+    "digest": "sha256:6a7633388ef12cefda49951b8ae12fa39382c2d62b55fc8ff03818b3eb52343f",
+    "expired": false,
+    "id": 8918122407,
+    "name": "arc-v2-2-palette-repeat-1437a6b18a67fae0d275416207a4120432a58acd",
+    "size_in_bytes": 33788623
+  },
+  "candidate_commit": "1437a6b18a67fae0d275416207a4120432a58acd",
+  "diagnosis_digest": "92d51f982125188f4b2120810f385acd9c109f1fd02113f49972100ac3937def",
+  "frozen_core_byte_gate": true,
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "hidden_failure_counts": {
+    "color_map": {"KeyError": 1},
+    "component_area_outlier_color": {"ValueError": 1},
+    "component_rank_color": {"KeyError": 3}
+  },
+  "independent_verification": {
+    "checksum_manifest_entries": 1006,
+    "checksum_manifest_verified": true,
+    "compact_mechanistic_parity": 1000,
+    "evaluated_validator_commit": "1437a6b18a67fae0d275416207a4120432a58acd",
+    "event_count_recomputed": 599077,
+    "task_traces_validated": 1000
+  },
+  "mechanisms": {
+    "60b61512": {
+      "bbox_equivalence_class_count": 2,
+      "safety_action": "abstain_on_connectivity_disagreement",
+      "terminal_status": "AMBIGUOUS_PROGRAM",
+      "trace_digest": "12a35f3c2a6cf31b482a0f374349fd2386d6e1b0e909f729a4a23b16aa2f0d4b"
+    },
+    "ownership_boundary": "NO_FACTOR_VARIATION",
+    "palette_tasks": {
+      "a59b95c0": {
+        "selected_candidate_id": "palette_repeat:0000",
+        "successful_palette_candidates": 1,
+        "trace_digest": "1fb47ebd848333815f78fbc6cbd786f6c3546ea440989a463c35985f051e0e28"
+      },
+      "ac0a08a4": {
+        "selected_candidate_id": "palette_repeat:0000",
+        "successful_palette_candidates": 1,
+        "trace_digest": "1aa65271bc13f17bf3cf5221fdf9a9c02d32d361c322b8ffe98d5cf5fc8b5cad"
+      },
+      "b91ae062": {
+        "selected_candidate_id": "palette_repeat:0000",
+        "successful_palette_candidates": 1,
+        "trace_digest": "5f10be98fa6835e7e103088205154ade25556281beb534bc77b6eb3fff6e2e2e"
+      },
+      "d4b1c2b1": {
+        "selected_candidate_id": "palette_repeat:0000",
+        "successful_palette_candidates": 1,
+        "trace_digest": "f026b7a5251840231916708a47ae8bd928252a3147f228862d7f3a019bcc47bc"
+      }
+    },
+    "schema_version": 1
+  },
+  "mechanistic": {
+    "diagnosis_digest": "92d51f982125188f4b2120810f385acd9c109f1fd02113f49972100ac3937def",
+    "diagnosis_path": "diagnosis.json",
+    "parity_checked": true,
+    "parity_count": 1000,
+    "trace_count": 1000,
+    "trace_schema": "mechanistic-grid-trace-v1"
+  },
+  "metrics": {
+    "abstained": 994,
+    "accepted": 82,
+    "attempted_accuracy": 1.0,
+    "correct": 82,
+    "coverage": 0.0762081784386617,
+    "failed": 0,
+    "families": 1000,
+    "incorrect_attempts": 0,
+    "raw_accuracy": 0.0762081784386617,
+    "rows": 1076
+  },
+  "public_arc_evaluation_rerun": false,
+  "report_digest": "7c18caf0417f39c39ea291ff591eca9441978326f01123e4e7718834f6c25310",
+  "schema_version": 1,
+  "status_counts": {
+    "ACCEPTED": 82,
+    "AMBIGUOUS_PROGRAM": 1,
+    "GRAMMAR_EXHAUSTED": 993
+  },
+  "total_event_count": 599077,
+  "transitions": {
+    "baseline_commit": "e50965009efb96457fd769d97b42027f8a4e98c0",
+    "candidate_commit": "1437a6b18a67fae0d275416207a4120432a58acd",
+    "expected_gains_matched": true,
+    "gained_rows": {
+      "0c786b71": {"baseline_correct": 0, "current_correct": 1},
+      "3aa6fb7a": {"baseline_correct": 0, "current_correct": 1},
+      "3af2c5a8": {"baseline_correct": 0, "current_correct": 1},
+      "46442a0e": {"baseline_correct": 0, "current_correct": 1},
+      "4c4377d9": {"baseline_correct": 0, "current_correct": 1},
+      "62c24649": {"baseline_correct": 0, "current_correct": 1},
+      "67e8384a": {"baseline_correct": 0, "current_correct": 1},
+      "6d0aefbc": {"baseline_correct": 0, "current_correct": 1},
+      "6d75e8bb": {"baseline_correct": 0, "current_correct": 1},
+      "6fa7a44f": {"baseline_correct": 0, "current_correct": 1},
+      "7953d61e": {"baseline_correct": 0, "current_correct": 1},
+      "7fe24cdd": {"baseline_correct": 0, "current_correct": 1},
+      "833dafe3": {"baseline_correct": 0, "current_correct": 1},
+      "8be77c9e": {"baseline_correct": 0, "current_correct": 1},
+      "a59b95c0": {"baseline_correct": 0, "current_correct": 1},
+      "aabf363d": {"baseline_correct": 0, "current_correct": 1},
+      "ac0a08a4": {"baseline_correct": 0, "current_correct": 1},
+      "b230c067": {"baseline_correct": 0, "current_correct": 1},
+      "b91ae062": {"baseline_correct": 0, "current_correct": 1},
+      "c9e6f938": {"baseline_correct": 0, "current_correct": 1},
+      "d4b1c2b1": {"baseline_correct": 0, "current_correct": 1},
+      "e7639916": {"baseline_correct": 0, "current_correct": 1},
+      "ed98d772": {"baseline_correct": 0, "current_correct": 1}
+    },
+    "incorrect_attempts": 0,
+    "lost_rows": {},
+    "schema_version": 1
+  },
+  "workflow": {
+    "conclusion": "success",
+    "job_id": 92207716360,
+    "name": "ARC Palette Repeat Mechanistic Corpus",
+    "run_id": 30975220533
+  }
+}
