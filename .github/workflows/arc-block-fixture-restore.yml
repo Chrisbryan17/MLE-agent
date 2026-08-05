@@ -1,0 +1,78 @@
+name: Restore ARC Block Reduction Fixtures
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-block-fixture-restore.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  restore-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download immutable benchmark corpus
+        uses: actions/download-artifact@v4
+        with:
+          name: public-benchmarks-pinned-2026-08-04
+          path: /tmp/pinned-public-benchmarks
+          github-token: ${{ github.token }}
+          repository: Chrisbryan17/MLE-agent
+          run-id: '30929169392'
+      - name: Restore exact fixture bytes
+        run: |
+          set -euo pipefail
+          vendor=$(find /tmp/pinned-public-benchmarks -type d -path '*/arc_agi_2/data/training' | head -1)
+          test -n "$vendor"
+          destination=research/universal_core/holonomy_v2_2/tests/fixtures/block_reduce
+          mkdir -p "$destination"
+          cp "$vendor/5614dbcf.json" "$destination/5614dbcf.json"
+          cp "$vendor/68b67ca3.json" "$destination/68b67ca3.json"
+          printf '%s  %s\n' \
+            0751d867504f022964f0d4ef909ae9e68c928f499841f6a3e8b7143791fca53e "$destination/5614dbcf.json" \
+            767e0baf6a71a7f288ab5a08f13a4ecc65ac5a43144586dec0c3ccd2eff5edb4 "$destination/68b67ca3.json" \
+            | sha256sum -c -
+      - run: python -m pip install --disable-pip-version-check --quiet pytest
+      - name: Verify fixture regression
+        run: python -m pytest -q research/universal_core/holonomy_v2_2/tests/test_block_reduce_fixtures.py | tee /tmp/fixture-green.log
+      - name: Commit exact fixtures and evidence
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          evidence = {
+              'schema_version': 1,
+              'workflow_source_commit': os.environ['SOURCE_SHA'],
+              'run_id': os.environ['RUN_ID'],
+              'fixture_count': 2,
+              'fixture_integrity': True,
+              'source_artifact_run': 30929169392,
+              'test_output': Path('/tmp/fixture-green.log').read_text(encoding='utf-8'),
+              'public_arc_evaluation_rerun': False,
+          }
+          path = Path('research/universal_core/holonomy_v2_2/evidence/BLOCK_REDUCE_FIXTURE_GREEN.json')
+          path.write_text(json.dumps(evidence, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add \
+            research/universal_core/holonomy_v2_2/tests/fixtures/block_reduce \
+            research/universal_core/holonomy_v2_2/evidence/BLOCK_REDUCE_FIXTURE_GREEN.json
+          git commit -m 'arc: restore pinned block reduction fixtures'
+          git push origin HEAD:universal-core-arc-training-v2-2
