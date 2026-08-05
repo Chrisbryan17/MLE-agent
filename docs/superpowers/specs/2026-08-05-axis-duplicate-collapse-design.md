@@ -17,7 +17,7 @@ Exhaustive enumeration across all 1,000 training tasks found exactly six compati
 - `e1baa8a4`
 - `eb5a1d5d`
 
-Every fitting candidate produces the exact hidden target. Candidate orders agree on all six hidden outputs. The scan found:
+Every fitting candidate produces the exact hidden target. All fitting scope/axis candidates agree on the six hidden outputs. The scan found:
 
 - zero wrong completed hidden outputs;
 - zero hidden-output disagreements;
@@ -39,7 +39,7 @@ The new kind is `axis_duplicate_collapse`:
 {
   "kind": "axis_duplicate_collapse",
   "scope": "adjacent_runs",
-  "order": "rows_then_columns"
+  "axes": "both"
 }
 ```
 
@@ -48,24 +48,25 @@ The new kind is `axis_duplicate_collapse`:
 - `adjacent_runs`: replace each maximal consecutive run of identical rows or columns with its first member;
 - `global_first`: retain the first occurrence of every distinct row or column and remove later duplicates, even when separated.
 
-`order` is one of:
+`axes` is one of:
 
 - `rows`
 - `columns`
-- `rows_then_columns`
-- `columns_then_rows`
+- `both`
 
 Rows and columns are compared as exact value tuples. Retained order is stable.
 
+Row and column collapse commute: removing duplicate column vectors keeps one representative of every column-equivalence class and therefore preserves row equality; the symmetric argument applies to column equality after row collapse. `both` consequently has one canonical execution order.
+
 ## Candidate derivation
 
-The generator considers all eight scope/order combinations. A candidate is exposed only when:
+The generator considers all six scope/axis combinations. A candidate is exposed only when:
 
 1. executing it changes at least one demonstration input;
 2. its output dimensions do not exceed the corresponding input dimensions;
 3. the candidate remains within ARC bounds.
 
-The mechanistic runtime performs the normal demonstration fitting and records every mismatch or acceptance. No scope or order is preferred.
+The mechanistic runtime performs normal demonstration fitting and records every mismatch or acceptance. No scope or axis set is preferred.
 
 This boundary avoids identity overlap. Training enumeration found no exact overlap with an existing accepted task.
 
@@ -75,8 +76,6 @@ The selected collapse operation is recomputed directly on each hidden input. Whe
 
 - identical hidden outputs are deduplicated into one output class;
 - divergent hidden outputs trigger the existing `AMBIGUOUS_PROGRAM` abstention.
-
-Both row-first and column-first candidates remain explicit because the operations need not commute on arbitrary grids.
 
 ## Implementation
 
@@ -98,7 +97,7 @@ The shared grid grammar advances from `grid-v2.2-11` to `grid-v2.2-12`.
 The existing mechanistic runtime records:
 
 - generator start/end or skip reason;
-- every scope/order proposal;
+- every scope/axis proposal;
 - every demonstration execution and fit decision;
 - every hidden execution;
 - candidate deduplication and output-equivalence classes;
@@ -110,7 +109,7 @@ Compact and mechanistic results must remain exactly identical after removing the
 
 1. Restore six fixtures byte-for-byte from immutable corpus artifact run `30929169392`.
 2. Pin fixture SHA-256 values in a regression test.
-3. Add direct tests for adjacent-run and global-first collapse, stable ordering, non-commuting axis orders, and no-effect skip behavior.
+3. Add direct tests for adjacent-run and global-first collapse, stable ordering, row-only/column-only/both modes, commutativity, and no-effect skip behavior.
 4. Verify missing-module RED.
 5. Implement the isolated module and verify module GREEN.
 6. Wire interpreter dispatch and mechanistic generator through a fail-closed workflow.
