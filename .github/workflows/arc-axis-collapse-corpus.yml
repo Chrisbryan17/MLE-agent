@@ -1,0 +1,336 @@
+name: ARC Axis Collapse Mechanistic Corpus
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-axis-collapse-corpus.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  training-corpus:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download immutable benchmark corpus
+        uses: actions/download-artifact@v4
+        with:
+          name: public-benchmarks-pinned-2026-08-04
+          path: /tmp/pinned-public-benchmarks
+          github-token: ${{ github.token }}
+          repository: Chrisbryan17/MLE-agent
+          run-id: '30929169392'
+      - name: Download immutable V2.2 baseline report
+        uses: actions/download-artifact@v4
+        with:
+          name: arc-v2-2-training-e50965009efb96457fd769d97b42027f8a4e98c0
+          path: /tmp/arc-v2-2-baseline
+          github-token: ${{ github.token }}
+          repository: Chrisbryan17/MLE-agent
+          run-id: '30941837872'
+      - name: Verify V2.2 and frozen V2 gates
+        env:
+          PYTHONPATH: research
+        run: |
+          python -m pip install --disable-pip-version-check --quiet pytest
+          python -m pytest -q research/universal_core/holonomy_v2_2/tests
+          python -m pytest -q \
+            research/universal_core/holonomy_v2/tests/test_blind_adapter.py \
+            research/universal_core/holonomy_v2/tests/test_engine.py
+          git diff --quiet 1d7c489bcdbff755d638b35ad47ce62bd4fe829d -- research/universal_core/holonomy_v2
+      - name: Run all ARC training tasks with complete traces
+        run: |
+          mkdir -p /tmp/arc-v2-2-axis/traces
+          python - <<'PY' | tee /tmp/arc-v2-2-axis/console-summary.json
+          import json
+          import os
+          from pathlib import Path
+
+          from research.universal_core.holonomy_v2.engine import HolonomyEngine
+          from research.universal_core.holonomy_v2.types import SearchConfig
+          from research.universal_core.holonomy_v2_2.mechanistic_trace import validate_trace
+          from research.universal_core.holonomy_v2_2.training_eval import run_training_corpus, write_report
+          from research.universal_core.public_benchmarks.suite import locate_vendor
+
+          output = Path('/tmp/arc-v2-2-axis')
+          trace_dir = output / 'traces'
+          vendor = locate_vendor(Path('/tmp/pinned-public-benchmarks'))
+          report = run_training_corpus(
+              vendor,
+              HolonomyEngine(SearchConfig()),
+              run_label='arc-v2-2-axis-' + os.environ['GITHUB_SHA'][:12],
+              candidate_commit=os.environ['GITHUB_SHA'],
+              mechanistic_dir=trace_dir,
+              verify_parity=True,
+          )
+          write_report(report, output / 'report.json')
+
+          trace_paths = sorted(
+              path for path in trace_dir.glob('*.json')
+              if path.name != 'diagnosis.json'
+          )
+          if len(trace_paths) != 1000:
+              raise SystemExit(f'expected 1000 task traces, found {len(trace_paths)}')
+          traces = {}
+          for path in trace_paths:
+              trace = json.loads(path.read_text(encoding='utf-8'))
+              validate_trace(trace)
+              traces[path.stem] = trace
+          if report['mechanistic']['trace_count'] != 1000:
+              raise SystemExit('aggregate trace count mismatch')
+          if report['mechanistic']['parity_count'] != 1000:
+              raise SystemExit('compact/mechanistic parity count mismatch')
+
+          baseline = json.loads(
+              Path('/tmp/arc-v2-2-baseline/report.json').read_text(encoding='utf-8')
+          )
+          baseline_rows = {
+              item['task_id']: int(item['metrics']['correct'])
+              for item in baseline['reports']
+          }
+          current_rows = {
+              item['task_id']: int(item['metrics']['correct'])
+              for item in report['reports']
+          }
+          lost_rows = {
+              task_id: {
+                  'baseline_correct': correct,
+                  'current_correct': current_rows.get(task_id, 0),
+              }
+              for task_id, correct in baseline_rows.items()
+              if current_rows.get(task_id, 0) < correct
+          }
+          gained_rows = {
+              task_id: {
+                  'baseline_correct': baseline_rows.get(task_id, 0),
+                  'current_correct': correct,
+              }
+              for task_id, correct in current_rows.items()
+              if correct > baseline_rows.get(task_id, 0)
+          }
+          expected_gain_ids = [
+              '0c786b71', '2dee498d', '3aa6fb7a', '3af2c5a8', '46442a0e',
+              '4c4377d9', '62c24649', '67e8384a', '6d0aefbc', '6d75e8bb',
+              '6fa7a44f', '746b3537', '7953d61e', '7b7f7511', '7fe24cdd',
+              '833dafe3', '8be77c9e', 'a59b95c0', 'aabf363d', 'ac0a08a4',
+              'b230c067', 'b91ae062', 'c9e6f938', 'ce8d95cc', 'd4b1c2b1',
+              'e1baa8a4', 'e7639916', 'eb5a1d5d', 'ed98d772',
+          ]
+          expected_gains = {
+              task_id: {'baseline_correct': 0, 'current_correct': 1}
+              for task_id in expected_gain_ids
+          }
+          if lost_rows:
+              raise SystemExit('lost baseline-correct rows: ' + json.dumps(lost_rows, sort_keys=True))
+          if gained_rows != expected_gains:
+              raise SystemExit(
+                  'unexpected gained rows: expected '
+                  + json.dumps(expected_gains, sort_keys=True)
+                  + ' found '
+                  + json.dumps(gained_rows, sort_keys=True)
+              )
+
+          expected_metrics = {
+              'rows': 1076,
+              'correct': 88,
+              'accepted': 88,
+              'incorrect_attempts': 0,
+              'failed': 0,
+          }
+          for key, expected in expected_metrics.items():
+              if int(report['metrics'][key]) != expected:
+                  raise SystemExit(
+                      f'metric {key} changed: expected {expected}, found {report["metrics"][key]}'
+                  )
+          expected_status = {
+              'ACCEPTED': 88,
+              'AMBIGUOUS_PROGRAM': 1,
+              'GRAMMAR_EXHAUSTED': 987,
+          }
+          if report['status_counts'] != expected_status:
+              raise SystemExit(
+                  'status counts changed: expected '
+                  + json.dumps(expected_status, sort_keys=True)
+                  + ' found '
+                  + json.dumps(report['status_counts'], sort_keys=True)
+              )
+
+          axis_ids = ('2dee498d', '746b3537', '7b7f7511', 'ce8d95cc', 'e1baa8a4', 'eb5a1d5d')
+          axis_details = {}
+          for task_id in axis_ids:
+              trace = traces[task_id]
+              final = [event for event in trace['events'] if event.get('event') == 'final_decision'][0]
+              successes = [
+                  event for event in trace['events']
+                  if event.get('event') == 'hidden_execution'
+                  and event.get('candidate_kind') == 'axis_duplicate_collapse'
+                  and event.get('outcome') == 'SUCCEEDED'
+              ]
+              if trace['terminal_status'] != 'ACCEPTED':
+                  raise SystemExit(f'{task_id} did not transition to ACCEPTED')
+              if not successes:
+                  raise SystemExit(f'{task_id} has no successful axis-collapse candidate')
+              if not str(final.get('selected_candidate_id', '')).startswith('axis_collapse:'):
+                  raise SystemExit(f'{task_id} did not select axis collapse')
+              axis_details[task_id] = {
+                  'trace_digest': trace['trace_digest'],
+                  'successful_axis_candidates': len(successes),
+                  'selected_candidate_id': final['selected_candidate_id'],
+              }
+
+          primitive_guards = {
+              'aabf363d': 'marker_recolor:',
+              'b230c067': 'component_outlier:',
+              '3aa6fb7a': 'bbox_complete:',
+              '6d75e8bb': 'bbox_complete:',
+              'e7639916': 'bbox_complete:',
+              '4c4377d9': 'mirror_concat:',
+              '6d0aefbc': 'mirror_concat:',
+              '6fa7a44f': 'mirror_concat:',
+              '8be77c9e': 'mirror_concat:',
+              'c9e6f938': 'mirror_concat:',
+              '0c786b71': 'quadrant_mosaic:',
+              '3af2c5a8': 'quadrant_mosaic:',
+              '46442a0e': 'quadrant_mosaic:',
+              '62c24649': 'quadrant_mosaic:',
+              '67e8384a': 'quadrant_mosaic:',
+              '7953d61e': 'quadrant_mosaic:',
+              '7fe24cdd': 'quadrant_mosaic:',
+              '833dafe3': 'quadrant_mosaic:',
+              'ed98d772': 'quadrant_mosaic:',
+              'a59b95c0': 'palette_repeat:',
+              'ac0a08a4': 'palette_repeat:',
+              'b91ae062': 'palette_repeat:',
+              'd4b1c2b1': 'palette_repeat:',
+          }
+          for task_id, prefix in primitive_guards.items():
+              trace = traces[task_id]
+              final = [event for event in trace['events'] if event.get('event') == 'final_decision'][0]
+              if trace['terminal_status'] != 'ACCEPTED':
+                  raise SystemExit(f'{task_id} regressed')
+              if not str(final.get('selected_candidate_id', '')).startswith(prefix):
+                  raise SystemExit(f'{task_id} selected primitive changed')
+
+          ambiguous = traces['60b61512']
+          classes = [event for event in ambiguous['events'] if event.get('event') == 'equivalence_class']
+          bbox_classes = [
+              event for event in classes
+              if any(str(candidate_id).startswith('bbox_complete:') for candidate_id in event['candidate_ids'])
+          ]
+          if ambiguous['terminal_status'] != 'AMBIGUOUS_PROGRAM':
+              raise SystemExit('60b61512 did not remain ambiguity-safe')
+          if len(bbox_classes) < 2:
+              raise SystemExit('60b61512 lost bounding-box disagreement')
+
+          transitions = {
+              'schema_version': 1,
+              'candidate_commit': os.environ['GITHUB_SHA'],
+              'baseline_commit': 'e50965009efb96457fd769d97b42027f8a4e98c0',
+              'lost_rows': lost_rows,
+              'gained_rows': gained_rows,
+              'expected_gains_matched': True,
+              'incorrect_attempts': int(report['metrics']['incorrect_attempts']),
+          }
+          mechanisms = {
+              'schema_version': 1,
+              'axis_tasks': axis_details,
+              'ownership_boundary': 'NO_DUPLICATE_AXIS_REDUCTION',
+              '60b61512': {
+                  'terminal_status': ambiguous['terminal_status'],
+                  'trace_digest': ambiguous['trace_digest'],
+                  'bbox_equivalence_class_count': len(bbox_classes),
+                  'safety_action': 'abstain_on_connectivity_disagreement',
+              },
+          }
+          parity = {
+              'schema_version': 1,
+              'candidate_commit': os.environ['GITHUB_SHA'],
+              'checked_tasks': 1000,
+              'mismatches': 0,
+              'lost_baseline_rows': lost_rows,
+          }
+          for name, data in (
+              ('transitions.json', transitions),
+              ('mechanisms.json', mechanisms),
+              ('parity.json', parity),
+          ):
+              (output / name).write_text(
+                  json.dumps(data, sort_keys=True, indent=2) + '\n',
+                  encoding='utf-8',
+              )
+
+          print(json.dumps({
+              'report_digest': report['report_digest'],
+              'diagnosis_digest': report['mechanistic']['diagnosis_digest'],
+              'evaluated_tasks': report['evaluated_tasks'],
+              'trace_count': report['mechanistic']['trace_count'],
+              'parity_count': report['mechanistic']['parity_count'],
+              'metrics': report['metrics'],
+              'status_counts': report['status_counts'],
+              'transitions': transitions,
+              'mechanisms': mechanisms,
+          }, sort_keys=True))
+          PY
+      - name: Build checksum manifest after all writers close
+        run: |
+          python - <<'PY'
+          import hashlib
+          from pathlib import Path
+
+          output = Path('/tmp/arc-v2-2-axis')
+          lines = []
+          for path in sorted(
+              item for item in output.rglob('*')
+              if item.is_file() and item.name != 'SHA256SUMS'
+          ):
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              lines.append(f'{digest}  {path.relative_to(output).as_posix()}')
+          (output / 'SHA256SUMS').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+          PY
+      - name: Verify checksum manifest independently
+        working-directory: /tmp/arc-v2-2-axis
+        run: sha256sum -c SHA256SUMS
+      - name: Publish axis-collapse evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: arc-v2-2-axis-collapse-${{ github.sha }}
+          path: /tmp/arc-v2-2-axis
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 6
+      - name: Write run summary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path('/tmp/arc-v2-2-axis')
+          report = json.loads((root / 'report.json').read_text())
+          mechanisms = json.loads((root / 'mechanisms.json').read_text())
+          lines = [
+              '# ARC V2.2 axis duplicate collapse corpus',
+              '',
+              f"- Candidate: `{report['identity']['candidate_commit']}`",
+              f"- Report digest: `{report['report_digest']}`",
+              f"- Diagnosis digest: `{report['mechanistic']['diagnosis_digest']}`",
+              f"- Metrics: `{report['metrics']}`",
+              f"- Status counts: `{report['status_counts']}`",
+              f"- Axis gains: `{sorted(mechanisms['axis_tasks'])}`",
+              f"- Ownership boundary: `{mechanisms['ownership_boundary']}`",
+              f"- 60b61512 action: `{mechanisms['60b61512']['safety_action']}`",
+              '- Public ARC evaluation rerun: `no`',
+          ]
+          Path('/tmp/axis-summary.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+          PY
+          cat /tmp/axis-summary.md >> "$GITHUB_STEP_SUMMARY"
