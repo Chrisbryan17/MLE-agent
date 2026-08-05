@@ -16,12 +16,13 @@ from .bbox_complete import apply_bbox_complete
 from .mirror_concat import apply_mirror_concat
 from .quadrant_mosaic import apply_quadrant_mosaic
 from .palette_repeat import apply_palette_repeat
+from .axis_collapse import apply_axis_collapse
 
 
 Grid = list[list[int]]
 Program = dict[str, Any]
 Point = tuple[int, int]
-_VERSION = "grid-v2.2-11"
+_VERSION = "grid-v2.2-12"
 
 
 def _canonical(value: Any) -> bytes:
@@ -219,6 +220,8 @@ def _apply(program: Program, value: Any) -> Grid:
         return apply_region(program, grid)
     if kind == "component_area_select":
         return apply_component_select(program, grid)
+    if kind == "axis_duplicate_collapse":
+        return apply_axis_collapse(program, grid)
     if kind == "palette_cardinality_repeat":
         return apply_palette_repeat(program, grid)
     if kind == "dihedral_quadrant_mosaic":
