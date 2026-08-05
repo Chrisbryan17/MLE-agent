@@ -20,7 +20,7 @@ Create:
 - `research/universal_core/holonomy_v2_2/tests/test_axis_collapse.py`
 - `.github/workflows/arc-axis-collapse-red.yml`
 
-Restore the six JSON files directly from immutable corpus artifact run `30929169392`. Verify exact SHA-256 values. Test adjacent-run collapse, global-first collapse, stable first-occurrence ordering, both axis orders, no-effect generator skip, and exact mechanistic acceptance for all six tasks. Require missing-module RED and commit evidence.
+Restore the six JSON files directly from immutable corpus artifact run `30929169392`. Verify exact SHA-256 values. Test adjacent-run collapse, global-first collapse, stable first-occurrence ordering, row-only/column-only/both modes, row/column commutativity, no-effect generator skip, and exact mechanistic acceptance for all six tasks. Require missing-module RED and commit evidence.
 
 ### Task 2: Isolated module
 
@@ -31,7 +31,7 @@ apply_axis_collapse(program, grid) -> Grid
 axis_collapse_programs(demos) -> tuple[tuple[Program, ...], str | None]
 ```
 
-Support scopes `adjacent_runs` and `global_first`; orders `rows`, `columns`, `rows_then_columns`, `columns_then_rows`. Expose candidates only when they change at least one demonstration. Return `NO_DUPLICATE_AXIS_REDUCTION` when none changes. Verify direct module tests GREEN.
+Support scopes `adjacent_runs` and `global_first`; axes `rows`, `columns`, `both`. Use one canonical rows-then-columns execution for `both`; the operations commute. Expose candidates only when they change at least one demonstration. Return `NO_DUPLICATE_AXIS_REDUCTION` when none changes. Verify direct module tests GREEN.
 
 ### Task 3: Guarded integration
 
