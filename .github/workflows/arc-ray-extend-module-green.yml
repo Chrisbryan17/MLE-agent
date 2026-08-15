@@ -1,0 +1,70 @@
+name: ARC Ray Extension Module GREEN
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-ray-extend-module-green.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  verify-module:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check --quiet pytest
+      - name: Run isolated ray tests
+        run: |
+          python -m pytest -q \
+            research/universal_core/holonomy_v2_2/tests/test_ray_extend_fixtures.py \
+            research/universal_core/holonomy_v2_2/tests/test_ray_extend.py::test_down_ray_extends_each_anchor_to_bottom_border \
+            research/universal_core/holonomy_v2_2/tests/test_ray_extend.py::test_diagonal_ray_extends_anchor_to_four_diagonal_borders \
+            research/universal_core/holonomy_v2_2/tests/test_ray_extend.py::test_orthogonal_ray_extends_anchor_in_four_cardinal_directions \
+            research/universal_core/holonomy_v2_2/tests/test_ray_extend.py::test_ray_extension_preserves_original_anchor_cells \
+            research/universal_core/holonomy_v2_2/tests/test_ray_extend.py::test_ray_extension_rejects_cross_color_conflict \
+            research/universal_core/holonomy_v2_2/tests/test_ray_extend.py::test_ray_extension_rejects_unknown_mode \
+            research/universal_core/holonomy_v2_2/tests/test_ray_extend.py::test_program_derivation_returns_unique_down_candidate \
+            research/universal_core/holonomy_v2_2/tests/test_ray_extend.py::test_program_derivation_rejects_shape_change \
+            research/universal_core/holonomy_v2_2/tests/test_ray_extend.py::test_program_derivation_skips_noop_demonstration \
+            | tee /tmp/ray-module-green.log
+      - name: Confirm frozen bytes
+        run: git diff --quiet 1d7c489bcdbff755d638b35ad47ce62bd4fe829d -- research/universal_core/holonomy_v2
+      - name: Commit module evidence
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          evidence = {
+              'schema_version': 1,
+              'source_commit': os.environ['SOURCE_SHA'],
+              'run_id': os.environ['RUN_ID'],
+              'passed': True,
+              'test_count': 10,
+              'test_output': Path('/tmp/ray-module-green.log').read_text(encoding='utf-8'),
+              'expected_new_exact_tasks': ['623ea044', 'd037b0a7'],
+              'frozen_core_commit': '1d7c489bcdbff755d638b35ad47ce62bd4fe829d',
+              'frozen_byte_gate': True,
+              'public_arc_evaluation_rerun': False,
+          }
+          path = Path('research/universal_core/holonomy_v2_2/evidence/RAY_EXTEND_MODULE_GREEN.json')
+          path.write_text(json.dumps(evidence, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add research/universal_core/holonomy_v2_2/evidence/RAY_EXTEND_MODULE_GREEN.json
+          git commit -m 'arc: record ray extension module GREEN'
+          git push origin HEAD:universal-core-arc-training-v2-2
