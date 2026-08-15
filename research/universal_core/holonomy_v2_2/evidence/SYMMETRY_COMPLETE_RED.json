@@ -1,0 +1,31 @@
+{
+  "captured_log": "\n==================================== ERRORS ====================================\n_ ERROR collecting research/universal_core/holonomy_v2_2/tests/test_symmetry_complete.py _\nImportError while importing test module '/home/runner/work/MLE-agent/MLE-agent/research/universal_core/holonomy_v2_2/tests/test_symmetry_complete.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nresearch/universal_core/holonomy_v2_2/tests/test_symmetry_complete.py:10: in <module>\n    from research.universal_core.holonomy_v2_2.symmetry_complete import (\nE   ModuleNotFoundError: No module named 'research.universal_core.holonomy_v2_2.symmetry_complete'\n=========================== short test summary info ============================\nERROR research/universal_core/holonomy_v2_2/tests/test_symmetry_complete.py\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.24s\n",
+  "expected_cumulative_metrics": {
+    "accepted": 99,
+    "correct": 99,
+    "failed": 0,
+    "incorrect_attempts": 0,
+    "rows": 1076
+  },
+  "expected_failure": "ModuleNotFoundError: No module named 'research.universal_core.holonomy_v2_2.symmetry_complete'",
+  "expected_new_ambiguous_tasks": [
+    "b8825c91"
+  ],
+  "expected_new_exact_tasks": [
+    "496994bd",
+    "e729b7be",
+    "f25ffba3"
+  ],
+  "expected_status_counts": {
+    "ACCEPTED": 99,
+    "AMBIGUOUS_PROGRAM": 2,
+    "GRAMMAR_EXHAUSTED": 975
+  },
+  "failure_confirmed": true,
+  "fixture_integrity": true,
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "public_arc_evaluation_rerun": false,
+  "run_id": "31912259997",
+  "schema_version": 1,
+  "source_commit": "5518a27cedc93bebee0fdd656225fa8bbc5ec88d"
+}
