@@ -1,0 +1,201 @@
+name: Wire ARC Block Reduce
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-block-reduce-wire.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  wire-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check --quiet pytest
+      - name: Apply guarded block reduction integration
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          grid_path = Path('research/universal_core/holonomy_v2_2/grid_induction.py')
+          text = grid_path.read_text(encoding='utf-8')
+          import_anchor = 'from .axis_collapse import apply_axis_collapse\n'
+          if text.count(import_anchor) != 1 or 'from .block_reduce import' in text:
+              raise SystemExit('block import anchor mismatch')
+          text = text.replace(
+              import_anchor,
+              import_anchor + 'from .block_reduce import apply_block_reduce\n',
+              1,
+          )
+          if text.count('_VERSION = "grid-v2.2-12"') != 1:
+              raise SystemExit('block version anchor mismatch')
+          text = text.replace('_VERSION = "grid-v2.2-12"', '_VERSION = "grid-v2.2-13"', 1)
+          apply_anchor = '    if kind == "axis_duplicate_collapse":\n'
+          if text.count(apply_anchor) != 1:
+              raise SystemExit('block apply anchor mismatch')
+          text = text.replace(
+              apply_anchor,
+              '    if kind == "fixed_block_reduce":\n'
+              '        return apply_block_reduce(program, grid)\n'
+              + apply_anchor,
+              1,
+          )
+          grid_path.write_text(text, encoding='utf-8')
+
+          runtime_path = Path('research/universal_core/holonomy_v2_2/grid_mechanistic_runtime.py')
+          text = runtime_path.read_text(encoding='utf-8')
+          import_anchor = 'from .axis_collapse import axis_collapse_programs\n'
+          if text.count(import_anchor) != 1 or 'block_reduce_programs' in text:
+              raise SystemExit('block runtime import anchor mismatch')
+          text = text.replace(
+              import_anchor,
+              import_anchor + 'from .block_reduce import block_reduce_programs\n',
+              1,
+          )
+          derive_anchor = '    axis_collapse, axis_reason = axis_collapse_programs(demos)\n'
+          if text.count(derive_anchor) != 1:
+              raise SystemExit('block derivation anchor mismatch')
+          text = text.replace(
+              derive_anchor,
+              derive_anchor + '    block_reduce, block_reason = block_reduce_programs(demos)\n',
+              1,
+          )
+          batch_anchor = '        ("axis_collapse", axis_collapse, axis_reason),\n'
+          if text.count(batch_anchor) != 1:
+              raise SystemExit('block batch anchor mismatch')
+          text = text.replace(
+              batch_anchor,
+              batch_anchor + '        ("block_reduce", block_reduce, block_reason),\n',
+              1,
+          )
+          runtime_path.write_text(text, encoding='utf-8')
+          PY
+          python -m py_compile \
+            research/universal_core/holonomy_v2_2/block_reduce.py \
+            research/universal_core/holonomy_v2_2/grid_induction.py \
+            research/universal_core/holonomy_v2_2/grid_mechanistic_runtime.py
+          git diff --check
+      - name: Run focused block reduction tests
+        id: focused
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python -m pytest -q \
+            research/universal_core/holonomy_v2_2/tests/test_block_reduce_fixtures.py \
+            research/universal_core/holonomy_v2_2/tests/test_block_reduce.py \
+            research/universal_core/holonomy_v2_2/tests/test_axis_collapse_fixtures.py \
+            research/universal_core/holonomy_v2_2/tests/test_axis_collapse.py \
+            research/universal_core/holonomy_v2_2/tests/test_palette_repeat_fixtures.py \
+            research/universal_core/holonomy_v2_2/tests/test_palette_repeat.py \
+            research/universal_core/holonomy_v2_2/tests/test_quadrant_mosaic_fixtures.py \
+            research/universal_core/holonomy_v2_2/tests/test_quadrant_mosaic.py \
+            research/universal_core/holonomy_v2_2/tests/test_mirror_concat.py \
+            research/universal_core/holonomy_v2_2/tests/test_bbox_complete.py \
+            research/universal_core/holonomy_v2_2/tests/test_component_outlier.py \
+            research/universal_core/holonomy_v2_2/tests/test_marker_recolor.py \
+            research/universal_core/holonomy_v2_2/tests/test_grid_mechanistic.py \
+            research/universal_core/holonomy_v2_2/tests/test_grid_induction.py::test_cell_scale_and_whole_grid_tile_are_distinct \
+            | tee /tmp/block-focused.log
+      - name: Run all V2.2 tests
+        id: cluster
+        if: always()
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python -m pytest -q research/universal_core/holonomy_v2_2/tests | tee /tmp/block-v2-2.log
+      - name: Run frozen V2 integration tests
+        id: frozen
+        if: always()
+        continue-on-error: true
+        env:
+          PYTHONPATH: research
+        run: |
+          set -o pipefail
+          python -m pytest -q \
+            research/universal_core/holonomy_v2/tests/test_blind_adapter.py \
+            research/universal_core/holonomy_v2/tests/test_engine.py | tee /tmp/block-frozen.log
+      - name: Confirm frozen V2 bytes are unchanged
+        id: byte_gate
+        if: always()
+        continue-on-error: true
+        run: git diff --quiet 1d7c489bcdbff755d638b35ad47ce62bd4fe829d -- research/universal_core/holonomy_v2
+      - name: Record result and commit only valid state
+        if: always()
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          FOCUSED_OUTCOME: ${{ steps.focused.outcome }}
+          CLUSTER_OUTCOME: ${{ steps.cluster.outcome }}
+          FROZEN_OUTCOME: ${{ steps.frozen.outcome }}
+          BYTE_OUTCOME: ${{ steps.byte_gate.outcome }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          outcomes = {
+              'focused': os.environ['FOCUSED_OUTCOME'],
+              'v2_2_cluster': os.environ['CLUSTER_OUTCOME'],
+              'frozen_tests': os.environ['FROZEN_OUTCOME'],
+              'frozen_byte_gate': os.environ['BYTE_OUTCOME'],
+          }
+          passed = all(value == 'success' for value in outcomes.values())
+          evidence = {
+              'schema_version': 1,
+              'workflow_source_commit': os.environ['SOURCE_SHA'],
+              'run_id': os.environ['RUN_ID'],
+              'passed': passed,
+              'outcomes': outcomes,
+              'focused_output': Path('/tmp/block-focused.log').read_text(encoding='utf-8') if Path('/tmp/block-focused.log').exists() else '',
+              'v2_2_output': Path('/tmp/block-v2-2.log').read_text(encoding='utf-8') if Path('/tmp/block-v2-2.log').exists() else '',
+              'frozen_output': Path('/tmp/block-frozen.log').read_text(encoding='utf-8') if Path('/tmp/block-frozen.log').exists() else '',
+              'expected_new_exact_tasks': ['5614dbcf', '68b67ca3'],
+              'expected_training_delta': {
+                  'correct_rows': 2,
+                  'accepted_rows': 2,
+                  'grammar_exhausted_rows': -2,
+              },
+              'expected_cumulative_metrics': {
+                  'rows': 1076,
+                  'correct': 90,
+                  'accepted': 90,
+                  'incorrect_attempts': 0,
+                  'failed': 0,
+              },
+              'frozen_core_commit': '1d7c489bcdbff755d638b35ad47ce62bd4fe829d',
+              'public_arc_evaluation_rerun': False,
+          }
+          name = 'BLOCK_REDUCE_GREEN.json' if passed else 'BLOCK_REDUCE_DIAGNOSTIC.json'
+          path = Path('research/universal_core/holonomy_v2_2/evidence') / name
+          path.write_text(json.dumps(evidence, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          Path('/tmp/block-passed').write_text('1' if passed else '0', encoding='utf-8')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          if [ "$(cat /tmp/block-passed)" = "1" ]; then
+            git add \
+              research/universal_core/holonomy_v2_2/grid_induction.py \
+              research/universal_core/holonomy_v2_2/grid_mechanistic_runtime.py \
+              research/universal_core/holonomy_v2_2/evidence/BLOCK_REDUCE_GREEN.json
+            git commit -m 'arc: wire fixed-block reduction'
+          else
+            git restore \
+              research/universal_core/holonomy_v2_2/grid_induction.py \
+              research/universal_core/holonomy_v2_2/grid_mechanistic_runtime.py
+            git add research/universal_core/holonomy_v2_2/evidence/BLOCK_REDUCE_DIAGNOSTIC.json
+            git commit -m 'arc: record block reduction diagnostic failure'
+          fi
+          git push origin HEAD:universal-core-arc-training-v2-2
+          test "$(cat /tmp/block-passed)" = "1"
