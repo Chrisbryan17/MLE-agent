@@ -21,12 +21,13 @@ from .block_reduce import apply_block_reduce
 from .gravity_compact import apply_gravity_compact
 from .line_connect import apply_line_connect
 from .symmetry_complete import apply_symmetry_complete
+from .ray_extend import apply_ray_extend
 
 
 Grid = list[list[int]]
 Program = dict[str, Any]
 Point = tuple[int, int]
-_VERSION = "grid-v2.2-16"
+_VERSION = "grid-v2.2-17"
 
 
 def _canonical(value: Any) -> bytes:
@@ -224,6 +225,8 @@ def _apply(program: Program, value: Any) -> Grid:
         return apply_region(program, grid)
     if kind == "component_area_select":
         return apply_component_select(program, grid)
+    if kind == "anchor_ray_extend":
+        return apply_ray_extend(program, grid)
     if kind == "reflective_symmetry_complete":
         return apply_symmetry_complete(program, grid)
     if kind == "same_color_line_connect":
