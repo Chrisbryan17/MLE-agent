@@ -1,0 +1,33 @@
+{
+  "expected_cumulative_metrics": {
+    "accepted": 90,
+    "correct": 90,
+    "failed": 0,
+    "incorrect_attempts": 0,
+    "rows": 1076
+  },
+  "expected_new_exact_tasks": [
+    "5614dbcf",
+    "68b67ca3"
+  ],
+  "expected_training_delta": {
+    "accepted_rows": 2,
+    "correct_rows": 2,
+    "grammar_exhausted_rows": -2
+  },
+  "focused_output": ".........................................................                [100%]\n57 passed in 1.83s\n",
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "frozen_output": ".....                                                                    [100%]\n5 passed in 0.09s\n",
+  "outcomes": {
+    "focused": "success",
+    "frozen_byte_gate": "success",
+    "frozen_tests": "success",
+    "v2_2_cluster": "success"
+  },
+  "passed": true,
+  "public_arc_evaluation_rerun": false,
+  "run_id": "31910377325",
+  "schema_version": 1,
+  "v2_2_output": "........................................................................ [ 72%]\n............................                                             [100%]\n100 passed in 1.83s\n",
+  "workflow_source_commit": "93ea4c48f17215148c2d118104a9f9f002e5e360"
+}

@@ -13,6 +13,7 @@ from .mirror_concat import mirror_concat_programs
 from .quadrant_mosaic import quadrant_mosaic_programs
 from .palette_repeat import palette_repeat_programs
 from .axis_collapse import axis_collapse_programs
+from .block_reduce import block_reduce_programs
 from .panel_combine import panel_programs
 from .region_fill import region_programs
 
@@ -100,6 +101,7 @@ def _generator_batches(demos: Sequence[Demo]) -> tuple[tuple[str, tuple[Program,
     quadrant_mosaic, quadrant_reason = quadrant_mosaic_programs(demos)
     palette_repeat, palette_reason = palette_repeat_programs(demos)
     axis_collapse, axis_reason = axis_collapse_programs(demos)
+    block_reduce, block_reason = block_reduce_programs(demos)
     return (
         ("fixed", fixed, None),
         ("color_map", color_programs, None if color_programs else "NO_CONSISTENT_COLOR_MAP"),
@@ -118,6 +120,7 @@ def _generator_batches(demos: Sequence[Demo]) -> tuple[tuple[str, tuple[Program,
         ("quadrant_mosaic", quadrant_mosaic, quadrant_reason),
         ("palette_repeat", palette_repeat, palette_reason),
         ("axis_collapse", axis_collapse, axis_reason),
+        ("block_reduce", block_reduce, block_reason),
         ("panel", panel, panel_reason),
         ("region", region, region_reason),
         ("component_select", component_select, component_reason),
