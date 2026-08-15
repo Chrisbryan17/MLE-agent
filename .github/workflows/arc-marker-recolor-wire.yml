@@ -1,0 +1,173 @@
+name: Wire ARC Marker Recolor
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-marker-recolor-wire.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  wire-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check --quiet pytest
+      - name: Apply guarded marker integration
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          grid_path = Path('research/universal_core/holonomy_v2_2/grid_induction.py')
+          text = grid_path.read_text(encoding='utf-8')
+          import_anchor = 'from .component_select import apply_component_select, component_select_candidates\n'
+          import_value = import_anchor + 'from .marker_recolor import apply_marker_recolor\n'
+          if text.count(import_anchor) != 1 or 'from .marker_recolor import' in text:
+              raise SystemExit('marker import anchor mismatch')
+          text = text.replace(import_anchor, import_value, 1)
+
+          version_anchor = '_VERSION = "grid-v2.2-5"'
+          if text.count(version_anchor) != 1:
+              raise SystemExit('marker version anchor mismatch')
+          text = text.replace(version_anchor, '_VERSION = "grid-v2.2-6"', 1)
+
+          apply_anchor = '    if kind == "color_map":\n'
+          apply_value = (
+              '    if kind == "marker_recolor":\n'
+              '        return apply_marker_recolor(program, grid)\n'
+          )
+          if text.count(apply_anchor) != 1:
+              raise SystemExit('marker apply anchor mismatch')
+          text = text.replace(apply_anchor, apply_value + apply_anchor, 1)
+          grid_path.write_text(text, encoding='utf-8')
+
+          runtime_path = Path('research/universal_core/holonomy_v2_2/grid_mechanistic_runtime.py')
+          text = runtime_path.read_text(encoding='utf-8')
+          runtime_import = 'from .mechanistic_trace import TraceRecorder\n'
+          runtime_import_value = runtime_import + 'from .marker_recolor import marker_recolor_programs\n'
+          if text.count(runtime_import) != 1 or 'marker_recolor_programs' in text:
+              raise SystemExit('marker runtime import anchor mismatch')
+          text = text.replace(runtime_import, runtime_import_value, 1)
+
+          derived_anchor = '    component_select, component_reason = component_select_programs(demos)\n'
+          derived_value = derived_anchor + '    marker_recolor, marker_reason = marker_recolor_programs(demos)\n'
+          if text.count(derived_anchor) != 1:
+              raise SystemExit('marker derivation anchor mismatch')
+          text = text.replace(derived_anchor, derived_value, 1)
+
+          batch_anchor = '        ("panel", panel, panel_reason),\n'
+          batch_value = '        ("marker_recolor", marker_recolor, marker_reason),\n' + batch_anchor
+          if text.count(batch_anchor) != 1:
+              raise SystemExit('marker batch anchor mismatch')
+          text = text.replace(batch_anchor, batch_value, 1)
+          runtime_path.write_text(text, encoding='utf-8')
+          PY
+          python -m py_compile \
+            research/universal_core/holonomy_v2_2/grid_induction.py \
+            research/universal_core/holonomy_v2_2/grid_mechanistic_runtime.py \
+            research/universal_core/holonomy_v2_2/marker_recolor.py
+          git diff --check
+      - name: Run focused marker tests
+        id: focused
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python -m pytest -q \
+            research/universal_core/holonomy_v2_2/tests/test_marker_recolor.py \
+            research/universal_core/holonomy_v2_2/tests/test_grid_mechanistic.py \
+            | tee /tmp/focused.log
+      - name: Run all V2.2 tests
+        id: cluster
+        if: always()
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python -m pytest -q research/universal_core/holonomy_v2_2/tests | tee /tmp/v2-2.log
+      - name: Run frozen V2 integration tests
+        id: frozen
+        if: always()
+        continue-on-error: true
+        env:
+          PYTHONPATH: research
+        run: |
+          set -o pipefail
+          python -m pytest -q \
+            research/universal_core/holonomy_v2/tests/test_blind_adapter.py \
+            research/universal_core/holonomy_v2/tests/test_engine.py | tee /tmp/frozen.log
+      - name: Confirm frozen V2 bytes are unchanged
+        id: byte_gate
+        if: always()
+        continue-on-error: true
+        run: git diff --quiet 1d7c489bcdbff755d638b35ad47ce62bd4fe829d -- research/universal_core/holonomy_v2
+      - name: Record result and commit only valid state
+        if: always()
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          FOCUSED_OUTCOME: ${{ steps.focused.outcome }}
+          CLUSTER_OUTCOME: ${{ steps.cluster.outcome }}
+          FROZEN_OUTCOME: ${{ steps.frozen.outcome }}
+          BYTE_OUTCOME: ${{ steps.byte_gate.outcome }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          outcomes = {
+              'focused': os.environ['FOCUSED_OUTCOME'],
+              'v2_2_cluster': os.environ['CLUSTER_OUTCOME'],
+              'frozen_tests': os.environ['FROZEN_OUTCOME'],
+              'frozen_byte_gate': os.environ['BYTE_OUTCOME'],
+          }
+          passed = all(value == 'success' for value in outcomes.values())
+          evidence = {
+              'schema_version': 1,
+              'workflow_source_commit': os.environ['SOURCE_SHA'],
+              'run_id': os.environ['RUN_ID'],
+              'passed': passed,
+              'outcomes': outcomes,
+              'focused_output': Path('/tmp/focused.log').read_text(encoding='utf-8') if Path('/tmp/focused.log').exists() else '',
+              'v2_2_output': Path('/tmp/v2-2.log').read_text(encoding='utf-8') if Path('/tmp/v2-2.log').exists() else '',
+              'frozen_output': Path('/tmp/frozen.log').read_text(encoding='utf-8') if Path('/tmp/frozen.log').exists() else '',
+              'source_trace_digest': '29544f72d9511885b6ea71838162ee86d83437198841c2e4815a5ffb824f54e4',
+              'expected_training_delta': {
+                  'task_id': 'aabf363d',
+                  'correct_rows': 1,
+                  'accepted_rows': 1,
+                  'execution_failed_rows': -1,
+              },
+              'frozen_core_commit': '1d7c489bcdbff755d638b35ad47ce62bd4fe829d',
+          }
+          name = 'MARKER_RECOLOR_GREEN.json' if passed else 'MARKER_RECOLOR_DIAGNOSTIC.json'
+          path = Path('research/universal_core/holonomy_v2_2/evidence') / name
+          path.write_text(json.dumps(evidence, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          Path('/tmp/passed').write_text('1' if passed else '0', encoding='utf-8')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          if [ "$(cat /tmp/passed)" = "1" ]; then
+            git add \
+              research/universal_core/holonomy_v2_2/grid_induction.py \
+              research/universal_core/holonomy_v2_2/grid_mechanistic_runtime.py \
+              research/universal_core/holonomy_v2_2/evidence/MARKER_RECOLOR_GREEN.json
+            git commit -m 'arc: wire relational marker recolor'
+          else
+            git restore \
+              research/universal_core/holonomy_v2_2/grid_induction.py \
+              research/universal_core/holonomy_v2_2/grid_mechanistic_runtime.py
+            git add research/universal_core/holonomy_v2_2/evidence/MARKER_RECOLOR_DIAGNOSTIC.json
+            git commit -m 'arc: record marker recolor diagnostic failure'
+          fi
+          git push origin HEAD:universal-core-arc-training-v2-2
+          test "$(cat /tmp/passed)" = "1"

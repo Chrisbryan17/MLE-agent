@@ -1,0 +1,58 @@
+{
+  "artifact": {
+    "digest": "sha256:626bb39ef4ff12eae9e51d9a29003a9250677551a5bba87c5f7131922f737007",
+    "id": "8904691469",
+    "run_id": "30939960448"
+  },
+  "candidate_commit": "0c17b540c6814a1ca807a73704abb785257b4121",
+  "development_split": "ARC-AGI-2 training only",
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "metrics": {
+    "accepted_rows": 51,
+    "correct_rows": 51,
+    "coverage": 0.047397769516728624,
+    "execution_failed_rows": 2,
+    "grammar_exhausted_rows": 1023,
+    "incorrect_attempts": 0,
+    "rows": 1076
+  },
+  "new_exact_tasks": [
+    "0520fde7",
+    "0c9aba6e",
+    "195ba7dc",
+    "1b2d62fb",
+    "31d5ba1a",
+    "3428a4f5",
+    "34b99a2b",
+    "506d28a5",
+    "5d2a5c43",
+    "6430c8c4",
+    "66f2d22f",
+    "94f9d214",
+    "99b1bc43",
+    "ce4f8723",
+    "d19f7514",
+    "dae9d2b5",
+    "e133d23d",
+    "e345f17b",
+    "f2829549",
+    "fafffa47"
+  ],
+  "rank_baseline": {
+    "accepted_rows": 26,
+    "candidate_commit": "95c8160dd9a88c4bcd66063ab88c4701c93cf502",
+    "correct_rows": 26,
+    "incorrect_attempts": 0,
+    "report_digest": "304dcd2f18f74a83af07adb49b0b7e2abc306014fb6ef3ff3a6bb9707301501e"
+  },
+  "report_digest": "babfbf938fd02e1065ef5e5a7ae8c48cc5c8b6d71b9fa2d1dd6a7b6fbaa7306a",
+  "schema_version": 1,
+  "task_delta": {
+    "lost_exact_tasks": 0,
+    "new_exact_tasks": 20
+  },
+  "row_delta": {
+    "correct_rows": 25,
+    "incorrect_attempts": 0
+  }
+}

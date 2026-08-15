@@ -1,0 +1,84 @@
+{
+  "artifact": {
+    "digest": "sha256:96a6b3aabbeae4742e4df129fb76a1ad6fe3ce52a2580d9b1d35def4ee6e215d",
+    "id": 8909609720,
+    "name": "arc-v2-2-outlier-0439bd2e8611bc2ad0549249b417c01034ce546e",
+    "size_in_bytes": 18028856
+  },
+  "candidate_commit": "0439bd2e8611bc2ad0549249b417c01034ce546e",
+  "checksum_manifest": {
+    "entry_count": 1006,
+    "verified": true
+  },
+  "diagnosis": {
+    "diagnosis_digest": "509ba463912ff7de7a58764f9f3e9cc7c98aadc590612215d5627c7a96d3dbcf",
+    "hidden_failure_counts": {
+      "color_map": {
+        "KeyError": 1
+      },
+      "component_area_outlier_color": {
+        "ValueError": 1
+      },
+      "component_rank_color": {
+        "KeyError": 3
+      }
+    },
+    "selected_component_outlier_tasks": 1,
+    "total_event_count": 328061,
+    "trace_count": 1000
+  },
+  "focused_green": {
+    "focused_tests": 15,
+    "frozen_byte_gate": true,
+    "frozen_tests": 5,
+    "run_id": 30951907670,
+    "v2_2_tests": 59
+  },
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "mechanistic": {
+    "compact_parity_count": 1000,
+    "compact_parity_mismatches": 0,
+    "trace_count": 1000,
+    "trace_schema": "mechanistic-grid-trace-v1"
+  },
+  "metrics": {
+    "accepted": 61,
+    "attempted_accuracy": 1.0,
+    "correct": 61,
+    "coverage": 0.056691449814126396,
+    "failed": 0,
+    "incorrect_attempts": 0,
+    "raw_accuracy": 0.056691449814126396,
+    "rows": 1076
+  },
+  "public_arc_evaluation_rerun": false,
+  "report_digest": "90b419c62ea9012cee5634420c8dd71f381267916f0a0d119793e1861ec84166",
+  "run_id": 30952042813,
+  "schema_version": 1,
+  "status_counts": {
+    "ACCEPTED": 61,
+    "GRAMMAR_EXHAUSTED": 1015
+  },
+  "transitions": {
+    "gained_rows": {
+      "aabf363d": {
+        "baseline_correct": 0,
+        "current_correct": 1
+      },
+      "b230c067": {
+        "baseline_correct": 0,
+        "current_correct": 1
+      }
+    },
+    "lost_rows": {}
+  },
+  "b230c067": {
+    "eight_connected_success_count": 1,
+    "four_connected_rejection_count": 1,
+    "invariant": "one unique area extreme and uniform-area peers",
+    "preserved_rank_failure_count": 2,
+    "selected_candidate_id": "component_outlier:0001",
+    "terminal_status": "ACCEPTED",
+    "trace_digest": "71a3e46933f833002164cc3b4ed8d2cd2a4a94060a2bdfc330a7a1e0694ff5fd"
+  }
+}

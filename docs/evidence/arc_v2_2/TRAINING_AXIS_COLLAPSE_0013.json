@@ -1,0 +1,161 @@
+{
+  "accepted_selected_kind_counts": {
+    "axis_duplicate_collapse": 6,
+    "bounding_box_complete": 4,
+    "color_map": 3,
+    "component_area_outlier_color": 1,
+    "component_area_select": 5,
+    "component_rank_color": 10,
+    "dihedral_quadrant_mosaic": 9,
+    "enclosed_region_fill": 3,
+    "marker_recolor": 1,
+    "mirror_concatenate": 5,
+    "palette_cardinality_repeat": 4,
+    "panel_boolean_combine": 20,
+    "reflect": 4,
+    "rotate": 3,
+    "scale": 3,
+    "tile": 1
+  },
+  "artifact": {
+    "digest": "sha256:638869a8bf111e6c20c7fca15b5c6495c63372ca95c3da4ffa5665543efc1eef",
+    "expired": false,
+    "id": 8918537540,
+    "name": "arc-v2-2-axis-collapse-f16af6c15f76d37e35ad4cb2b59c0ad79bab27dc",
+    "size_in_bytes": 35875933
+  },
+  "candidate_commit": "f16af6c15f76d37e35ad4cb2b59c0ad79bab27dc",
+  "diagnosis_digest": "5f07fde156a669706ef64832b6eafec8c6ac3f9df698833f53ed397aab64df78",
+  "frozen_core_byte_gate": true,
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "hidden_failure_counts": {
+    "color_map": {"KeyError": 1},
+    "component_area_outlier_color": {"ValueError": 1},
+    "component_rank_color": {"KeyError": 3}
+  },
+  "independent_verification": {
+    "checksum_manifest_entries": 1006,
+    "checksum_manifest_verified": true,
+    "compact_mechanistic_parity": 1000,
+    "evaluated_validator_commit": "f16af6c15f76d37e35ad4cb2b59c0ad79bab27dc",
+    "event_count_recomputed": 627020,
+    "parallel_validator_workers": 8,
+    "task_traces_validated": 1000
+  },
+  "mechanisms": {
+    "60b61512": {
+      "bbox_equivalence_class_count": 2,
+      "safety_action": "abstain_on_connectivity_disagreement",
+      "terminal_status": "AMBIGUOUS_PROGRAM",
+      "trace_digest": "c725eeb7bd783db3b405c3ce160dab7c017f4f1c5c199d0ff80a63084124ac1c"
+    },
+    "axis_tasks": {
+      "2dee498d": {
+        "selected_candidate_id": "axis_collapse:0002",
+        "successful_axis_candidates": 2,
+        "trace_digest": "b5a58a3f5971871b0fa0669b8de73a266d602d6fe3b69f263001de46699480fa"
+      },
+      "746b3537": {
+        "selected_candidate_id": "axis_collapse:0002",
+        "successful_axis_candidates": 1,
+        "trace_digest": "d6510a6c49fae9f133cce3c6aa4a7cae24871cbbd976d92ee8ae0d4cd134b9d3"
+      },
+      "7b7f7511": {
+        "selected_candidate_id": "axis_collapse:0002",
+        "successful_axis_candidates": 1,
+        "trace_digest": "e71ef69befdd3b2569d17c1c8539cf0ced706f31fa641a599918ecf999cb27fa"
+      },
+      "ce8d95cc": {
+        "selected_candidate_id": "axis_collapse:0002",
+        "successful_axis_candidates": 1,
+        "trace_digest": "10bd6c85f11df94d6b318730f3c69931e4cee2b7d8750812b2d83c89eb5fd619"
+      },
+      "e1baa8a4": {
+        "selected_candidate_id": "axis_collapse:0002",
+        "successful_axis_candidates": 2,
+        "trace_digest": "e856f3f0f2d4919da879924fd61fc21f788bb0c19e13ae6d42d017c8a9bf54ac"
+      },
+      "eb5a1d5d": {
+        "selected_candidate_id": "axis_collapse:0002",
+        "successful_axis_candidates": 1,
+        "trace_digest": "1d758b0d8af8839ea7e58cb6e1cde278920993dd8da802cc57f15281baa82d7f"
+      }
+    },
+    "ownership_boundary": "NO_DUPLICATE_AXIS_REDUCTION",
+    "schema_version": 1
+  },
+  "mechanistic": {
+    "diagnosis_digest": "5f07fde156a669706ef64832b6eafec8c6ac3f9df698833f53ed397aab64df78",
+    "diagnosis_path": "diagnosis.json",
+    "parity_checked": true,
+    "parity_count": 1000,
+    "trace_count": 1000,
+    "trace_schema": "mechanistic-grid-trace-v1"
+  },
+  "metrics": {
+    "abstained": 988,
+    "accepted": 88,
+    "attempted_accuracy": 1.0,
+    "correct": 88,
+    "coverage": 0.08178438661710037,
+    "failed": 0,
+    "families": 1000,
+    "incorrect_attempts": 0,
+    "raw_accuracy": 0.08178438661710037,
+    "rows": 1076
+  },
+  "public_arc_evaluation_rerun": false,
+  "report_digest": "b8d3295e06b25172b2541699fa7281f0f9ff0bf0056f8b0bfdf69ae8a2edde8e",
+  "schema_version": 1,
+  "status_counts": {
+    "ACCEPTED": 88,
+    "AMBIGUOUS_PROGRAM": 1,
+    "GRAMMAR_EXHAUSTED": 987
+  },
+  "total_event_count": 627020,
+  "transitions": {
+    "baseline_commit": "e50965009efb96457fd769d97b42027f8a4e98c0",
+    "candidate_commit": "f16af6c15f76d37e35ad4cb2b59c0ad79bab27dc",
+    "expected_gains_matched": true,
+    "gained_rows": {
+      "0c786b71": {"baseline_correct": 0, "current_correct": 1},
+      "2dee498d": {"baseline_correct": 0, "current_correct": 1},
+      "3aa6fb7a": {"baseline_correct": 0, "current_correct": 1},
+      "3af2c5a8": {"baseline_correct": 0, "current_correct": 1},
+      "46442a0e": {"baseline_correct": 0, "current_correct": 1},
+      "4c4377d9": {"baseline_correct": 0, "current_correct": 1},
+      "62c24649": {"baseline_correct": 0, "current_correct": 1},
+      "67e8384a": {"baseline_correct": 0, "current_correct": 1},
+      "6d0aefbc": {"baseline_correct": 0, "current_correct": 1},
+      "6d75e8bb": {"baseline_correct": 0, "current_correct": 1},
+      "6fa7a44f": {"baseline_correct": 0, "current_correct": 1},
+      "746b3537": {"baseline_correct": 0, "current_correct": 1},
+      "7953d61e": {"baseline_correct": 0, "current_correct": 1},
+      "7b7f7511": {"baseline_correct": 0, "current_correct": 1},
+      "7fe24cdd": {"baseline_correct": 0, "current_correct": 1},
+      "833dafe3": {"baseline_correct": 0, "current_correct": 1},
+      "8be77c9e": {"baseline_correct": 0, "current_correct": 1},
+      "a59b95c0": {"baseline_correct": 0, "current_correct": 1},
+      "aabf363d": {"baseline_correct": 0, "current_correct": 1},
+      "ac0a08a4": {"baseline_correct": 0, "current_correct": 1},
+      "b230c067": {"baseline_correct": 0, "current_correct": 1},
+      "b91ae062": {"baseline_correct": 0, "current_correct": 1},
+      "c9e6f938": {"baseline_correct": 0, "current_correct": 1},
+      "ce8d95cc": {"baseline_correct": 0, "current_correct": 1},
+      "d4b1c2b1": {"baseline_correct": 0, "current_correct": 1},
+      "e1baa8a4": {"baseline_correct": 0, "current_correct": 1},
+      "e7639916": {"baseline_correct": 0, "current_correct": 1},
+      "eb5a1d5d": {"baseline_correct": 0, "current_correct": 1},
+      "ed98d772": {"baseline_correct": 0, "current_correct": 1}
+    },
+    "incorrect_attempts": 0,
+    "lost_rows": {},
+    "schema_version": 1
+  },
+  "workflow": {
+    "conclusion": "success",
+    "job_id": 92210948345,
+    "name": "ARC Axis Collapse Mechanistic Corpus",
+    "run_id": 30976323506
+  }
+}

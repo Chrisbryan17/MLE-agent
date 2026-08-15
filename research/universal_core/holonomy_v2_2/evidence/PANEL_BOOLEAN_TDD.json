@@ -1,0 +1,11 @@
+{
+  "development_split": "ARC-AGI-2 training only",
+  "fixture_correction_commit": "0131bbe4945ab7f83fd0830237acdfbcb4ed0397",
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "implementation_module_commit": "6c59d733c489c90fa2b29759ff727a06ef73630a",
+  "integration_commit": "8dc3685abf4cfb99c64a84cafa41585114b64f8e",
+  "red_commit": "a22dd06c7593cdd96c73c4a08bc3d483f93e629e",
+  "red_run_id": "30939098116",
+  "red_reason": "four panel-combination cases returned GRAMMAR_EXHAUSTED",
+  "schema_version": 1
+}

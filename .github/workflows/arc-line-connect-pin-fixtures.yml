@@ -1,0 +1,58 @@
+name: Pin ARC Line Connect Fixtures
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-line-connect-pin-fixtures.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  pin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 0
+      - name: Download immutable benchmark corpus
+        uses: actions/download-artifact@v4
+        with:
+          name: public-benchmarks-pinned-2026-08-04
+          path: /tmp/pinned-public-benchmarks
+          github-token: ${{ github.token }}
+          repository: Chrisbryan17/MLE-agent
+          run-id: '30929169392'
+      - name: Copy exact immutable payloads
+        run: |
+          set -euo pipefail
+          probe=$(find /tmp/pinned-public-benchmarks -type f -path '*/arc_agi_2/data/training/1f876c06.json' -print -quit)
+          test -n "$probe"
+          src=$(dirname "$probe")
+          dst=research/universal_core/holonomy_v2_2/tests/fixtures/line_connect
+          mkdir -p "$dst"
+          cp "$src/1f876c06.json" "$dst/1f876c06.json"
+          cp "$src/22168020.json" "$dst/22168020.json"
+          cp "$src/22eb0ac0.json" "$dst/22eb0ac0.json"
+          cp "$src/ded97339.json" "$dst/ded97339.json"
+          printf '%s  %s\n' \
+            b53a1a25685895400323e813a373f0a66fc9512f7dbbb326d52a93695fca8143 "$dst/1f876c06.json" \
+            d067b4f83f84120300310199e3a95c65258edcc53d8b0f425288d7ddb71a962e "$dst/22168020.json" \
+            cf37cc34e7b0aa123c2806eca77a7d9916b50afea4e6e2db71d5149fe1f1af0d "$dst/22eb0ac0.json" \
+            fd14b4ee37bb1539c26a79abed743626b37f5935794ce82cbd0b3332c207906e "$dst/ded97339.json" \
+            > /tmp/line-fixtures.sha256
+          sha256sum -c /tmp/line-fixtures.sha256
+      - name: Confirm frozen V2 bytes
+        run: git diff --quiet 1d7c489bcdbff755d638b35ad47ce62bd4fe829d -- research/universal_core/holonomy_v2
+      - name: Commit fixtures
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add research/universal_core/holonomy_v2_2/tests/fixtures/line_connect
+          git commit -m 'test: pin same-color line connection fixtures'
+          git push origin HEAD:universal-core-arc-training-v2-2

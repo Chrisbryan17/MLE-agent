@@ -1,0 +1,169 @@
+{
+  "accepted_selected_kind_counts": {
+    "bounding_box_complete": 4,
+    "color_map": 3,
+    "component_area_outlier_color": 1,
+    "component_area_select": 5,
+    "component_rank_color": 10,
+    "dihedral_quadrant_mosaic": 9,
+    "enclosed_region_fill": 3,
+    "marker_recolor": 1,
+    "mirror_concatenate": 5,
+    "panel_boolean_combine": 20,
+    "reflect": 4,
+    "rotate": 3,
+    "scale": 3,
+    "tile": 1
+  },
+  "artifact": {
+    "digest": "sha256:c547f44f992a56db01d7407660dd5ec974206b0b39cf3ea7735ec2c84a5a203e",
+    "expired": false,
+    "id": 8917662164,
+    "name": "arc-v2-2-quadrant-mosaic-f8d71e457024191bc012cca1a164352d9be5af0d",
+    "size_in_bytes": 33728848
+  },
+  "candidate_commit": "f8d71e457024191bc012cca1a164352d9be5af0d",
+  "diagnosis_digest": "c63586aab378b9779fd1ebd16202f1bbfcae99359e1f626df78d5729423962f7",
+  "frozen_core_byte_gate": true,
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "hidden_failure_counts": {
+    "color_map": {
+      "KeyError": 1
+    },
+    "component_area_outlier_color": {
+      "ValueError": 1
+    },
+    "component_rank_color": {
+      "KeyError": 3
+    }
+  },
+  "independent_verification": {
+    "checksum_manifest_entries": 1006,
+    "checksum_manifest_verified": true,
+    "compact_mechanistic_parity": 1000,
+    "evaluated_validator_commit": "f8d71e457024191bc012cca1a164352d9be5af0d",
+    "event_count_recomputed": 597037,
+    "task_traces_validated": 1000
+  },
+  "mechanisms": {
+    "60b61512": {
+      "bbox_equivalence_class_count": 2,
+      "safety_action": "abstain_on_connectivity_disagreement",
+      "terminal_status": "AMBIGUOUS_PROGRAM",
+      "trace_digest": "9705305da8fe622b82a22cd71fea7301cb625ce2c8f0c63690e9bf76ff538186"
+    },
+    "quadrant_tasks": {
+      "0c786b71": {
+        "selected_candidate_id": "quadrant_mosaic:0000",
+        "successful_quadrant_candidates": 1,
+        "trace_digest": "b870b5bfafd0d46cb4907953fb99b582ec9fa0de77c8263e704ee5a675ac9d9b"
+      },
+      "3af2c5a8": {
+        "selected_candidate_id": "quadrant_mosaic:0000",
+        "successful_quadrant_candidates": 1,
+        "trace_digest": "5e0ac1e8e2266d252f542c479b83a3ed52efdfa16f0685e1e8cb255fe5c215b6"
+      },
+      "46442a0e": {
+        "selected_candidate_id": "quadrant_mosaic:0000",
+        "successful_quadrant_candidates": 1,
+        "trace_digest": "37c5cc99c6aeee011c9f28c65ed42aa9a8aa25cd004da31096904ad4a7a235c9"
+      },
+      "62c24649": {
+        "selected_candidate_id": "quadrant_mosaic:0000",
+        "successful_quadrant_candidates": 1,
+        "trace_digest": "e90ddebadc8d65b408c00641d52fe738ec4a48398f1b9fa006573b118c931cf8"
+      },
+      "67e8384a": {
+        "selected_candidate_id": "quadrant_mosaic:0000",
+        "successful_quadrant_candidates": 1,
+        "trace_digest": "d0ba1dbcd20e82d68582b0960d97986252b1b9141e6ae64dd4b7a427b0c6ef34"
+      },
+      "7953d61e": {
+        "selected_candidate_id": "quadrant_mosaic:0000",
+        "successful_quadrant_candidates": 1,
+        "trace_digest": "225032a56410eaa06799042107262f9d7e5cdee380c1b5af5243306ad2121a98"
+      },
+      "7fe24cdd": {
+        "selected_candidate_id": "quadrant_mosaic:0000",
+        "successful_quadrant_candidates": 1,
+        "trace_digest": "f4b35b71061ca3c3d82290bda32494eb6ee081729102a8f350802c819943ff18"
+      },
+      "833dafe3": {
+        "selected_candidate_id": "quadrant_mosaic:0000",
+        "successful_quadrant_candidates": 1,
+        "trace_digest": "1b06fb719427b754704af58b6e2c67c441385ce05fcfb6b1365e64e087999333"
+      },
+      "ed98d772": {
+        "selected_candidate_id": "quadrant_mosaic:0000",
+        "successful_quadrant_candidates": 1,
+        "trace_digest": "8128fd04afdd34d46287257d4344d03627a79b8049206595d1d7d0480b578d62"
+      }
+    },
+    "role_boundary": "NO_DISTINCT_QUADRANT_ROLES",
+    "schema_version": 1
+  },
+  "mechanistic": {
+    "diagnosis_digest": "c63586aab378b9779fd1ebd16202f1bbfcae99359e1f626df78d5729423962f7",
+    "diagnosis_path": "diagnosis.json",
+    "parity_checked": true,
+    "parity_count": 1000,
+    "trace_count": 1000,
+    "trace_schema": "mechanistic-grid-trace-v1"
+  },
+  "metrics": {
+    "abstained": 998,
+    "accepted": 78,
+    "attempted_accuracy": 1.0,
+    "correct": 78,
+    "coverage": 0.0724907063197026,
+    "failed": 0,
+    "families": 1000,
+    "incorrect_attempts": 0,
+    "raw_accuracy": 0.0724907063197026,
+    "rows": 1076
+  },
+  "public_arc_evaluation_rerun": false,
+  "report_digest": "df4a2a0ac21678353d38de916a9381a60f6f966d465bbfda5f8f55f8e02cce56",
+  "schema_version": 1,
+  "status_counts": {
+    "ACCEPTED": 78,
+    "AMBIGUOUS_PROGRAM": 1,
+    "GRAMMAR_EXHAUSTED": 997
+  },
+  "total_event_count": 597037,
+  "transitions": {
+    "baseline_commit": "e50965009efb96457fd769d97b42027f8a4e98c0",
+    "candidate_commit": "f8d71e457024191bc012cca1a164352d9be5af0d",
+    "expected_gains_matched": true,
+    "gained_rows": {
+      "0c786b71": {"baseline_correct": 0, "current_correct": 1},
+      "3aa6fb7a": {"baseline_correct": 0, "current_correct": 1},
+      "3af2c5a8": {"baseline_correct": 0, "current_correct": 1},
+      "46442a0e": {"baseline_correct": 0, "current_correct": 1},
+      "4c4377d9": {"baseline_correct": 0, "current_correct": 1},
+      "62c24649": {"baseline_correct": 0, "current_correct": 1},
+      "67e8384a": {"baseline_correct": 0, "current_correct": 1},
+      "6d0aefbc": {"baseline_correct": 0, "current_correct": 1},
+      "6d75e8bb": {"baseline_correct": 0, "current_correct": 1},
+      "6fa7a44f": {"baseline_correct": 0, "current_correct": 1},
+      "7953d61e": {"baseline_correct": 0, "current_correct": 1},
+      "7fe24cdd": {"baseline_correct": 0, "current_correct": 1},
+      "833dafe3": {"baseline_correct": 0, "current_correct": 1},
+      "8be77c9e": {"baseline_correct": 0, "current_correct": 1},
+      "aabf363d": {"baseline_correct": 0, "current_correct": 1},
+      "b230c067": {"baseline_correct": 0, "current_correct": 1},
+      "c9e6f938": {"baseline_correct": 0, "current_correct": 1},
+      "e7639916": {"baseline_correct": 0, "current_correct": 1},
+      "ed98d772": {"baseline_correct": 0, "current_correct": 1}
+    },
+    "incorrect_attempts": 0,
+    "lost_rows": {},
+    "schema_version": 1
+  },
+  "workflow": {
+    "conclusion": "success",
+    "job_id": 92203590865,
+    "name": "ARC Quadrant Mosaic Mechanistic Corpus",
+    "run_id": 30973820979
+  }
+}

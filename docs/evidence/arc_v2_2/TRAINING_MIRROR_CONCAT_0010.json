@@ -1,0 +1,165 @@
+{
+  "accepted_selected_kind_counts": {
+    "bounding_box_complete": 4,
+    "color_map": 3,
+    "component_area_outlier_color": 1,
+    "component_area_select": 5,
+    "component_rank_color": 10,
+    "enclosed_region_fill": 3,
+    "marker_recolor": 1,
+    "mirror_concatenate": 5,
+    "panel_boolean_combine": 20,
+    "reflect": 4,
+    "rotate": 3,
+    "scale": 3,
+    "tile": 1
+  },
+  "artifact": {
+    "digest": "sha256:b5e395d8d3608331aae1bc360ef14d1d7431ef646dee3f66d41be7bcb77cf06c",
+    "expired": false,
+    "id": 8910434494,
+    "name": "arc-v2-2-mirror-ae96d567aeb65a951873ec186b3915510b99677c",
+    "size_in_bytes": 33654179
+  },
+  "candidate_commit": "ae96d567aeb65a951873ec186b3915510b99677c",
+  "diagnosis_digest": "c2bae85a09fd6939fb5463dc625a9d37e876a1bf57cf2227005dbf039c7203d7",
+  "frozen_core_byte_gate": true,
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "hidden_failure_counts": {
+    "color_map": {
+      "KeyError": 1
+    },
+    "component_area_outlier_color": {
+      "ValueError": 1
+    },
+    "component_rank_color": {
+      "KeyError": 3
+    }
+  },
+  "independent_verification": {
+    "checksum_manifest_entries": 1006,
+    "checksum_manifest_verified": true,
+    "compact_mechanistic_parity": 1000,
+    "task_traces_validated": 1000
+  },
+  "mechanisms": {
+    "60b61512": {
+      "bbox_equivalence_class_count": 2,
+      "safety_action": "abstain_on_connectivity_disagreement",
+      "terminal_status": "AMBIGUOUS_PROGRAM",
+      "trace_digest": "f0a2fcf5ae41518b64119a7acabc4b6f3878081a48424ace494ef77e62ace1b5"
+    },
+    "mirror_tasks": {
+      "4c4377d9": {
+        "selected_candidate_id": "mirror_concat:0001",
+        "successful_mirror_candidates": 1,
+        "trace_digest": "6624b3fbcd11d1b6ab03b33098f873a03b6ca50dec687308b16a21ba9725474e"
+      },
+      "6d0aefbc": {
+        "selected_candidate_id": "mirror_concat:0002",
+        "successful_mirror_candidates": 1,
+        "trace_digest": "f23739e1cb0d0ca598471da7c64fe3711c9907c08cd38a5d94237844f869ca74"
+      },
+      "6fa7a44f": {
+        "selected_candidate_id": "mirror_concat:0000",
+        "successful_mirror_candidates": 1,
+        "trace_digest": "c7dcf8ea4ab7583ebb20c4c7071e5d5e8a862f024f66044964bc669c50d7d59e"
+      },
+      "8be77c9e": {
+        "selected_candidate_id": "mirror_concat:0000",
+        "successful_mirror_candidates": 1,
+        "trace_digest": "f82256fd01d3453b30f8eaf468b56b1354da5bb7093a75d6e5b8434eea58435a"
+      },
+      "c9e6f938": {
+        "selected_candidate_id": "mirror_concat:0002",
+        "successful_mirror_candidates": 1,
+        "trace_digest": "6ccc3f301c9d46effbb7d44e9c745d518c652a625f09f211f7c9c40fcdc80f92"
+      }
+    }
+  },
+  "mechanistic": {
+    "diagnosis_digest": "c2bae85a09fd6939fb5463dc625a9d37e876a1bf57cf2227005dbf039c7203d7",
+    "diagnosis_path": "diagnosis.json",
+    "parity_checked": true,
+    "parity_count": 1000,
+    "trace_count": 1000,
+    "trace_schema": "mechanistic-grid-trace-v1"
+  },
+  "metrics": {
+    "abstained": 1007,
+    "accepted": 69,
+    "attempted_accuracy": 1.0,
+    "correct": 69,
+    "coverage": 0.06412639405204461,
+    "failed": 0,
+    "families": 1000,
+    "incorrect_attempts": 0,
+    "raw_accuracy": 0.06412639405204461,
+    "rows": 1076
+  },
+  "public_arc_evaluation_rerun": false,
+  "report_digest": "e15a1b0be8617fbb97b0cc8c64a03836eb60045a1b56268d9725f5f272a1021a",
+  "schema_version": 1,
+  "status_counts": {
+    "ACCEPTED": 69,
+    "AMBIGUOUS_PROGRAM": 1,
+    "GRAMMAR_EXHAUSTED": 1006
+  },
+  "total_event_count": 594961,
+  "transitions": {
+    "baseline_commit": "e50965009efb96457fd769d97b42027f8a4e98c0",
+    "candidate_commit": "ae96d567aeb65a951873ec186b3915510b99677c",
+    "expected_gains_matched": true,
+    "gained_rows": {
+      "3aa6fb7a": {
+        "baseline_correct": 0,
+        "current_correct": 1
+      },
+      "4c4377d9": {
+        "baseline_correct": 0,
+        "current_correct": 1
+      },
+      "6d0aefbc": {
+        "baseline_correct": 0,
+        "current_correct": 1
+      },
+      "6d75e8bb": {
+        "baseline_correct": 0,
+        "current_correct": 1
+      },
+      "6fa7a44f": {
+        "baseline_correct": 0,
+        "current_correct": 1
+      },
+      "8be77c9e": {
+        "baseline_correct": 0,
+        "current_correct": 1
+      },
+      "aabf363d": {
+        "baseline_correct": 0,
+        "current_correct": 1
+      },
+      "b230c067": {
+        "baseline_correct": 0,
+        "current_correct": 1
+      },
+      "c9e6f938": {
+        "baseline_correct": 0,
+        "current_correct": 1
+      },
+      "e7639916": {
+        "baseline_correct": 0,
+        "current_correct": 1
+      }
+    },
+    "incorrect_attempts": 0,
+    "lost_rows": {},
+    "schema_version": 1
+  },
+  "workflow": {
+    "conclusion": "success",
+    "job_id": 92142138954,
+    "name": "ARC Mirror Concatenation Mechanistic Corpus",
+    "run_id": 30953847121
+  }
+}

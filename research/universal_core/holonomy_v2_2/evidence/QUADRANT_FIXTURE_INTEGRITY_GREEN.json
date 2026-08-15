@@ -1,0 +1,12 @@
+{
+  "fixture_count": 9,
+  "frozen_byte_gate": true,
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "passed": true,
+  "public_arc_evaluation_rerun": false,
+  "run_id": "30973384648",
+  "schema_version": 1,
+  "source_commit": "9bd9a9e3029176d184c498af8aa8b16d7e21a953",
+  "test_count": 5,
+  "test_output": ".....                                                                    [100%]\n5 passed in 0.12s\n"
+}

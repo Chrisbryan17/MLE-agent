@@ -1,0 +1,10 @@
+{
+  "fixture_count": 6,
+  "fixture_integrity": true,
+  "public_arc_evaluation_rerun": false,
+  "run_id": "30976017322",
+  "schema_version": 1,
+  "source_artifact_run": 30929169392,
+  "test_output": ".                                                                        [100%]\n1 passed in 0.02s\n",
+  "workflow_source_commit": "d2f0ebd922a2979052c34b7c549a33f4830e3815"
+}

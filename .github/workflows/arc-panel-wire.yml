@@ -1,0 +1,65 @@
+name: Wire ARC Panel Candidates
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-panel-wire.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 0
+      - name: Apply guarded integration patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('research/universal_core/holonomy_v2_2/grid_induction.py')
+          text = path.read_text(encoding='utf-8')
+
+          old_import = 'from research.universal_core.holonomy_v2.blind_adapter import run_public_task_v2\n'
+          new_import = old_import + '\nfrom .panel_combine import apply_panel, panel_candidates\n'
+          if text.count(old_import) != 1 or 'from .panel_combine import' in text:
+              raise SystemExit('panel import anchor mismatch')
+          text = text.replace(old_import, new_import, 1)
+
+          old_version = '_VERSION = "grid-v2.2-2"'
+          if text.count(old_version) != 1:
+              raise SystemExit('version anchor mismatch')
+          text = text.replace(old_version, '_VERSION = "grid-v2.2-3"', 1)
+
+          apply_anchor = '    if kind == "color_map":\n'
+          apply_insert = (
+              '    if kind == "panel_boolean_combine":\n'
+              '        return apply_panel(program, grid)\n'
+          )
+          if text.count(apply_anchor) != 1:
+              raise SystemExit('apply anchor mismatch')
+          text = text.replace(apply_anchor, apply_insert + apply_anchor, 1)
+
+          candidate_anchor = '    by_digest: dict[str, Program] = {}\n'
+          candidate_insert = '    candidates.extend(panel_candidates(demos))\n\n'
+          if text.count(candidate_anchor) != 1:
+              raise SystemExit('candidate anchor mismatch')
+          text = text.replace(candidate_anchor, candidate_insert + candidate_anchor, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+          git diff --check
+          git diff -- research/universal_core/holonomy_v2_2/grid_induction.py
+      - name: Commit integration
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add research/universal_core/holonomy_v2_2/grid_induction.py
+          git commit -m 'arc: wire panel boolean candidates'
+          git push origin HEAD:universal-core-arc-training-v2-2

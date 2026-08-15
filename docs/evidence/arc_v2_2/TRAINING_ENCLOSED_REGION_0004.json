@@ -1,0 +1,41 @@
+{
+  "artifact": {
+    "digest": "sha256:52c9c2fe9e212ad8f52df3917e4db8b328874e679626d23f3171e2540a1d21a4",
+    "id": "8905158022",
+    "run_id": "30941101558"
+  },
+  "candidate_commit": "73a1a45d0d77347f000a10998010573e17004c77",
+  "development_split": "ARC-AGI-2 training only",
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "metrics": {
+    "accepted_rows": 55,
+    "correct_rows": 55,
+    "coverage": 0.05111524163568773,
+    "execution_failed_rows": 2,
+    "grammar_exhausted_rows": 1019,
+    "incorrect_attempts": 0,
+    "rows": 1076
+  },
+  "new_exact_tasks": [
+    "00d62c1b",
+    "a5313dff",
+    "d5d6de2d"
+  ],
+  "panel_baseline": {
+    "accepted_rows": 51,
+    "candidate_commit": "0c17b540c6814a1ca807a73704abb785257b4121",
+    "correct_rows": 51,
+    "incorrect_attempts": 0,
+    "report_digest": "babfbf938fd02e1065ef5e5a7ae8c48cc5c8b6d71b9fa2d1dd6a7b6fbaa7306a"
+  },
+  "report_digest": "7f0b587f2ae7d1a69f22faa56486becff736a254fa8ee7fb570938c31080d3ee",
+  "schema_version": 1,
+  "task_delta": {
+    "lost_exact_tasks": 0,
+    "new_exact_tasks": 3
+  },
+  "row_delta": {
+    "correct_rows": 4,
+    "incorrect_attempts": 0
+  }
+}

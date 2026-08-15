@@ -1,0 +1,35 @@
+{
+  "captured_log": "\n==================================== ERRORS ====================================\n_ ERROR collecting research/universal_core/holonomy_v2_2/tests/test_line_connect.py _\nImportError while importing test module '/home/runner/work/MLE-agent/MLE-agent/research/universal_core/holonomy_v2_2/tests/test_line_connect.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nresearch/universal_core/holonomy_v2_2/tests/test_line_connect.py:10: in <module>\n    from research.universal_core.holonomy_v2_2.line_connect import (\nE   ModuleNotFoundError: No module named 'research.universal_core.holonomy_v2_2.line_connect'\n=========================== short test summary info ============================\nERROR research/universal_core/holonomy_v2_2/tests/test_line_connect.py\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.25s\n",
+  "expected_cumulative_metrics": {
+    "accepted": 96,
+    "correct": 96,
+    "failed": 0,
+    "incorrect_attempts": 0,
+    "rows": 1076
+  },
+  "expected_failure": "ModuleNotFoundError: No module named 'research.universal_core.holonomy_v2_2.line_connect'",
+  "expected_new_exact_tasks": [
+    "1f876c06",
+    "22168020",
+    "22eb0ac0",
+    "ded97339"
+  ],
+  "expected_status_counts": {
+    "ACCEPTED": 96,
+    "AMBIGUOUS_PROGRAM": 1,
+    "GRAMMAR_EXHAUSTED": 979
+  },
+  "failure_confirmed": true,
+  "fixture_integrity": true,
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "public_arc_evaluation_rerun": false,
+  "run_id": "31911615768",
+  "schema_version": 1,
+  "source_commit": "f6411f125094e9e6d38162c35f9a37d300e2474c",
+  "training_scan": {
+    "ambiguous_hidden_output_classes": 0,
+    "compatible_accepted_tasks": 0,
+    "compatible_tasks": 4,
+    "wrong_completed_hidden_outputs": 0
+  }
+}

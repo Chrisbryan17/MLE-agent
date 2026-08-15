@@ -1,0 +1,68 @@
+name: ARC Gravity Compact Module GREEN
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-gravity-compact-module-green.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  verify-module:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check --quiet pytest
+      - name: Run isolated gravity tests
+        run: |
+          python -m pytest -q \
+            research/universal_core/holonomy_v2_2/tests/test_gravity_compact_fixtures.py \
+            research/universal_core/holonomy_v2_2/tests/test_gravity_compact.py::test_vertical_gravity_compacts_up_and_down \
+            research/universal_core/holonomy_v2_2/tests/test_gravity_compact.py::test_horizontal_gravity_compacts_left_and_right \
+            research/universal_core/holonomy_v2_2/tests/test_gravity_compact.py::test_gravity_preserves_shape_counts_and_lane_order \
+            research/universal_core/holonomy_v2_2/tests/test_gravity_compact.py::test_gravity_rejects_unknown_direction \
+            research/universal_core/holonomy_v2_2/tests/test_gravity_compact.py::test_program_derivation_returns_unique_demonstrated_candidate \
+            research/universal_core/holonomy_v2_2/tests/test_gravity_compact.py::test_program_derivation_rejects_shape_change \
+            research/universal_core/holonomy_v2_2/tests/test_gravity_compact.py::test_program_derivation_skips_noop_demonstration \
+            | tee /tmp/gravity-module-green.log
+      - name: Confirm frozen bytes
+        run: git diff --quiet 1d7c489bcdbff755d638b35ad47ce62bd4fe829d -- research/universal_core/holonomy_v2
+      - name: Commit module evidence
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          evidence = {
+              'schema_version': 1,
+              'source_commit': os.environ['SOURCE_SHA'],
+              'run_id': os.environ['RUN_ID'],
+              'passed': True,
+              'test_count': 8,
+              'test_output': Path('/tmp/gravity-module-green.log').read_text(encoding='utf-8'),
+              'expected_new_exact_tasks': ['1e0a9b12', '3906de3d'],
+              'frozen_core_commit': '1d7c489bcdbff755d638b35ad47ce62bd4fe829d',
+              'frozen_byte_gate': True,
+              'public_arc_evaluation_rerun': False,
+          }
+          path = Path('research/universal_core/holonomy_v2_2/evidence/GRAVITY_COMPACT_MODULE_GREEN.json')
+          path.write_text(json.dumps(evidence, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add research/universal_core/holonomy_v2_2/evidence/GRAVITY_COMPACT_MODULE_GREEN.json
+          git commit -m 'arc: record gravity compaction module GREEN'
+          git push origin HEAD:universal-core-arc-training-v2-2

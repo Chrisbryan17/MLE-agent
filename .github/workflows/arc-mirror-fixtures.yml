@@ -1,0 +1,49 @@
+name: Import ARC Mirror Concatenation Fixtures
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-mirror-fixtures.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  import-fixtures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 0
+      - name: Download immutable benchmark corpus
+        uses: actions/download-artifact@v4
+        with:
+          name: public-benchmarks-pinned-2026-08-04
+          path: /tmp/pinned-public-benchmarks
+          github-token: ${{ github.token }}
+          repository: Chrisbryan17/MLE-agent
+          run-id: '30929169392'
+      - name: Copy exact training fixtures
+        run: |
+          set -euo pipefail
+          destination='research/universal_core/holonomy_v2_2/tests/fixtures/mirror_concat'
+          mkdir -p "$destination"
+          for task_id in 4c4377d9 6d0aefbc 6fa7a44f 8be77c9e c9e6f938; do
+            mapfile -t matches < <(find /tmp/pinned-public-benchmarks -type f -path "*/arc_agi_2/data/training/${task_id}.json" | sort)
+            test "${#matches[@]}" -eq 1
+            cp "${matches[0]}" "$destination/${task_id}.json"
+            python -m json.tool "$destination/${task_id}.json" > /dev/null
+          done
+          test "$(find "$destination" -type f -name '*.json' | wc -l)" -eq 5
+      - name: Commit immutable fixtures
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add research/universal_core/holonomy_v2_2/tests/fixtures/mirror_concat
+          git commit -m 'arc: import mirror concatenation fixtures'
+          git push origin HEAD:universal-core-arc-training-v2-2

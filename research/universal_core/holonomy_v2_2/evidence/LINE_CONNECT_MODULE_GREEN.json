@@ -1,0 +1,17 @@
+{
+  "expected_new_exact_tasks": [
+    "1f876c06",
+    "22168020",
+    "22eb0ac0",
+    "ded97339"
+  ],
+  "frozen_byte_gate": true,
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "passed": true,
+  "public_arc_evaluation_rerun": false,
+  "run_id": "31911659286",
+  "schema_version": 1,
+  "source_commit": "121d127c415c51e30ba254723bd5c9da9cf0fe35",
+  "test_count": 9,
+  "test_output": ".........                                                                [100%]\n9 passed in 0.14s\n"
+}

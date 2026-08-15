@@ -1,0 +1,254 @@
+name: Wire ARC Structural Enumeration
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-structural-enumeration-wire.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  wire-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check --quiet pytest
+      - name: Apply guarded enumeration patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          panel = Path('research/universal_core/holonomy_v2_2/panel_combine.py')
+          text = panel.read_text(encoding='utf-8')
+          old = '''def panel_candidates(demos: Sequence[tuple[Grid, Grid]]) -> tuple[Program, ...]:
+              target_colors = sorted(
+                  {cell for _, target in demos for row in target for cell in row}
+              )
+              if len(target_colors) != 2:
+                  return ()
+              candidates: list[Program] = []
+              for axis in ("vertical", "horizontal"):
+                  for gap in (0, 1, 2):
+                      for background in _background_candidates(demos):
+                          for predicate in _PREDICATES:
+                              for true_color, false_color in (
+                                  (target_colors[0], target_colors[1]),
+                                  (target_colors[1], target_colors[0]),
+                              ):
+                                  program = {
+                                      "kind": "panel_boolean_combine",
+                                      "axis": axis,
+                                      "gap": gap,
+                                      "background": background,
+                                      "predicate": predicate,
+                                      "true_color": true_color,
+                                      "false_color": false_color,
+                                  }
+                                  if _fits(program, demos):
+                                      candidates.append(program)
+              return tuple(candidates)
+          '''
+          old = '\n'.join(line[14:] if line.startswith('              ') else line for line in old.splitlines()) + '\n'
+          new = '''def panel_programs(
+              demos: Sequence[tuple[Grid, Grid]],
+          ) -> tuple[tuple[Program, ...], str | None]:
+              target_colors = sorted(
+                  {cell for _, target in demos for row in target for cell in row}
+              )
+              if len(target_colors) != 2:
+                  return (), "TARGET_COLOR_CARDINALITY_NOT_TWO"
+              programs: list[Program] = []
+              for axis in ("vertical", "horizontal"):
+                  for gap in (0, 1, 2):
+                      for background in _background_candidates(demos):
+                          for predicate in _PREDICATES:
+                              for true_color, false_color in (
+                                  (target_colors[0], target_colors[1]),
+                                  (target_colors[1], target_colors[0]),
+                              ):
+                                  programs.append({
+                                      "kind": "panel_boolean_combine",
+                                      "axis": axis,
+                                      "gap": gap,
+                                      "background": background,
+                                      "predicate": predicate,
+                                      "true_color": true_color,
+                                      "false_color": false_color,
+                                  })
+              if not programs:
+                  return (), "NO_STRUCTURAL_PROGRAM"
+              return tuple(programs), None
+
+
+          def panel_candidates(demos: Sequence[tuple[Grid, Grid]]) -> tuple[Program, ...]:
+              programs, _ = panel_programs(demos)
+              return tuple(program for program in programs if _fits(program, demos))
+          '''
+          new = '\n'.join(line[10:] if line.startswith('          ') else line for line in new.splitlines()) + '\n'
+          if text.count(old) != 1:
+              raise SystemExit('panel enumeration anchor mismatch')
+          panel.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          region = Path('research/universal_core/holonomy_v2_2/region_fill.py')
+          text = region.read_text(encoding='utf-8')
+          old = '''def region_candidates(demos: Sequence[tuple[Grid, Grid]]) -> tuple[Program, ...]:
+              target_colors = sorted({cell for _, target in demos for row in target for cell in row})
+              candidates: list[Program] = []
+              for background in _background_candidates(demos):
+                  for connectivity in (4, 8):
+                      for mode in ("fill_copy", "highlight", "solidify"):
+                          for fill_color in target_colors:
+                              program = {
+                                  "kind": "enclosed_region_fill",
+                                  "background": background,
+                                  "connectivity": connectivity,
+                                  "mode": mode,
+                                  "fill_color": fill_color,
+                              }
+                              if _fits(program, demos):
+                                  candidates.append(program)
+              return tuple(candidates)
+          '''
+          old = '\n'.join(line[14:] if line.startswith('              ') else line for line in old.splitlines()) + '\n'
+          new = '''def region_programs(
+              demos: Sequence[tuple[Grid, Grid]],
+          ) -> tuple[tuple[Program, ...], str | None]:
+              backgrounds = _background_candidates(demos)
+              if not backgrounds:
+                  return (), "NO_BACKGROUND_CANDIDATE"
+              target_colors = sorted({cell for _, target in demos for row in target for cell in row})
+              programs: list[Program] = []
+              for background in backgrounds:
+                  for connectivity in (4, 8):
+                      for mode in ("fill_copy", "highlight", "solidify"):
+                          for fill_color in target_colors:
+                              programs.append({
+                                  "kind": "enclosed_region_fill",
+                                  "background": background,
+                                  "connectivity": connectivity,
+                                  "mode": mode,
+                                  "fill_color": fill_color,
+                              })
+              if not programs:
+                  return (), "NO_STRUCTURAL_PROGRAM"
+              return tuple(programs), None
+
+
+          def region_candidates(demos: Sequence[tuple[Grid, Grid]]) -> tuple[Program, ...]:
+              programs, _ = region_programs(demos)
+              return tuple(program for program in programs if _fits(program, demos))
+          '''
+          new = '\n'.join(line[10:] if line.startswith('          ') else line for line in new.splitlines()) + '\n'
+          if text.count(old) != 1:
+              raise SystemExit('region enumeration anchor mismatch')
+          region.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          component = Path('research/universal_core/holonomy_v2_2/component_select.py')
+          text = component.read_text(encoding='utf-8')
+          old = '''def component_select_candidates(demos: Sequence[tuple[Grid, Grid]]) -> tuple[Program, ...]:
+              candidates: list[Program] = []
+              for background in _background_candidates(demos):
+                  for connectivity in (4, 8):
+                      for selector in ("minimum", "maximum"):
+                          program = {
+                              "kind": "component_area_select",
+                              "background": background,
+                              "connectivity": connectivity,
+                              "selector": selector,
+                          }
+                          if _fits(program, demos):
+                              candidates.append(program)
+              return tuple(candidates)
+          '''
+          old = '\n'.join(line[14:] if line.startswith('              ') else line for line in old.splitlines()) + '\n'
+          new = '''def component_select_programs(
+              demos: Sequence[tuple[Grid, Grid]],
+          ) -> tuple[tuple[Program, ...], str | None]:
+              backgrounds = _background_candidates(demos)
+              if not backgrounds:
+                  return (), "NO_BACKGROUND_CANDIDATE"
+              programs: list[Program] = []
+              for background in backgrounds:
+                  for connectivity in (4, 8):
+                      for selector in ("minimum", "maximum"):
+                          programs.append({
+                              "kind": "component_area_select",
+                              "background": background,
+                              "connectivity": connectivity,
+                              "selector": selector,
+                          })
+              if not programs:
+                  return (), "NO_STRUCTURAL_PROGRAM"
+              return tuple(programs), None
+
+
+          def component_select_candidates(demos: Sequence[tuple[Grid, Grid]]) -> tuple[Program, ...]:
+              programs, _ = component_select_programs(demos)
+              return tuple(program for program in programs if _fits(program, demos))
+          '''
+          new = '\n'.join(line[10:] if line.startswith('          ') else line for line in new.splitlines()) + '\n'
+          if text.count(old) != 1:
+              raise SystemExit('component enumeration anchor mismatch')
+          component.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          git diff --check
+      - name: Run focused structural tests
+        run: python -m pytest -q research/universal_core/holonomy_v2_2/tests/test_structural_enumeration.py | tee /tmp/focused.log
+      - name: Run all V2.2 tests
+        run: python -m pytest -q research/universal_core/holonomy_v2_2/tests | tee /tmp/v2-2.log
+      - name: Run frozen V2 integration tests
+        env:
+          PYTHONPATH: research
+        run: |
+          python -m pytest -q \
+            research/universal_core/holonomy_v2/tests/test_blind_adapter.py \
+            research/universal_core/holonomy_v2/tests/test_engine.py | tee /tmp/frozen.log
+      - name: Confirm frozen V2 bytes are unchanged
+        run: git diff --quiet 1d7c489bcdbff755d638b35ad47ce62bd4fe829d -- research/universal_core/holonomy_v2
+      - name: Write evidence and commit implementation
+        env:
+          GREEN_SOURCE_SHA: ${{ github.sha }}
+          GREEN_RUN_ID: ${{ github.run_id }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          evidence = {
+              'schema_version': 1,
+              'workflow_source_commit': os.environ['GREEN_SOURCE_SHA'],
+              'green_run_id': os.environ['GREEN_RUN_ID'],
+              'focused_output': Path('/tmp/focused.log').read_text(encoding='utf-8'),
+              'v2_2_output': Path('/tmp/v2-2.log').read_text(encoding='utf-8'),
+              'frozen_output': Path('/tmp/frozen.log').read_text(encoding='utf-8'),
+              'frozen_byte_gate': True,
+              'interfaces': [
+                  'panel_programs',
+                  'region_programs',
+                  'component_select_programs',
+              ],
+              'frozen_core_commit': '1d7c489bcdbff755d638b35ad47ce62bd4fe829d',
+          }
+          path = Path('research/universal_core/holonomy_v2_2/evidence/STRUCTURAL_ENUMERATION_GREEN.json')
+          path.write_text(json.dumps(evidence, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add \
+            research/universal_core/holonomy_v2_2/panel_combine.py \
+            research/universal_core/holonomy_v2_2/region_fill.py \
+            research/universal_core/holonomy_v2_2/component_select.py \
+            research/universal_core/holonomy_v2_2/evidence/STRUCTURAL_ENUMERATION_GREEN.json
+          git commit -m 'arc: expose structural grid hypotheses'
+          git push origin HEAD:universal-core-arc-training-v2-2

@@ -1,0 +1,34 @@
+{
+  "captured_log": "\n==================================== ERRORS ====================================\n_ ERROR collecting research/universal_core/holonomy_v2_2/tests/test_gravity_compact.py _\nImportError while importing test module '/home/runner/work/MLE-agent/MLE-agent/research/universal_core/holonomy_v2_2/tests/test_gravity_compact.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nresearch/universal_core/holonomy_v2_2/tests/test_gravity_compact.py:11: in <module>\n    from research.universal_core.holonomy_v2_2.gravity_compact import (\nE   ModuleNotFoundError: No module named 'research.universal_core.holonomy_v2_2.gravity_compact'\n=========================== short test summary info ============================\nERROR research/universal_core/holonomy_v2_2/tests/test_gravity_compact.py\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.16s\n",
+  "expected_cumulative_metrics": {
+    "accepted": 92,
+    "correct": 92,
+    "failed": 0,
+    "incorrect_attempts": 0,
+    "rows": 1076
+  },
+  "expected_failure": "ModuleNotFoundError: No module named 'research.universal_core.holonomy_v2_2.gravity_compact'",
+  "expected_new_exact_tasks": [
+    "1e0a9b12",
+    "3906de3d"
+  ],
+  "expected_status_counts": {
+    "ACCEPTED": 92,
+    "AMBIGUOUS_PROGRAM": 1,
+    "GRAMMAR_EXHAUSTED": 983
+  },
+  "failure_confirmed": true,
+  "fixture_integrity": true,
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "public_arc_evaluation_rerun": false,
+  "run_id": "31910927240",
+  "schema_version": 1,
+  "source_commit": "6a8de96f0dca952859568c17ba05588c487c9588",
+  "training_scan": {
+    "ambiguous_hidden_outputs": 0,
+    "compatible_accepted_tasks": 0,
+    "compatible_tasks": 2,
+    "fitting_programs": 2,
+    "wrong_completed_hidden_outputs": 0
+  }
+}

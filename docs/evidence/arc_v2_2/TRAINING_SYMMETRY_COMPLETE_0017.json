@@ -1,0 +1,83 @@
+{
+  "artifact": {
+    "artifact_id": 9254110203,
+    "digest": "sha256:1dce9fa768b4ce80f354d420d2f689120f832390a39c3512281fefe9a4d9ca05",
+    "name": "arc-v2-2-symmetry-complete-18573507deb284e42d573085909bbf76be5abcb8",
+    "run_id": 31912407142,
+    "sha256sums_digest": "f67aed47fc3d4338cf34f9107b7218ee57cda1c23313fa1673cef551d599914e"
+  },
+  "candidate_commit": "18573507deb284e42d573085909bbf76be5abcb8",
+  "diagnosis_digest": "971f597393e7c10244d767407f5bf99999821024b8ee804cd3d301f2466e2bec",
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "independent_validation": {
+    "artifact_digest_matches_github": true,
+    "checksum_entries": 1006,
+    "checksum_failures": 0,
+    "compact_mechanistic_parity_tasks": 1000,
+    "lost_baseline_rows": {},
+    "manifest_verified": true,
+    "trace_files": 1000
+  },
+  "mechanisms": {
+    "496994bd": {
+      "selected_candidate_id": "symmetry_complete:0001",
+      "successful_symmetry_candidates": 2,
+      "trace_digest": "70e05d79a59ce394b2889d7ae75535aff9ac55bec3dedd191d43a8b84467e947"
+    },
+    "60b61512": {
+      "bbox_equivalence_class_count": 2,
+      "safety_action": "abstain_on_connectivity_disagreement",
+      "terminal_status": "AMBIGUOUS_PROGRAM",
+      "trace_digest": "759ac70b3dc31fd8d0e144fba6e661db5925c73009b2acaaf80bad4d99a21514"
+    },
+    "b8825c91": {
+      "safety_action": "abstain_on_symmetry_disagreement",
+      "symmetry_equivalence_class_count": 2,
+      "terminal_status": "AMBIGUOUS_PROGRAM",
+      "trace_digest": "cce0a065323ff88200d5a3689438162ab7cc36f25a6274d04d96ecbaa09edb3a"
+    },
+    "e729b7be": {
+      "selected_candidate_id": "symmetry_complete:0000",
+      "successful_symmetry_candidates": 1,
+      "trace_digest": "1bb3ff6a90c8344d46d8f450aba4378c6174fc5f3558d91b2fde2f16b92ba7c8"
+    },
+    "f25ffba3": {
+      "selected_candidate_id": "symmetry_complete:0000",
+      "successful_symmetry_candidates": 1,
+      "trace_digest": "5d33b3caf970b06d8082e58e5d6449ca113d98a9d225c3d80afc6efc457191bb"
+    }
+  },
+  "metrics": {
+    "abstained": 977,
+    "accepted": 99,
+    "attempted_accuracy": 1.0,
+    "correct": 99,
+    "coverage": 0.09200743494423792,
+    "failed": 0,
+    "families": 1000,
+    "incorrect_attempts": 0,
+    "raw_accuracy": 0.09200743494423792,
+    "rows": 1076
+  },
+  "public_arc_evaluation_rerun": false,
+  "report_digest": "da95d63d8a7a10199b58c33a028080d06882eb85cf405cd295913610b39619d4",
+  "schema_version": 1,
+  "status_counts": {
+    "ACCEPTED": 99,
+    "AMBIGUOUS_PROGRAM": 2,
+    "GRAMMAR_EXHAUSTED": 975
+  },
+  "training_transition": {
+    "cumulative_gain_tasks": 40,
+    "expected_gains_matched": true,
+    "new_ambiguous_tasks": [
+      "b8825c91"
+    ],
+    "new_exact_tasks": [
+      "496994bd",
+      "e729b7be",
+      "f25ffba3"
+    ],
+    "new_exact_rows": 3
+  }
+}

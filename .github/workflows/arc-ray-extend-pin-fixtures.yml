@@ -1,0 +1,54 @@
+name: Pin ARC Ray Extension Fixtures
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-ray-extend-pin-fixtures.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  pin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 0
+      - name: Download immutable benchmark corpus
+        uses: actions/download-artifact@v4
+        with:
+          name: public-benchmarks-pinned-2026-08-04
+          path: /tmp/pinned-public-benchmarks
+          github-token: ${{ github.token }}
+          repository: Chrisbryan17/MLE-agent
+          run-id: '30929169392'
+      - name: Copy exact immutable payloads
+        run: |
+          set -euo pipefail
+          probe=$(find /tmp/pinned-public-benchmarks -type f -path '*/arc_agi_2/data/training/623ea044.json' -print -quit)
+          test -n "$probe"
+          src=$(dirname "$probe")
+          dst=research/universal_core/holonomy_v2_2/tests/fixtures/ray_extend
+          mkdir -p "$dst"
+          cp "$src/623ea044.json" "$dst/623ea044.json"
+          cp "$src/d037b0a7.json" "$dst/d037b0a7.json"
+          printf '%s  %s\n' \
+            578ab7e47a2d67489f1103715615f719ef81e9faf773be85586803d6da44cbdd "$dst/623ea044.json" \
+            9e39a4acdb3e3bff7dd54bed5f4ab77973f4027d48beb62a9c740d8a7a0b0aee "$dst/d037b0a7.json" \
+            > /tmp/ray-fixtures.sha256
+          sha256sum -c /tmp/ray-fixtures.sha256
+      - name: Confirm frozen V2 bytes
+        run: git diff --quiet 1d7c489bcdbff755d638b35ad47ce62bd4fe829d -- research/universal_core/holonomy_v2
+      - name: Commit fixtures
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add research/universal_core/holonomy_v2_2/tests/fixtures/ray_extend
+          git commit -m 'test: pin anchor ray extension fixtures'
+          git push origin HEAD:universal-core-arc-training-v2-2

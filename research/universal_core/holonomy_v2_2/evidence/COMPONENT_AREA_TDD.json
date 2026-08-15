@@ -1,0 +1,10 @@
+{
+  "development_split": "ARC-AGI-2 training only",
+  "fixture_commit": "823036a1674e71f2470263dcbab7d0665f5b9764",
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "implementation_module_commit": "31c3e39a0920523353f697d31ea2a60ea11f9586",
+  "integration_commit": "b0f8af1909741a2df83408830ebc624205ed085b",
+  "red_run_id": "30941409038",
+  "red_summary": "three extraction contracts were absent; two controls exposed existing panel and identity paths and were isolated before implementation",
+  "schema_version": 1
+}

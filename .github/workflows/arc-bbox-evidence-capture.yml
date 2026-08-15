@@ -1,0 +1,147 @@
+name: Capture ARC Bounding Box Evidence
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-bbox-evidence-capture.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: f92ca46da7698522dfd3cd73be0e0a28e2a158f5
+      REPOSITORY: Chrisbryan17/MLE-agent
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 0
+      - name: Resolve exact successful run and artifact
+        run: |
+          set -euo pipefail
+          runs=$(gh api --method GET "repos/$REPOSITORY/actions/runs" -f head_sha="$TARGET_SHA" -f per_page=100)
+          run_id=$(printf '%s' "$runs" | jq -r '
+            [.workflow_runs[]
+             | select(.name == "ARC Bounding Box Mechanistic Corpus")
+             | select(.head_sha == env.TARGET_SHA)
+             | select(.status == "completed")]
+            | sort_by(.created_at)
+            | last
+            | .id // empty')
+          test -n "$run_id"
+          run=$(gh api "repos/$REPOSITORY/actions/runs/$run_id")
+          conclusion=$(printf '%s' "$run" | jq -r '.conclusion')
+          test "$conclusion" = success
+          artifacts=$(gh api "repos/$REPOSITORY/actions/runs/$run_id/artifacts?per_page=100")
+          artifact_id=$(printf '%s' "$artifacts" | jq -r --arg name "arc-v2-2-bbox-$TARGET_SHA" '
+            [.artifacts[] | select(.name == $name)] | first | .id // empty')
+          test -n "$artifact_id"
+          printf '%s\n' "$run_id" > /tmp/run-id
+          printf '%s\n' "$artifact_id" > /tmp/artifact-id
+          printf '%s' "$run" > /tmp/run.json
+          printf '%s' "$artifacts" > /tmp/artifacts.json
+      - name: Download exact artifact
+        run: |
+          mkdir -p /tmp/bbox-artifact
+          gh run download "$(cat /tmp/run-id)" \
+            --repo "$REPOSITORY" \
+            --name "arc-v2-2-bbox-$TARGET_SHA" \
+            --dir /tmp/bbox-artifact
+      - name: Independently validate artifact
+        run: |
+          cd /tmp/bbox-artifact
+          sha256sum -c SHA256SUMS
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from research.universal_core.holonomy_v2_2.mechanistic_trace import validate_trace
+
+          root = Path('/tmp/bbox-artifact')
+          report = json.loads((root / 'report.json').read_text(encoding='utf-8'))
+          diagnosis = json.loads((root / 'traces' / 'diagnosis.json').read_text(encoding='utf-8'))
+          transitions = json.loads((root / 'transitions.json').read_text(encoding='utf-8'))
+          mechanisms = json.loads((root / 'mechanisms.json').read_text(encoding='utf-8'))
+          trace_paths = sorted(
+              path for path in (root / 'traces').glob('*.json')
+              if path.name != 'diagnosis.json'
+          )
+          assert len(trace_paths) == 1000
+          for path in trace_paths:
+              validate_trace(json.loads(path.read_text(encoding='utf-8')))
+          assert report['metrics']['correct'] == 64
+          assert report['metrics']['accepted'] == 64
+          assert report['metrics']['incorrect_attempts'] == 0
+          assert report['status_counts'] == {
+              'ACCEPTED': 64,
+              'AMBIGUOUS_PROGRAM': 1,
+              'GRAMMAR_EXHAUSTED': 1011,
+          }
+          assert not transitions['lost_rows']
+          assert sorted(mechanisms['accepted_bbox_tasks']) == [
+              '3aa6fb7a', '6d75e8bb', 'e7639916'
+          ]
+          assert mechanisms['60b61512']['terminal_status'] == 'AMBIGUOUS_PROGRAM'
+          assert mechanisms['60b61512']['bbox_equivalence_class_count'] >= 2
+          assert diagnosis['trace_count'] == 1000
+          PY
+      - name: Commit sealed evidence
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path('/tmp/bbox-artifact')
+          report = json.loads((root / 'report.json').read_text(encoding='utf-8'))
+          diagnosis = json.loads((root / 'traces' / 'diagnosis.json').read_text(encoding='utf-8'))
+          transitions = json.loads((root / 'transitions.json').read_text(encoding='utf-8'))
+          mechanisms = json.loads((root / 'mechanisms.json').read_text(encoding='utf-8'))
+          artifacts = json.loads(Path('/tmp/artifacts.json').read_text(encoding='utf-8'))
+          artifact_id = int(Path('/tmp/artifact-id').read_text(encoding='utf-8').strip())
+          artifact = next(item for item in artifacts['artifacts'] if item['id'] == artifact_id)
+          manifest_entries = len((root / 'SHA256SUMS').read_text(encoding='utf-8').splitlines())
+          evidence = {
+              'schema_version': 1,
+              'candidate_commit': os.environ['TARGET_SHA'],
+              'run_id': int(Path('/tmp/run-id').read_text(encoding='utf-8').strip()),
+              'artifact': {
+                  'id': artifact['id'],
+                  'name': artifact['name'],
+                  'size_in_bytes': artifact['size_in_bytes'],
+                  'digest': artifact.get('digest'),
+                  'expired': artifact['expired'],
+              },
+              'checksum_manifest': {
+                  'entry_count': manifest_entries,
+                  'verified': True,
+              },
+              'report_digest': report['report_digest'],
+              'diagnosis_digest': diagnosis['diagnosis_digest'],
+              'metrics': report['metrics'],
+              'status_counts': report['status_counts'],
+              'mechanistic': report['mechanistic'],
+              'total_event_count': diagnosis['total_event_count'],
+              'accepted_selected_kind_counts': diagnosis['accepted_selected_kind_counts'],
+              'hidden_failure_counts': diagnosis['hidden_failure_counts'],
+              'transitions': transitions,
+              'mechanisms': mechanisms,
+              'frozen_core_commit': '1d7c489bcdbff755d638b35ad47ce62bd4fe829d',
+              'public_arc_evaluation_rerun': False,
+          }
+          path = Path('docs/evidence/arc_v2_2/TRAINING_BBOX_0009.json')
+          path.parent.mkdir(parents=True, exist_ok=True)
+          path.write_text(json.dumps(evidence, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add docs/evidence/arc_v2_2/TRAINING_BBOX_0009.json
+          git commit -m 'arc: seal bounding box training evidence'
+          git push origin HEAD:universal-core-arc-training-v2-2

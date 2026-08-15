@@ -1,0 +1,20 @@
+{
+  "captured_log": "\n==================================== ERRORS ====================================\n_ ERROR collecting research/universal_core/holonomy_v2_2/tests/test_component_outlier.py _\nImportError while importing test module '/home/runner/work/MLE-agent/MLE-agent/research/universal_core/holonomy_v2_2/tests/test_component_outlier.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nresearch/universal_core/holonomy_v2_2/tests/test_component_outlier.py:8: in <module>\n    from research.universal_core.holonomy_v2_2.component_outlier import (\nE   ModuleNotFoundError: No module named 'research.universal_core.holonomy_v2_2.component_outlier'\n=========================== short test summary info ============================\nERROR research/universal_core/holonomy_v2_2/tests/test_component_outlier.py\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.19s\n",
+  "expected_failure": "ModuleNotFoundError: No module named 'research.universal_core.holonomy_v2_2.component_outlier'",
+  "failure_confirmed": true,
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "mechanistic_hypothesis": {
+    "hidden_disambiguation": "four-connectivity violates peer-area uniformity; eight-connectivity completes",
+    "invariant": "one unique area extreme and uniform-area peers",
+    "primitive": "component_area_outlier_color"
+  },
+  "red_commit": "57f53f663af783aab45fc2183ca83b0df319a7b6",
+  "red_run_id": "30951581526",
+  "schema_version": 1,
+  "source_trace": {
+    "failure": "two component_rank_color KeyErrors: 'unmapped component rank'",
+    "task_id": "b230c067",
+    "trace_digest": "e881dc495aada3c875dd8016cc6768e37a2560e1588cb0bee0b46986b412f4ac"
+  },
+  "test_command": "python -m pytest -q research/universal_core/holonomy_v2_2/tests/test_component_outlier.py"
+}

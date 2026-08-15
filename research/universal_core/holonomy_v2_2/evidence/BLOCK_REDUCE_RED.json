@@ -1,0 +1,27 @@
+{
+  "captured_log": "\n==================================== ERRORS ====================================\n_ ERROR collecting research/universal_core/holonomy_v2_2/tests/test_block_reduce.py _\nImportError while importing test module '/home/runner/work/MLE-agent/MLE-agent/research/universal_core/holonomy_v2_2/tests/test_block_reduce.py'.\nHint: make sure your test modules/packages have valid Python names.\nTraceback:\n/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/importlib/__init__.py:90: in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nresearch/universal_core/holonomy_v2_2/tests/test_block_reduce.py:10: in <module>\n    from research.universal_core.holonomy_v2_2.block_reduce import (\nE   ModuleNotFoundError: No module named 'research.universal_core.holonomy_v2_2.block_reduce'\n=========================== short test summary info ============================\nERROR research/universal_core/holonomy_v2_2/tests/test_block_reduce.py\n!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!\n1 error in 0.17s\n",
+  "expected_cumulative_metrics": {
+    "accepted": 90,
+    "correct": 90,
+    "failed": 0,
+    "incorrect_attempts": 0,
+    "rows": 1076
+  },
+  "expected_failure": "ModuleNotFoundError: No module named 'research.universal_core.holonomy_v2_2.block_reduce'",
+  "expected_new_exact_tasks": [
+    "5614dbcf",
+    "68b67ca3"
+  ],
+  "expected_status_counts": {
+    "ACCEPTED": 90,
+    "AMBIGUOUS_PROGRAM": 1,
+    "GRAMMAR_EXHAUSTED": 985
+  },
+  "failure_confirmed": true,
+  "fixture_integrity": true,
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "public_arc_evaluation_rerun": false,
+  "run_id": "31910245940",
+  "schema_version": 1,
+  "source_commit": "6aae8b87a738374a10d446aa71a2f7d61ec7ed49"
+}

@@ -1,0 +1,83 @@
+name: Restore ARC Axis Collapse Fixtures
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-axis-fixture-restore.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  restore-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download immutable benchmark corpus
+        uses: actions/download-artifact@v4
+        with:
+          name: public-benchmarks-pinned-2026-08-04
+          path: /tmp/pinned-public-benchmarks
+          github-token: ${{ github.token }}
+          repository: Chrisbryan17/MLE-agent
+          run-id: '30929169392'
+      - name: Restore exact fixture bytes
+        run: |
+          set -euo pipefail
+          vendor=$(find /tmp/pinned-public-benchmarks -type d -path '*/arc_agi_2/data/training' | head -1)
+          test -n "$vendor"
+          destination=research/universal_core/holonomy_v2_2/tests/fixtures/axis_collapse
+          mkdir -p "$destination"
+          for task_id in 2dee498d 746b3537 7b7f7511 ce8d95cc e1baa8a4 eb5a1d5d; do
+            cp "$vendor/$task_id.json" "$destination/$task_id.json"
+          done
+          printf '%s  %s\n' \
+            38e27a5c17bf593547182b8914cf044052b158ebe4c5e802d14fb6af11458388 "$destination/2dee498d.json" \
+            2fa42394d0d48c4c9534aac1ce000ab97ff804f9d69a34d16126f6a17a757686 "$destination/746b3537.json" \
+            28480a33bbe9ff487d845a62a7c21f3d5bc2d1de493a5f91e0c19b57b1aa1d60 "$destination/7b7f7511.json" \
+            728025ba05aacc3b678ecd7a75d605bf8d9477c2bcd2b667e031c32406233c41 "$destination/ce8d95cc.json" \
+            16411bc668a55e51401716d4fc48424413443a8b21f97a670ce14df9ba325f9d "$destination/e1baa8a4.json" \
+            96a1772a93e9cecf1050532b031ad3605390cc5c907cb4b919d4e095eee2f54d "$destination/eb5a1d5d.json" \
+            | sha256sum -c -
+      - run: python -m pip install --disable-pip-version-check --quiet pytest
+      - name: Verify fixture regression
+        run: python -m pytest -q research/universal_core/holonomy_v2_2/tests/test_axis_collapse_fixtures.py | tee /tmp/fixture-green.log
+      - name: Commit exact fixtures and evidence
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          evidence = {
+              'schema_version': 1,
+              'workflow_source_commit': os.environ['SOURCE_SHA'],
+              'run_id': os.environ['RUN_ID'],
+              'fixture_count': 6,
+              'fixture_integrity': True,
+              'source_artifact_run': 30929169392,
+              'test_output': Path('/tmp/fixture-green.log').read_text(encoding='utf-8'),
+              'public_arc_evaluation_rerun': False,
+          }
+          path = Path('research/universal_core/holonomy_v2_2/evidence/AXIS_FIXTURE_INTEGRITY_GREEN.json')
+          path.write_text(json.dumps(evidence, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add \
+            research/universal_core/holonomy_v2_2/tests/fixtures/axis_collapse \
+            research/universal_core/holonomy_v2_2/evidence/AXIS_FIXTURE_INTEGRITY_GREEN.json
+          git commit -m 'arc: restore pinned axis collapse fixtures'
+          git push origin HEAD:universal-core-arc-training-v2-2

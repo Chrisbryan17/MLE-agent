@@ -1,0 +1,74 @@
+name: ARC Mechanistic Trace GREEN
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-mechanistic-trace-green.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  verify-green:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check --quiet pytest
+      - name: Run focused recorder tests
+        run: |
+          python -m pytest -q research/universal_core/holonomy_v2_2/tests/test_mechanistic_trace.py | tee /tmp/focused.log
+      - name: Run all V2.2 tests
+        run: |
+          python -m pytest -q research/universal_core/holonomy_v2_2/tests | tee /tmp/v2-2.log
+      - name: Run frozen V2 integration tests
+        env:
+          PYTHONPATH: research
+        run: |
+          python -m pytest -q \
+            research/universal_core/holonomy_v2/tests/test_blind_adapter.py \
+            research/universal_core/holonomy_v2/tests/test_engine.py | tee /tmp/frozen.log
+      - name: Confirm frozen V2 bytes are unchanged
+        run: git diff --quiet 1d7c489bcdbff755d638b35ad47ce62bd4fe829d -- research/universal_core/holonomy_v2
+      - name: Commit GREEN evidence
+        env:
+          GREEN_SOURCE_SHA: ${{ github.sha }}
+          GREEN_RUN_ID: ${{ github.run_id }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          evidence = {
+              'schema_version': 1,
+              'branch': 'universal-core-arc-training-v2-2',
+              'green_commit': os.environ['GREEN_SOURCE_SHA'],
+              'green_run_id': os.environ['GREEN_RUN_ID'],
+              'focused_command': 'python -m pytest -q research/universal_core/holonomy_v2_2/tests/test_mechanistic_trace.py',
+              'focused_output': Path('/tmp/focused.log').read_text(encoding='utf-8'),
+              'v2_2_command': 'python -m pytest -q research/universal_core/holonomy_v2_2/tests',
+              'v2_2_output': Path('/tmp/v2-2.log').read_text(encoding='utf-8'),
+              'frozen_command': 'python -m pytest -q research/universal_core/holonomy_v2/tests/test_blind_adapter.py research/universal_core/holonomy_v2/tests/test_engine.py',
+              'frozen_output': Path('/tmp/frozen.log').read_text(encoding='utf-8'),
+              'frozen_byte_gate': True,
+              'frozen_core_commit': '1d7c489bcdbff755d638b35ad47ce62bd4fe829d',
+          }
+          path = Path('research/universal_core/holonomy_v2_2/evidence/MECHANISTIC_TRACE_GREEN.json')
+          path.parent.mkdir(parents=True, exist_ok=True)
+          path.write_text(json.dumps(evidence, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add research/universal_core/holonomy_v2_2/evidence/MECHANISTIC_TRACE_GREEN.json
+          git commit -m 'arc: record mechanistic trace GREEN evidence'
+          git push origin HEAD:universal-core-arc-training-v2-2

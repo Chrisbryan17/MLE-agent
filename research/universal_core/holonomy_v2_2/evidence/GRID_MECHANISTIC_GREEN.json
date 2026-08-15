@@ -1,0 +1,16 @@
+{
+  "focused_output": ".............                                                            [100%]\n13 passed in 0.27s\n",
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "frozen_output": ".....                                                                    [100%]\n5 passed in 0.07s\n",
+  "outcomes": {
+    "focused": "success",
+    "frozen_byte_gate": "success",
+    "frozen_tests": "success",
+    "v2_2_cluster": "success"
+  },
+  "passed": true,
+  "run_id": "30948952495",
+  "schema_version": 2,
+  "v2_2_output": "..............................................                           [100%]\n46 passed in 0.33s\n",
+  "workflow_source_commit": "73d05d58c70e8733bc80124fefef76e3d606e9a6"
+}

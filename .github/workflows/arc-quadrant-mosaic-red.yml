@@ -1,0 +1,70 @@
+name: ARC Quadrant Mosaic RED
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-quadrant-mosaic-red.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  verify-red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check --quiet pytest
+      - name: Require missing quadrant module
+        run: |
+          set +e
+          python -m pytest -q research/universal_core/holonomy_v2_2/tests/test_quadrant_mosaic.py > /tmp/quadrant-red.log 2>&1
+          status=$?
+          set -e
+          cat /tmp/quadrant-red.log
+          test "$status" -ne 0
+          grep -F "No module named 'research.universal_core.holonomy_v2_2.quadrant_mosaic'" /tmp/quadrant-red.log
+      - name: Commit RED evidence
+        env:
+          RED_SOURCE_SHA: ${{ github.sha }}
+          RED_RUN_ID: ${{ github.run_id }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          evidence = {
+              'schema_version': 1,
+              'red_commit': os.environ['RED_SOURCE_SHA'],
+              'red_run_id': os.environ['RED_RUN_ID'],
+              'test_command': 'python -m pytest -q research/universal_core/holonomy_v2_2/tests/test_quadrant_mosaic.py',
+              'expected_failure': "ModuleNotFoundError: No module named 'research.universal_core.holonomy_v2_2.quadrant_mosaic'",
+              'failure_confirmed': True,
+              'expected_new_exact_tasks': [
+                  '0c786b71', '3af2c5a8', '46442a0e', '62c24649', '67e8384a',
+                  '7953d61e', '7fe24cdd', '833dafe3', 'ed98d772',
+              ],
+              'training_scan': {
+                  'wrong_completed_hidden_outputs': 0,
+                  'ambiguous_hidden_outputs': 0,
+              },
+              'frozen_core_commit': '1d7c489bcdbff755d638b35ad47ce62bd4fe829d',
+              'public_arc_evaluation_rerun': False,
+          }
+          path = Path('research/universal_core/holonomy_v2_2/evidence/QUADRANT_MOSAIC_RED.json')
+          path.write_text(json.dumps(evidence, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add research/universal_core/holonomy_v2_2/evidence/QUADRANT_MOSAIC_RED.json
+          git commit -m 'arc: record quadrant mosaic RED evidence'
+          git push origin HEAD:universal-core-arc-training-v2-2
