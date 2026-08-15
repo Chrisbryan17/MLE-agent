@@ -1,0 +1,80 @@
+{
+  "artifact": {
+    "artifact_id": 9253943423,
+    "digest": "sha256:9f4c5e510536a2c713c736c291a15e91128779e206ce7b5a71766cf25483e921",
+    "name": "arc-v2-2-line-connect-df779fa892b9ce3bfddab4d03aa743a97d22d1b3",
+    "run_id": 31911780490,
+    "sha256sums_digest": "007c4e8b3a5f5eb6fffa794fb32b3618d0ae57d4a985b98a2deaac12affcfbc2"
+  },
+  "candidate_commit": "df779fa892b9ce3bfddab4d03aa743a97d22d1b3",
+  "diagnosis_digest": "d0b35d1409645c441a03c449a90504956b5b66e255ae634742874837b5f7526f",
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "independent_validation": {
+    "artifact_digest_matches_github": true,
+    "checksum_entries": 1006,
+    "checksum_failures": 0,
+    "compact_mechanistic_parity_tasks": 1000,
+    "lost_baseline_rows": {},
+    "manifest_verified": true,
+    "trace_files": 1000
+  },
+  "mechanisms": {
+    "1f876c06": {
+      "selected_candidate_id": "line_connect:0000",
+      "successful_line_candidates": 2,
+      "trace_digest": "7ea489182e177a298d8ecb7462860a752e4209904e6b10a01e0edb37cd03a8ba"
+    },
+    "22168020": {
+      "selected_candidate_id": "line_connect:0000",
+      "successful_line_candidates": 3,
+      "trace_digest": "a938df6ee8f258a5f600e41185251283518624d14891ef8aaad5eb1a3ff4fac8"
+    },
+    "22eb0ac0": {
+      "selected_candidate_id": "line_connect:0000",
+      "successful_line_candidates": 3,
+      "trace_digest": "4ece7dbd896e15af93c643de4a81205af48a4a086ab7db5c81c3eeb14e7c150e"
+    },
+    "60b61512": {
+      "bbox_equivalence_class_count": 2,
+      "safety_action": "abstain_on_connectivity_disagreement",
+      "terminal_status": "AMBIGUOUS_PROGRAM",
+      "trace_digest": "d1d80f60ea04c5c493e33f6a234a72ab123d8e0fedd640114ee35b0415b67a1e"
+    },
+    "ded97339": {
+      "selected_candidate_id": "line_connect:0000",
+      "successful_line_candidates": 1,
+      "trace_digest": "3c79c8f79258b6c46f2e268fd798a40482e2245b9709e3dda2f23745c6da2e29"
+    }
+  },
+  "metrics": {
+    "abstained": 980,
+    "accepted": 96,
+    "attempted_accuracy": 1.0,
+    "correct": 96,
+    "coverage": 0.08921933085501858,
+    "failed": 0,
+    "families": 1000,
+    "incorrect_attempts": 0,
+    "raw_accuracy": 0.08921933085501858,
+    "rows": 1076
+  },
+  "public_arc_evaluation_rerun": false,
+  "report_digest": "76113f54171aebab6806f4cafb4c6935cfcc0e52d588dcdd900d0c187849756b",
+  "schema_version": 1,
+  "status_counts": {
+    "ACCEPTED": 96,
+    "AMBIGUOUS_PROGRAM": 1,
+    "GRAMMAR_EXHAUSTED": 979
+  },
+  "training_transition": {
+    "cumulative_gain_tasks": 37,
+    "expected_gains_matched": true,
+    "new_exact_tasks": [
+      "1f876c06",
+      "22168020",
+      "22eb0ac0",
+      "ded97339"
+    ],
+    "new_exact_rows": 4
+  }
+}
