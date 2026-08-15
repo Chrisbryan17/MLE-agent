@@ -9,20 +9,31 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
   pin:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
           ref: universal-core-arc-training-v2-2
           fetch-depth: 0
-      - name: Copy exact vendor payloads
+      - name: Download immutable benchmark corpus
+        uses: actions/download-artifact@v4
+        with:
+          name: public-benchmarks-pinned-2026-08-04
+          path: /tmp/pinned-public-benchmarks
+          github-token: ${{ github.token }}
+          repository: Chrisbryan17/MLE-agent
+          run-id: '30929169392'
+      - name: Copy exact immutable payloads
         run: |
           set -euo pipefail
-          src=research/universal_core/public_benchmarks/vendor/arc_agi_2/data/training
+          probe=$(find /tmp/pinned-public-benchmarks -type f -path '*/arc_agi_2/data/training/1f876c06.json' -print -quit)
+          test -n "$probe"
+          src=$(dirname "$probe")
           dst=research/universal_core/holonomy_v2_2/tests/fixtures/line_connect
           mkdir -p "$dst"
           cp "$src/1f876c06.json" "$dst/1f876c06.json"
