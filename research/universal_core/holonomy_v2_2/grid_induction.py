@@ -19,12 +19,13 @@ from .palette_repeat import apply_palette_repeat
 from .axis_collapse import apply_axis_collapse
 from .block_reduce import apply_block_reduce
 from .gravity_compact import apply_gravity_compact
+from .line_connect import apply_line_connect
 
 
 Grid = list[list[int]]
 Program = dict[str, Any]
 Point = tuple[int, int]
-_VERSION = "grid-v2.2-14"
+_VERSION = "grid-v2.2-15"
 
 
 def _canonical(value: Any) -> bytes:
@@ -222,6 +223,8 @@ def _apply(program: Program, value: Any) -> Grid:
         return apply_region(program, grid)
     if kind == "component_area_select":
         return apply_component_select(program, grid)
+    if kind == "same_color_line_connect":
+        return apply_line_connect(program, grid)
     if kind == "axis_gravity_compact":
         return apply_gravity_compact(program, grid)
     if kind == "fixed_block_reduce":

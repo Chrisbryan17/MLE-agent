@@ -15,6 +15,7 @@ from .palette_repeat import palette_repeat_programs
 from .axis_collapse import axis_collapse_programs
 from .block_reduce import block_reduce_programs
 from .gravity_compact import gravity_compact_programs
+from .line_connect import line_connect_programs
 from .panel_combine import panel_programs
 from .region_fill import region_programs
 
@@ -104,6 +105,7 @@ def _generator_batches(demos: Sequence[Demo]) -> tuple[tuple[str, tuple[Program,
     axis_collapse, axis_reason = axis_collapse_programs(demos)
     block_reduce, block_reason = block_reduce_programs(demos)
     gravity_compact, gravity_reason = gravity_compact_programs(demos)
+    line_connect, line_reason = line_connect_programs(demos)
     return (
         ("fixed", fixed, None),
         ("color_map", color_programs, None if color_programs else "NO_CONSISTENT_COLOR_MAP"),
@@ -124,6 +126,7 @@ def _generator_batches(demos: Sequence[Demo]) -> tuple[tuple[str, tuple[Program,
         ("axis_collapse", axis_collapse, axis_reason),
         ("block_reduce", block_reduce, block_reason),
         ("gravity_compact", gravity_compact, gravity_reason),
+        ("line_connect", line_connect, line_reason),
         ("panel", panel, panel_reason),
         ("region", region, region_reason),
         ("component_select", component_select, component_reason),
