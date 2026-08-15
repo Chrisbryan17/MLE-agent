@@ -1,0 +1,55 @@
+name: Pin ARC Symmetry Fixtures
+
+on:
+  push:
+    branches:
+      - universal-core-arc-training-v2-2
+    paths:
+      - '.github/workflows/arc-symmetry-pin-fixtures.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  pin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: universal-core-arc-training-v2-2
+          fetch-depth: 0
+      - name: Download immutable benchmark corpus
+        uses: actions/download-artifact@v4
+        with:
+          name: public-benchmarks-pinned-2026-08-04
+          path: /tmp/pinned-public-benchmarks
+          github-token: ${{ github.token }}
+          repository: Chrisbryan17/MLE-agent
+          run-id: '30929169392'
+      - name: Copy exact immutable payloads
+        run: |
+          set -euo pipefail
+          probe=$(find /tmp/pinned-public-benchmarks -type f -path '*/arc_agi_2/data/training/496994bd.json' -print -quit)
+          test -n "$probe"
+          src=$(dirname "$probe")
+          dst=research/universal_core/holonomy_v2_2/tests/fixtures/symmetry_complete
+          mkdir -p "$dst"
+          for id in 496994bd b8825c91 e729b7be f25ffba3; do cp "$src/$id.json" "$dst/$id.json"; done
+          printf '%s  %s\n' \
+            ecc40bb943911e33cdfc1e668a5bb49b22ad55a662aa37d68ba57e884897dc25 "$dst/496994bd.json" \
+            ccf892a7ba8797ab4c69b241d80dd389cde0b9c7b8c0667a8b3a273873c4d49d "$dst/b8825c91.json" \
+            d2565e3c8e6482a1a3cec2ccf604032c223ee6d6f579dfee98a72b4cbdc12c99 "$dst/e729b7be.json" \
+            98bd5da81220ac72cf0a2d8ae093ed602066e14cb28ffce6db3110d91382067c "$dst/f25ffba3.json" \
+            > /tmp/symmetry-fixtures.sha256
+          sha256sum -c /tmp/symmetry-fixtures.sha256
+      - name: Confirm frozen V2 bytes
+        run: git diff --quiet 1d7c489bcdbff755d638b35ad47ce62bd4fe829d -- research/universal_core/holonomy_v2
+      - name: Commit fixtures
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add research/universal_core/holonomy_v2_2/tests/fixtures/symmetry_complete
+          git commit -m 'test: pin reflective symmetry fixtures'
+          git push origin HEAD:universal-core-arc-training-v2-2
