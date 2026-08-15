@@ -18,12 +18,13 @@ from .quadrant_mosaic import apply_quadrant_mosaic
 from .palette_repeat import apply_palette_repeat
 from .axis_collapse import apply_axis_collapse
 from .block_reduce import apply_block_reduce
+from .gravity_compact import apply_gravity_compact
 
 
 Grid = list[list[int]]
 Program = dict[str, Any]
 Point = tuple[int, int]
-_VERSION = "grid-v2.2-13"
+_VERSION = "grid-v2.2-14"
 
 
 def _canonical(value: Any) -> bytes:
@@ -221,6 +222,8 @@ def _apply(program: Program, value: Any) -> Grid:
         return apply_region(program, grid)
     if kind == "component_area_select":
         return apply_component_select(program, grid)
+    if kind == "axis_gravity_compact":
+        return apply_gravity_compact(program, grid)
     if kind == "fixed_block_reduce":
         return apply_block_reduce(program, grid)
     if kind == "axis_duplicate_collapse":
