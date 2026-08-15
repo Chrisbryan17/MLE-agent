@@ -54,20 +54,22 @@ def test_vertical_connection_fills_between_same_color_anchors() -> None:
 
 def test_diagonal_connection_fills_both_diagonal_families() -> None:
     source = [
-        [3, 0, 0, 0],
-        [0, 0, 0, 4],
-        [0, 0, 3, 0],
-        [0, 4, 0, 0],
+        [3, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0],
+        [0, 0, 3, 0, 4],
+        [0, 0, 0, 0, 0],
+        [0, 0, 4, 0, 0],
     ]
 
     assert apply_line_connect(
         {"kind": "same_color_line_connect", "background": 0, "mode": "diagonal"},
         source,
     ) == [
-        [3, 0, 0, 0],
-        [0, 3, 0, 4],
-        [0, 4, 3, 0],
-        [0, 4, 0, 0],
+        [3, 0, 0, 0, 0],
+        [0, 3, 0, 0, 0],
+        [0, 0, 3, 0, 4],
+        [0, 0, 0, 4, 0],
+        [0, 0, 4, 0, 0],
     ]
 
 
