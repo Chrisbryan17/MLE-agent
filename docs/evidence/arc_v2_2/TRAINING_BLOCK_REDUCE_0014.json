@@ -1,0 +1,68 @@
+{
+  "artifact": {
+    "artifact_id": 9253566568,
+    "digest": "sha256:2aa21f60a23ae24d4059bf123b09d06ec21f0d588ce6c1e8e6c905fbd08eff08",
+    "name": "arc-v2-2-block-reduce-c3c4efaef66e2ff6b8f83c5381acdec13cb31f5e",
+    "run_id": 31910432846,
+    "sha256sums_digest": "9c9f892e31dea49088494c386f2fb019344edd444cf56c37e6cadfd44589150d"
+  },
+  "candidate_commit": "c3c4efaef66e2ff6b8f83c5381acdec13cb31f5e",
+  "diagnosis_digest": "db2d98a3fe3b8530dccc532e8c942824143ea31f62d3d969bd31a4bcb2b0f818",
+  "frozen_core_commit": "1d7c489bcdbff755d638b35ad47ce62bd4fe829d",
+  "independent_validation": {
+    "artifact_digest_matches_github": true,
+    "checksum_entries": 1006,
+    "checksum_failures": 0,
+    "compact_mechanistic_parity_tasks": 1000,
+    "lost_baseline_rows": {},
+    "manifest_verified": true,
+    "trace_files": 1000
+  },
+  "mechanisms": {
+    "5614dbcf": {
+      "selected_candidate_id": "block_reduce:0000",
+      "successful_block_candidates": 2,
+      "trace_digest": "0ca45d8611d3f7fe7e7656edbbbc6b8afda72024a10b9736372a438f80e87246"
+    },
+    "60b61512": {
+      "bbox_equivalence_class_count": 2,
+      "safety_action": "abstain_on_connectivity_disagreement",
+      "terminal_status": "AMBIGUOUS_PROGRAM",
+      "trace_digest": "4102acbc810aa07bc1fd1ef0c2398545ee57b0857d07fce580ae8ab540259c62"
+    },
+    "68b67ca3": {
+      "selected_candidate_id": "block_reduce:0000",
+      "successful_block_candidates": 1,
+      "trace_digest": "ac7e0e5f201f352b848a0923fa0c891fafe08b024072f57b6f8149c324366742"
+    }
+  },
+  "metrics": {
+    "abstained": 986,
+    "accepted": 90,
+    "attempted_accuracy": 1.0,
+    "correct": 90,
+    "coverage": 0.08364312267657993,
+    "failed": 0,
+    "families": 1000,
+    "incorrect_attempts": 0,
+    "raw_accuracy": 0.08364312267657993,
+    "rows": 1076
+  },
+  "public_arc_evaluation_rerun": false,
+  "report_digest": "fde61e7533bcc5bbce77fcc9d76a6a1b78a82b44a88ab52c9ad9a484161998dc",
+  "schema_version": 1,
+  "status_counts": {
+    "ACCEPTED": 90,
+    "AMBIGUOUS_PROGRAM": 1,
+    "GRAMMAR_EXHAUSTED": 985
+  },
+  "training_transition": {
+    "cumulative_gain_tasks": 31,
+    "expected_gains_matched": true,
+    "new_exact_tasks": [
+      "5614dbcf",
+      "68b67ca3"
+    ],
+    "new_exact_rows": 2
+  }
+}
