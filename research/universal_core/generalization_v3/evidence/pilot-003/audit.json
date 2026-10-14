@@ -1,0 +1,72 @@
+{
+  "audit_status": "read_only_post_reveal_no_parameter_changes",
+  "cases": 180,
+  "commitments_sha256": "73ae0d53de27ed2d9fdd0f1cfc3bdfaa723886512f284f79b01d22145aea6c6c",
+  "feedback_sha256": "6260c73d4e0a71ec5dd0e1ac485a0429db1aa3b58f9b22c06df8469cc2c62385",
+  "method_totals": {
+    "active_full": {
+      "accepted": 180,
+      "correct": 180,
+      "per_seed": {
+        "10103": 60,
+        "10111": 60,
+        "10141": 60
+      }
+    },
+    "active_no_macros": {
+      "accepted": 130,
+      "correct": 126,
+      "per_seed": {
+        "10103": 36,
+        "10111": 45,
+        "10141": 45
+      }
+    },
+    "active_query": {
+      "accepted": 127,
+      "correct": 125,
+      "per_seed": {
+        "10103": 47,
+        "10111": 38,
+        "10141": 40
+      }
+    },
+    "full_no_query": {
+      "accepted": 116,
+      "correct": 112,
+      "per_seed": {
+        "10103": 33,
+        "10111": 41,
+        "10141": 38
+      }
+    },
+    "no_query": {
+      "accepted": 106,
+      "correct": 90,
+      "per_seed": {
+        "10103": 32,
+        "10111": 29,
+        "10141": 29
+      }
+    },
+    "random_query": {
+      "accepted": 123,
+      "correct": 119,
+      "per_seed": {
+        "10103": 42,
+        "10111": 38,
+        "10141": 39
+      }
+    }
+  },
+  "prediction_sha256": "f6cd4d5006e86cf84c4a3e31c0ca6aa3d588d55a28febc9c6160a9fab5ba55cb",
+  "primary_gate_passed": false,
+  "query_sha256": "0613c1512db32df460e68832bb6c72cf870625f0b827179163f64a2f434addaf",
+  "score_sha256": "59e2c8ed343b79f5e14a6c9c5ffe052bd0d0914c718130339460d81fcdde40be",
+  "seed_streams": [
+    10103,
+    10111,
+    10141
+  ],
+  "verified": true
+}
