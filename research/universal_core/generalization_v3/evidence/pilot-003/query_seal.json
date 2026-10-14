@@ -1,0 +1,10 @@
+{
+  "protocol": "v3-active-composition-002",
+  "frozen_source_commit": "85bded8f6d9fe358775917de84cb804d2a30c96d",
+  "commitments_commit": "a703011ec98fde2aa4784471b30119b46306652d",
+  "query_digest": "0613c1512db32df460e68832bb6c72cf870625f0b827179163f64a2f434addaf",
+  "query_count": 180,
+  "learned_macros": 14,
+  "training_digest": "9a52e7dc3154007fb5aa15fb495bc05ca7046dca4eb8fa0382bcbf436f18a08e",
+  "oracle_released": false
+}
