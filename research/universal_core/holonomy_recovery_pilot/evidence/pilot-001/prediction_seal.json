@@ -1,0 +1,15 @@
+{
+  "protocol": "affine_transport_ood_pilot_1",
+  "pre_score": true,
+  "git_parent_code_head": "413c6a376c59315f3cb5379d6f3ebb2ac37bd4dc",
+  "heldout_cases": 300,
+  "prediction_sha256": "36767747b5d628b876cafe928232d62f436f827facdda616c8377570052c1e60",
+  "public_sha256": "8f5f49ab064457a3631986507510f9a5630325ec68b74d943e7dc67ae7a5b936",
+  "label_commitment_sha256": "d99a4924cb53de8133951735e564975bc237c4b022f723d5fa57922d778dd808",
+  "fit_count": 406,
+  "trained_weights": [
+    4.1449128591215345,
+    4.5691391630305604,
+    0.92823145825949
+  ]
+}
