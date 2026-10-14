@@ -1,0 +1,58 @@
+name: P004 post-reveal reproducibility (not blind evaluation)
+
+on:
+  push:
+    branches:
+      - research/p004-obstruction-discovery-20261014
+    paths:
+      - '.github/workflows/p004-obstruction-replay.yml'
+      - 'research/universal_core/p004_obstruction_discovery/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  disclosed-holdout-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify frozen candidate source
+        run: |
+          echo '3f44b1eb9209090be49404f0c8b9d6842bfa8b86e6bb9388854d63fed201c412  research/universal_core/p004_obstruction_discovery/experiment.py' | sha256sum -c
+      - name: Run contract tests
+        working-directory: research/universal_core/p004_obstruction_discovery
+        run: python -m unittest discover -s tests -q
+      - name: Reproduce disclosed holdout (not fresh generalization evidence)
+        working-directory: research/universal_core/p004_obstruction_discovery
+        run: |
+          python experiment.py prepare /tmp/p004 --count 40 --split holdout
+          python experiment.py plan /tmp/p004
+          python experiment.py broker /tmp/p004
+          python experiment.py predict /tmp/p004
+          python experiment.py score /tmp/p004 > /tmp/p004-console.txt
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d = Path('/tmp/p004')
+          commit = json.loads((d / 'commitment.json').read_text())
+          seal = json.loads((d / 'prediction_seal.json').read_text())
+          assert commit['private_sha256'] == '5162c16eb18751d4892daf827adf2c4fe9b6b3cabffa7c8608118696e1f3826c'
+          assert commit['public_sha256'] == 'c01faf8a366bdd0820605c04d056b706faeeb78b48b266389c871acd07359a77'
+          assert seal['predictions_sha256'] == '51459de60a220fc84dbd2cbb416553d840feb1dddc878969a2aebe864fb20b12'
+          report = json.loads((d / 'score.json').read_text())
+          assert report['cases'] == 120 and report['preregistered_superiority'] is False
+          print('Replayed frozen negative-control evidence')
+          PY
+          echo '857a1e56fbb68fcf12455bea43366173c9382f3f6bb7290d97a70e7e3f474a11  /tmp/p004/score.json' | sha256sum -c
+      - name: Archive post-reveal replay evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: p004-post-reveal-replay
+          path: /tmp/p004/
+          if-no-files-found: error
+          retention-days: 90
