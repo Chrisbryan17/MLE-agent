@@ -1,0 +1,63 @@
+name: Holonomy causal pilot 001 (replay only)
+
+on:
+  push:
+    branches:
+      - research/holonomy-causal-ood-pilot-20261014
+    paths:
+      - '.github/workflows/holonomy-causal-pilot.yml'
+      - 'research/universal_core/holonomy_recovery_pilot/**'
+
+permissions:
+  contents: read
+
+jobs:
+  tests-and-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check preregistered source SHA-256
+        run: |
+          python - <<'PY'
+          import hashlib
+          from pathlib import Path
+          p = Path('research/universal_core/holonomy_recovery_pilot/experiment.py')
+          actual = hashlib.sha256(p.read_bytes()).hexdigest()
+          expected = '66e80d5ae7fb44451133bea6e2fe80429ad85f302eb5a7271a519c981892c925'
+          assert actual == expected, (actual, expected)
+          PY
+      - name: Run focused algebra, holdout and negative-control tests
+        run: python -m unittest discover -s research/universal_core/holonomy_recovery_pilot/tests -v
+      - name: Replay disclosed held-out experiment (NOT new unseen evidence)
+        working-directory: research/universal_core/holonomy_recovery_pilot
+        run: |
+          python experiment.py prepare --out /tmp/holonomy-pilot-001
+          python experiment.py predict --out /tmp/holonomy-pilot-001
+          python experiment.py score --out /tmp/holonomy-pilot-001
+          python audit.py /tmp/holonomy-pilot-001
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('/tmp/holonomy-pilot-001')
+          r=json.loads((root/'score.json').read_text())
+          assert r['results']['holonomy']['correct']==203
+          assert r['results']['dsl']['correct']==203
+          assert r['results']['graph']['correct']==225
+          assert r['results']['learned']['correct']==216
+          a=json.loads((root/'audit_addendum.json').read_text())
+          assert [a['per_seed_corrected'][str(s)]['holonomy_minus_graph_pp'] for s in (8101,8102,8103)] == [-10.,-6.,-6.]
+          assert a['all_300_holonomy_dsl_predictions_identical']
+          PY
+      - name: Upload replay score (nonblind regression only)
+        uses: actions/upload-artifact@v4
+        with:
+          name: holonomy-pilot-001-replay
+          path: |
+            /tmp/holonomy-pilot-001/commitments.json
+            /tmp/holonomy-pilot-001/score.json
+            /tmp/holonomy-pilot-001/audit_addendum.json
+          retention-days: 14
