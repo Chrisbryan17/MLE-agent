@@ -1,0 +1,29 @@
+{
+  "budget": 52,
+  "holdout": 180,
+  "operators": [
+    "roll",
+    "reverse",
+    "inc_first",
+    "inc_last",
+    "swap_mid"
+  ],
+  "protocol": "v3-active-composition-002",
+  "query_limit": 1,
+  "seeds": [
+    10103,
+    10111,
+    10141
+  ],
+  "sha256": {
+    "public.json": "8ff24b987b9f11ce6d1693e568c38a6a7931c7f670e39d0f1093e745f9e01aec",
+    "sealed_query_oracle.json": "284d83676d811e1b047894f45ed0863b69b2775ff762fed4cf05e8e7100780a0",
+    "sealed_test_labels.json": "338b0c1696dfb84937a501c96fbafd0cf879a0821c93dc1617962eb28da819f6"
+  },
+  "source_sha256": {
+    "experiment.py": "dc5dcab80a53373af247b189ec62d8e203103944cc1fe77bf083823a80b7773a",
+    "semantics.py": "75641f25d7b1f05b5ff3408b6fe1d4f756b3f898e9080120196c019412b27030",
+    "synthesis.py": "9420d79696c6d53399ae977cce08fcf272f04ae229443a856a9e556bbd2e1713"
+  },
+  "train": 108
+}
