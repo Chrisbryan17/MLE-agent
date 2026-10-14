@@ -2,9 +2,11 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from sys import path
 
 path.insert(0, str(Path(__file__).resolve().parents[1]))
+import experiment
 from synthesis import (OPS, P, PROBES, canonical_programs, choose_active,
                        consensus, fit, learn_library, order_candidates, run, signature)
 from semantics import Fact, evaluate_extraction, evidence_answer
@@ -54,7 +56,8 @@ class SynthesisTests(unittest.TestCase):
         self.assertTrue(all(len(p)==2 for p in lib.macros))
 
     def test_heldout_compositional_signatures_not_in_training(self):
-        public, gold, oracle = generate()
+        with patch.object(experiment, "SEEDS", (3331, 3337, 3343)):
+            public, gold, oracle = generate()
         self.assertEqual(len(public['train']),108)
         self.assertEqual(len(public['holdout']),180)
         self.assertEqual(set(gold),set(oracle))
@@ -64,24 +67,26 @@ class SynthesisTests(unittest.TestCase):
     def test_seal_refuses_overwrites_and_tampering(self):
         with tempfile.TemporaryDirectory() as d:
             folder=Path(d)
-            prepare(folder)
-            with self.assertRaises(FileExistsError):
+            with patch.object(experiment, "SEEDS", (3331, 3337, 3343)):
                 prepare(folder)
-            q=query_choices(folder)
-            with self.assertRaises(RuntimeError):
-                release_feedback(folder, expected_query_sha256='bad')
-            f=release_feedback(folder,expected_query_sha256=q['query_digest'])
-            with self.assertRaises(RuntimeError):
-                predict(folder,expected_query_sha256=q['query_digest'],expected_feedback_sha256='bad')
-            p=predict(folder,expected_query_sha256=q['query_digest'],expected_feedback_sha256=f['feedback_sha256'])
-            with self.assertRaises(RuntimeError):
-                score(folder,expected_prediction_sha256='bad')
-            s=score(folder,expected_prediction_sha256=p['prediction_sha256'])
-            self.assertEqual(s['holdout'],180)
-            self.assertEqual(set(s['metrics']),{'no_query','random_query','active_query','active_no_macros','full_no_query','active_full'})
-            self.assertTrue(all(sum(m['per_seed'][str(seed)]['n'] for seed in (9173,9179,9187))==180 for m in s['metrics'].values()))
-            with self.assertRaises(FileExistsError):
-                score(folder,expected_prediction_sha256=p['prediction_sha256'])
+                with self.assertRaises(FileExistsError):
+                    prepare(folder)
+            with patch.object(experiment, "SEEDS", (3331, 3337, 3343)):
+                q=query_choices(folder)
+                with self.assertRaises(RuntimeError):
+                    release_feedback(folder, expected_query_sha256='bad')
+                f=release_feedback(folder,expected_query_sha256=q['query_digest'])
+                with self.assertRaises(RuntimeError):
+                    predict(folder,expected_query_sha256=q['query_digest'],expected_feedback_sha256='bad')
+                p=predict(folder,expected_query_sha256=q['query_digest'],expected_feedback_sha256=f['feedback_sha256'])
+                with self.assertRaises(RuntimeError):
+                    score(folder,expected_prediction_sha256='bad')
+                s=score(folder,expected_prediction_sha256=p['prediction_sha256'])
+                self.assertEqual(s['holdout'],180)
+                self.assertEqual(set(s['metrics']),{'no_query','random_query','active_query','active_no_macros','full_no_query','active_full'})
+                self.assertTrue(all(sum(m['per_seed'][str(seed)]['n'] for seed in (3331,3337,3343))==180 for m in s['metrics'].values()))
+                with self.assertRaises(FileExistsError):
+                    score(folder,expected_prediction_sha256=p['prediction_sha256'])
 
 
 class SemanticTests(unittest.TestCase):

@@ -18,7 +18,7 @@ from synthesis import (
     fit, infer, learn_library, order_candidates, run, signature,
 )
 
-SEEDS = (9173, 9179, 9187)
+SEEDS = (10103, 10111, 10141)
 TRAIN_PER_SEED = 36
 TEST_PER_SEED = 60
 BUDGET = 52
@@ -54,7 +54,7 @@ def generate() -> tuple[dict, dict, dict]:
     test_programs = [p for p in canonical_programs(3) if len(p) == 3 and signature(p) not in train_signatures]
     if not train_programs or not test_programs:
         raise AssertionError("empty split")
-    public = {"protocol": "v3-active-composition-001", "seeds": list(SEEDS), "budget": BUDGET,
+    public = {"protocol": "v3-active-composition-002", "seeds": list(SEEDS), "budget": BUDGET,
               "train": [], "holdout": [], "holdout_length": 3, "train_length": 2,
               "operator_set": ["roll", "reverse", "inc_first", "inc_last", "swap_mid"]}
     gold, feedback = {}, {}
@@ -231,7 +231,7 @@ def score(out: Path, *, expected_prediction_sha256: str) -> dict:
                          "per_seed": per_seed}
     comparison = paired_effect(predictions, gold, "active_query", "random_query")
     effect = comparison["effect"]
-    report = {"protocol": "v3-active-composition-001", "holdout": n,
+    report = {"protocol": "v3-active-composition-002", "holdout": n,
               "prediction_sha256": file_sha(out / "predictions.json"), "metrics": reports,
               "effect_active_minus_random": effect, "primary_comparison": comparison,
               "secondary_comparisons": {

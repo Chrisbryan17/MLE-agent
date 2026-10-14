@@ -1,7 +1,7 @@
 name: NNN v3 recovery bounded test and replay
 on:
   push:
-    branches: [research/nnn-v3-generalization-recovery-20261014]
+    branches: [research/nnn-v3-generalization-recovery-20261014, research/nnn-v3-clean-replication-20261014]
     paths:
       - 'research/universal_core/generalization_v3/**'
       - '.github/workflows/nnn-v3-recovery.yml'
