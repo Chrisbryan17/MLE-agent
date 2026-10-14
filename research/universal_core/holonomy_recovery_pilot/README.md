@@ -1,0 +1,7 @@
+# Holonomy causal recovery, pilot 001
+
+This is a **standalone, unmerged and non-ARC** experiment created after the Universal Reasoning Compiler postmortem. Frozen V2.1 and draft PR #40 are left untouched. `PREREGISTRATION.md` defines the preregistered hypotheses, exact benchmark generation, baselines, ablations, decision rule and claim boundaries. `experiment.py` provides three one-way phases: `prepare`, `predict`, `score`. `tests/test_experiment.py` checks group operations, generator separation and a mathematical equivalence negative control.
+
+The baseline engine's existing `research/universal_core/holonomy_v2/search.py` uses demonstration replay and residual filters. Its `loops.py` builds mandatory path-agreement tests for explicitly composed programs. V2.2 grid induction (`grid_induction.py`) enumerates and filters increasingly tailored grid transformations. Neither should be described as already demonstrating holonomy-based unseen-rule generalization.
+
+Important: the first pilot tests **transport-composition robustness** under oracle graph semantics with unfamiliar path lengths and graph sizes; it does not test operator invention, natural-language parsing, ARC transfer, or real-world universality.
