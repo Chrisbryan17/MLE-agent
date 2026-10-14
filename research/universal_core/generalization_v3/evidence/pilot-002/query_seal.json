@@ -1,0 +1,10 @@
+{
+  "protocol": "v3-active-composition-001",
+  "source_commit": "b062955b921da7da3ee5e82f7c8ead9ce7bf855e",
+  "commitments_commit": "27331c570d23f61dc3dddfe317b373a0a9dcccbc",
+  "query_digest": "c556bd270e74f4b58105605c017a98c047354f7b06f45ac5735fdd9a5207b65a",
+  "query_count": 180,
+  "learned_macro_count": 14,
+  "macro_training_digest": "517de1520934bdf51d7b636bb48d9d95c93bf7180509ed80bfd1fe8b14737534",
+  "query_labels_visible": false
+}
