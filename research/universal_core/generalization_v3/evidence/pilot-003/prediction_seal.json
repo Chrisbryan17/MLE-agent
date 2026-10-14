@@ -1,0 +1,12 @@
+{
+  "protocol": "v3-active-composition-002",
+  "first_attempt": true,
+  "frozen_implementation_commit": "85bded8f6d9fe358775917de84cb804d2a30c96d",
+  "query_seal_commit": "d0871b7ac54cd8ad3858366d1dde9a593dfb036f",
+  "feedback_sha256": "6260c73d4e0a71ec5dd0e1ac485a0429db1aa3b58f9b22c06df8469cc2c62385",
+  "prediction_sha256": "f6cd4d5006e86cf84c4a3e31c0ca6aa3d588d55a28febc9c6160a9fab5ba55cb",
+  "holdout_predictions": 180,
+  "known_program_candidates": 66,
+  "macros": 14,
+  "test_labels_scored": false
+}
