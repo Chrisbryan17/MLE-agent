@@ -1,0 +1,26 @@
+name: NNN v3 recovery bounded test and replay
+on:
+  push:
+    branches: [research/nnn-v3-generalization-recovery-20261014]
+    paths:
+      - 'research/universal_core/generalization_v3/**'
+      - '.github/workflows/nnn-v3-recovery.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate production tests, no external training corpus
+        working-directory: research/universal_core/generalization_v3
+        run: python -m unittest discover -s tests -v
+      - name: Verify prior frozen V2.1 tree unchanged
+        run: git diff --exit-code 1d7c489bcdbff755d638b35ad47ce62bd4fe829d -- research/universal_core/holonomy_v2
+      - name: Verify V2.2 code unchanged relative to pilot parent
+        run: git diff --exit-code cf0b0938e674d8df1cfe8dfea6579e1aaf275ef8 -- research/universal_core/holonomy_v2_2
