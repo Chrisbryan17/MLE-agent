@@ -1,0 +1,55 @@
+{
+  "all_300_holonomy_dsl_predictions_identical": true,
+  "corrected_superiority_gate": false,
+  "interpretation": "Reporting erratum only. Frozen original scoring implementation and score.json retained unchanged.",
+  "original_first_score_sha256": "8029e66365632330593c1b9cad5cfac9ef6bebb6f6323b1c0888844501bce649",
+  "original_score_defect": "experiment.py scorer block selector groups only the first case of each seed: string prefix uses the complete start-case ID. Original reported per_seed_effects=[0,0,0] is invalid. Correct per-seed effects are [-0.10,-0.06,-0.06].",
+  "per_seed_corrected": {
+    "8101": {
+      "correct": {
+        "dsl": 65,
+        "graph": 75,
+        "holonomy": 65,
+        "learned": 69
+      },
+      "heldout_hops": {
+        "4": 50,
+        "5": 38,
+        "6": 12
+      },
+      "holonomy_minus_graph_pp": -10.0,
+      "n": 100
+    },
+    "8102": {
+      "correct": {
+        "dsl": 73,
+        "graph": 79,
+        "holonomy": 73,
+        "learned": 78
+      },
+      "heldout_hops": {
+        "4": 49,
+        "5": 34,
+        "6": 17
+      },
+      "holonomy_minus_graph_pp": -6.0,
+      "n": 100
+    },
+    "8103": {
+      "correct": {
+        "dsl": 65,
+        "graph": 71,
+        "holonomy": 65,
+        "learned": 69
+      },
+      "heldout_hops": {
+        "4": 54,
+        "5": 36,
+        "6": 10
+      },
+      "holonomy_minus_graph_pp": -6.0,
+      "n": 100
+    }
+  },
+  "prediction_seal_sha256": "36767747b5d628b876cafe928232d62f436f827facdda616c8377570052c1e60"
+}
