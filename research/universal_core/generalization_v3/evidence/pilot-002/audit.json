@@ -1,0 +1,72 @@
+{
+  "audit_status": "read_only_post_reveal_no_parameter_changes",
+  "cases": 180,
+  "commitments_sha256": "560dad9a1f3020277ee554a98ab80865735e8ef9a7f897bae03570930e06b944",
+  "feedback_sha256": "101d6264bf7c7e97b87aca05381fe1271448d1604a7aeb4e967590ee26addec3",
+  "method_totals": {
+    "active_full": {
+      "accepted": 180,
+      "correct": 180,
+      "per_seed": {
+        "9173": 60,
+        "9179": 60,
+        "9187": 60
+      }
+    },
+    "active_no_macros": {
+      "accepted": 129,
+      "correct": 129,
+      "per_seed": {
+        "9173": 47,
+        "9179": 41,
+        "9187": 41
+      }
+    },
+    "active_query": {
+      "accepted": 120,
+      "correct": 117,
+      "per_seed": {
+        "9173": 38,
+        "9179": 38,
+        "9187": 41
+      }
+    },
+    "full_no_query": {
+      "accepted": 131,
+      "correct": 131,
+      "per_seed": {
+        "9173": 46,
+        "9179": 41,
+        "9187": 44
+      }
+    },
+    "no_query": {
+      "accepted": 106,
+      "correct": 94,
+      "per_seed": {
+        "9173": 32,
+        "9179": 29,
+        "9187": 33
+      }
+    },
+    "random_query": {
+      "accepted": 115,
+      "correct": 113,
+      "per_seed": {
+        "9173": 36,
+        "9179": 38,
+        "9187": 39
+      }
+    }
+  },
+  "prediction_sha256": "bf343492a873772b2dcfff2a0a7888cc976537892947dff9451082daffbf6715",
+  "primary_gate_passed": false,
+  "query_sha256": "c556bd270e74f4b58105605c017a98c047354f7b06f45ac5735fdd9a5207b65a",
+  "score_sha256": "7b558d311736479dbaff981cf3432614ea0554187844805efea0bf1bd49d0ced",
+  "seed_streams": [
+    9173,
+    9179,
+    9187
+  ],
+  "verified": true
+}
