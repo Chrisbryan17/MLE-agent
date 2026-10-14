@@ -1,0 +1,11 @@
+{
+  "protocol": "v3-active-composition-001",
+  "first_attempt": true,
+  "query_seal_commit": "64f80457bb028bbffa6c7002b18a5b70b76f2a8e",
+  "feedback_sha256": "101d6264bf7c7e97b87aca05381fe1271448d1604a7aeb4e967590ee26addec3",
+  "prediction_sha256": "bf343492a873772b2dcfff2a0a7888cc976537892947dff9451082daffbf6715",
+  "holdout_predictions": 180,
+  "unique_program_candidates": 66,
+  "learned_macros": 14,
+  "opened_test_labels": false
+}
